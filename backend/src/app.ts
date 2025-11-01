@@ -9,6 +9,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import startCleanupScheduler from "./Jobs/cleanupScheduler.job.js";
 import { loginLimiter } from "./Middlewares/rateLimiter.Middleware.js";
+import { startCleanupJob } from "./Jobs/cleanupJob.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -63,6 +64,8 @@ const startServer = async () => {
     console.log("🟢 MongoDB connected successfully!");
     const server = app.listen(PORT, () => {
       console.log(`⚡️[server]: Server is running at http://localhost:${PORT}`);
+      // Start cleanup job here
+      startCleanupJob();
     });
     server.on("error", (error: Error) => {
       console.error(`🔴 Server emitted an error:`, error);
