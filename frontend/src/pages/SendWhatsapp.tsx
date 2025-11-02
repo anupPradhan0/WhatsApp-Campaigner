@@ -232,7 +232,13 @@ const SendWhatsapp = () => {
         setSelectedFile(null);
         setFileType(null);
       } else {
-        setError(result.message || "Failed to create campaign");
+        // 👇 This part improved:
+        const backendError =
+          result.errors?.[0] || // show the first validation message
+          result.message || // else fallback to general message
+          "Failed to create campaign";
+
+        setError(backendError);
       }
     } catch (err: unknown) {
       if (err instanceof Error) {

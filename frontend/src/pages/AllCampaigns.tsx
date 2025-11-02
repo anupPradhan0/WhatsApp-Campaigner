@@ -626,7 +626,6 @@ const AllCampaigns = () => {
                             Edit
                           </button>
                         )}
-
                         <button
                           onClick={() => openDetailsModal(campaign)}
                           className="p-2 bg-green-500/60 backdrop-blur-sm rounded-lg hover:bg-green-600/80 transition-all"

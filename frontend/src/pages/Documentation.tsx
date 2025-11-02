@@ -157,7 +157,7 @@ const Documentation = () => {
                                 📦 GitHub Repository
                             </a>
                             <a
-                                href="mailto:anuppradhan929@gmail.com"
+                                href="/support"
                                 className="block px-3 py-2 bg-white/60 rounded-lg text-sm font-semibold text-purple-700 hover:bg-white transition-all"
                             >
                                 ✉️ Email Support
@@ -608,7 +608,7 @@ const Documentation = () => {
                                         Q: How do I report a problem or get support?
                                     </h3>
                                     <p className="text-sm sm:text-base text-gray-700 break-words">
-                                        <strong>A:</strong> Use the built-in Complaint System to submit issues. Admins will respond to your queries with updates and solutions. You can also reach out via email at <a href="mailto:anuppradhan929@gmail.com" className="text-blue-600 font-bold underline break-all">anuppradhan929@gmail.com</a>.
+                                        <strong>A:</strong> Use the built-in Complaint System to submit issues. Admins will respond to your queries with updates and solutions. You can also reach out via email at <a href="mailto:hello@prominds.digital" className="text-blue-600 font-bold underline break-all">hello@prominds.digital</a>.
                                     </p>
                                 </div>
                             </div>

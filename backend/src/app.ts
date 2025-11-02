@@ -45,6 +45,7 @@ import newsRoutes from "./Routes/news.Routes.js";
 import campaignRoutes from "./Routes/campaign.routes.js";
 import dashboardRoutes from "./Routes/dashboard.Routes.js";
 import complaintRoutes from "./Routes/complaint.Routes.js";
+import supportRoutes from "./Routes/support.route.js";
 
 // API Routes
 app.use("/api/auth", authRoutes);
@@ -54,7 +55,9 @@ app.use("/api/news", newsRoutes);
 app.use("/api/campaigns", campaignRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/complaints", complaintRoutes);
+app.use("/api/support", supportRoutes);
 
+// Start Cleanup Scheduler
 startCleanupScheduler();
 
 // --- Database Connection and Server Initialization ---
