@@ -1,0 +1,14 @@
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: whatsapp-campaigner-db
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: whatsapp-campaigner
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  mongo_data:
