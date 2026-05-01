@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+dist-ssr/
+backend/dist/
+frontend/dist/
+
+# Environment files
+.env
+.env.local
+.env.test
+.env.production
+.env.development
+*.env
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.sw?
+*.suo
+*.sublime*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# pnpm workspace
+pnpm-lock.yaml
+
+# Docker volumes
+mongo_data/
+
+# Cache and temp files
+.cache/
+.temp/
+*.tsbuildinfo
+.eslintcache
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Package manager integrity files
+.yarn-integrity
