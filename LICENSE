@@ -1,72 +1,21 @@
-PROPRIETARY SOFTWARE LICENSE AGREEMENT
+MIT License
 
-Copyright © 2025 ProMinds Digital (formerly Prolific IDEAS). All Rights Reserved.
+Copyright (c) 2025 ProMinds Digital
 
-LICENSE GRANT
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-This software and associated documentation files (the "Software") are the exclusive 
-property of ProMinds Digital (formerly known as Prolific IDEAS). All rights, title, 
-and interest in and to the Software, including all intellectual property rights, 
-are owned by ProMinds Digital.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-RESTRICTIONS
-
-This Software is proprietary and confidential. Unauthorized copying, modification, 
-distribution, or use of this Software, via any medium, is strictly prohibited without 
-the express written permission of ProMinds Digital.
-
-You may NOT:
-- Use, copy, modify, merge, publish, distribute, sublicense, or sell copies of the Software
-- Reverse engineer, decompile, or disassemble the Software
-- Remove or alter any proprietary notices or labels on the Software
-- Create derivative works based on the Software
-- Use the Software for commercial purposes without authorization
-
-LEGAL CONSEQUENCES
-
-Any unauthorized use, reproduction, or distribution of this Software may result in 
-severe civil and criminal penalties, and will be prosecuted to the maximum extent 
-possible under applicable law. Violators will be subject to legal action including 
-but not limited to lawsuits for damages and injunctive relief.
-
-PERMISSION TO USE
-
-If you wish to use, modify, or distribute this Software, you MUST:
-1. Contact ProMinds Digital for explicit written permission
-2. Obtain a valid license agreement
-3. Comply with all terms and conditions specified by ProMinds Digital
-
-CONTACT INFORMATION
-
-For licensing inquiries, permissions, or questions, please contact:
-
-Company: ProMinds Digital (formerly Prolific IDEAS)
-Email: [ info@www.prolificideas.in ]
-Website: [ https://prolificideas.in ] or [ https://prominds.digital ]
-Address: [A-141, 2nd Floor, Saheed Nagar,Bhubaneswar, Odisha, India]
-
-DISCLAIMER
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
-INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A 
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL PROMINDS DIGITAL BE LIABLE 
-FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT 
-OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE 
-OR OTHER DEALINGS IN THE SOFTWARE.
-
-TERMINATION
-
-This license is effective until terminated. Your rights under this license will 
-terminate automatically without notice if you fail to comply with any of its terms.
-
-GOVERNING LAW
-
-This License shall be governed by and construed in accordance with the laws of 
-[INSERT JURISDICTION], without regard to its conflict of law provisions.
-
----
-
-© 2025 ProMinds Digital. All Rights Reserved.
-Formerly known as Prolific IDEAS.
-
-Last Updated: October 19, 2025
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
