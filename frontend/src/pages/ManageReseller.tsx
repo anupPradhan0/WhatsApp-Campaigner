@@ -160,10 +160,9 @@ const ManageReseller = () => {
       !createFormData.email ||
       !createFormData.password ||
       !createFormData.number ||
-      !createFormData.balance ||
-      !createFormData.image
+      !createFormData.balance
     ) {
-      setError("All fields are required including image");
+      setError("All fields are required");
       return;
     }
 
@@ -1126,7 +1125,7 @@ const ManageReseller = () => {
                 {/* Profile Image */}
                 <div>
                   <label className="block text-xs sm:text-sm font-bold text-black mb-2">
-                    Profile Image *
+                    Profile Image (Optional)
                   </label>
                   <input
                     type="file"

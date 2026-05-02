@@ -54,7 +54,7 @@ const userSchema = new Schema<IUser>({
   },
   image: {
     type: String,
-    required: [true, 'User image URL is required'],
+    default: '',
   },
   number: {
     type: Number,

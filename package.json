@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"pnpm --filter backend run dev\" \"pnpm --filter frontend run dev\"",
+    "dev": "concurrently \"pnpm --filter ./backend run dev\" \"pnpm --filter ./frontend run dev\"",
     "install:all": "pnpm install",
     "build:backend": "pnpm --filter backend run build",
     "build:frontend": "pnpm --filter frontend run build"

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Phone, ArrowLeft, X, AlertCircle } from 'lucide-react';
@@ -10,7 +10,42 @@ const Login = () => {
   const [error, setError] = useState('');
   const [showSignUp, setShowSignUp] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [bootstrapAvailable, setBootstrapAvailable] = useState(false);
+  const [bootstrapChecked, setBootstrapChecked] = useState(false);
+  const [showBootstrapForm, setShowBootstrapForm] = useState(false);
+  const [bootstrapLoading, setBootstrapLoading] = useState(false);
+  const [bootstrapError, setBootstrapError] = useState('');
+  const [bootstrapForm, setBootstrapForm] = useState({
+    companyName: '',
+    email: '',
+    password: '',
+    number: '',
+    image: null as File | null,
+  });
   const navigate = useNavigate();
+  const API_URL = import.meta.env.VITE_API_URL;
+
+  useEffect(() => {
+    const checkBootstrap = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/auth/bootstrap-status`, {
+          method: 'GET',
+          credentials: 'include',
+        });
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          setBootstrapAvailable(!data.hasUsers);
+        }
+      } catch (err) {
+        console.error('Bootstrap status error:', err);
+      } finally {
+        setBootstrapChecked(true);
+      }
+    };
+
+    checkBootstrap();
+  }, [API_URL]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -24,8 +59,6 @@ const Login = () => {
     }
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL;
-
       const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -39,15 +72,76 @@ const Login = () => {
         if (data.user) {
           localStorage.setItem('user', JSON.stringify(data.user));
         }
+        if (data.token) {
+          localStorage.setItem('token', data.token);
+        }
         navigate('/home');
       } else {
-        setError(data.message || 'Login failed. Please try again.');
+        if (bootstrapAvailable) {
+          setError('No users found. Create the first admin account to continue.');
+        } else {
+          setError(data.message || 'Login failed. Please try again.');
+        }
       }
     } catch (err) {
       setError('Network error. Please check your connection and try again.');
       console.error('Login error:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleBootstrapSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setBootstrapError('');
+
+    if (
+      !bootstrapForm.companyName ||
+      !bootstrapForm.email ||
+      !bootstrapForm.password ||
+      !bootstrapForm.number
+    ) {
+      setBootstrapError('All fields are required.');
+      return;
+    }
+
+    setBootstrapLoading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('companyName', bootstrapForm.companyName);
+      formData.append('email', bootstrapForm.email);
+      formData.append('password', bootstrapForm.password);
+      formData.append('number', bootstrapForm.number);
+      if (bootstrapForm.image) {
+        formData.append('image', bootstrapForm.image);
+      }
+
+      const response = await fetch(`${API_URL}/api/auth/bootstrap-admin`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        if (data.user) {
+          localStorage.setItem('user', JSON.stringify(data.user));
+        }
+        if (data.token) {
+          localStorage.setItem('token', data.token);
+        }
+        setBootstrapAvailable(false);
+        navigate('/home');
+      } else {
+        setBootstrapError(data.message || 'Failed to create admin account.');
+      }
+    } catch (err) {
+      setBootstrapError('Network error. Please check your connection and try again.');
+      console.error('Bootstrap error:', err);
+    } finally {
+      setBootstrapLoading(false);
     }
   };
 
@@ -68,7 +162,7 @@ const Login = () => {
         {/* Main Card - Mobile Optimized */}
         <div className="bg-white/40 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/60 shadow-2xl p-5 sm:p-6 md:p-8">
           
-          {!showSignUp ? (
+          {!showSignUp && !showBootstrapForm ? (
             // LOGIN FORM
             <>
               <h3 className="text-xl sm:text-2xl font-bold text-black mb-4 sm:mb-6 text-center">Login to Your Account</h3>
@@ -147,13 +241,155 @@ const Login = () => {
                 <p className="text-xs sm:text-sm text-black">
                   Don't have an account?{' '}
                   <button
-                    onClick={() => setShowSignUp(true)}
+                    onClick={() => {
+                      setShowSignUp(true);
+                      setShowBootstrapForm(false);
+                      setError('');
+                      setBootstrapError('');
+                    }}
                     className="font-bold text-green-600 hover:underline"
                   >
                     Sign Up
                   </button>
                 </p>
               </div>
+
+              {bootstrapChecked && bootstrapAvailable && (
+                <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-amber-50/80 backdrop-blur-sm rounded-lg sm:rounded-xl border border-amber-300">
+                  <p className="text-xs sm:text-sm text-amber-900 font-semibold">
+                    No users found. Create the first admin account to get started.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowBootstrapForm(true);
+                      setShowSignUp(false);
+                      setError('');
+                      setBootstrapError('');
+                    }}
+                    className="mt-3 w-full px-4 sm:px-6 py-2.5 sm:py-3 bg-amber-500/80 backdrop-blur-md text-white font-bold text-sm sm:text-base rounded-lg sm:rounded-xl border border-white/30 shadow-lg hover:bg-amber-600/80 hover:shadow-xl transition-all active:scale-95"
+                  >
+                    Create Admin Account
+                  </button>
+                </div>
+              )}
+            </>
+          ) : showBootstrapForm ? (
+            // BOOTSTRAP ADMIN FORM
+            <>
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
+                <button
+                  onClick={() => {
+                    setShowBootstrapForm(false);
+                    setBootstrapError('');
+                  }}
+                  className="flex items-center gap-1.5 sm:gap-2 text-black hover:text-green-600 transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="text-sm sm:text-base font-semibold">Back to Login</span>
+                </button>
+                <span className="text-[10px] sm:text-xs font-bold text-amber-800 bg-amber-100 px-2 py-1 rounded-full">
+                  First-Time Setup
+                </span>
+              </div>
+
+              <h3 className="text-xl sm:text-2xl font-bold text-black mb-2 sm:mb-3 text-center">Create Admin Account</h3>
+              <p className="text-center text-xs sm:text-sm text-black mb-4 sm:mb-6">
+                This account will have the highest authority in the system.
+              </p>
+
+              {bootstrapError && (
+                <div className="mb-3 sm:mb-4 p-2.5 sm:p-3 bg-red-100/60 backdrop-blur-sm border border-red-300 rounded-lg sm:rounded-xl">
+                  <p className="text-red-700 text-xs sm:text-sm font-semibold">{bootstrapError}</p>
+                </div>
+              )}
+
+              <form onSubmit={handleBootstrapSubmit} className="space-y-4 sm:space-y-5">
+                <div>
+                  <label htmlFor="bootstrap-company" className="block text-xs sm:text-sm font-bold text-black mb-2">
+                    Company Name
+                  </label>
+                  <input
+                    type="text"
+                    id="bootstrap-company"
+                    value={bootstrapForm.companyName}
+                    onChange={(e) => setBootstrapForm({ ...bootstrapForm, companyName: e.target.value })}
+                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-sm sm:text-base text-black placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all"
+                    placeholder="Enter company name"
+                    disabled={bootstrapLoading}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="bootstrap-email" className="block text-xs sm:text-sm font-bold text-black mb-2">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    id="bootstrap-email"
+                    value={bootstrapForm.email}
+                    onChange={(e) => setBootstrapForm({ ...bootstrapForm, email: e.target.value })}
+                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-sm sm:text-base text-black placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all"
+                    placeholder="Enter admin email"
+                    disabled={bootstrapLoading}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="bootstrap-password" className="block text-xs sm:text-sm font-bold text-black mb-2">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    id="bootstrap-password"
+                    value={bootstrapForm.password}
+                    onChange={(e) => setBootstrapForm({ ...bootstrapForm, password: e.target.value })}
+                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-sm sm:text-base text-black placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all"
+                    placeholder="Create a password"
+                    disabled={bootstrapLoading}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="bootstrap-number" className="block text-xs sm:text-sm font-bold text-black mb-2">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    id="bootstrap-number"
+                    value={bootstrapForm.number}
+                    onChange={(e) => setBootstrapForm({ ...bootstrapForm, number: e.target.value })}
+                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-sm sm:text-base text-black placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all"
+                    placeholder="Enter phone number"
+                    disabled={bootstrapLoading}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="bootstrap-image" className="block text-xs sm:text-sm font-bold text-black mb-2">
+                    Profile Image (Optional)
+                  </label>
+                  <input
+                    type="file"
+                    id="bootstrap-image"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      setBootstrapForm({ ...bootstrapForm, image: file });
+                    }}
+                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-xs sm:text-sm text-black file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-green-500/80 file:text-white file:font-semibold"
+                    disabled={bootstrapLoading}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={bootstrapLoading}
+                  className="w-full px-4 sm:px-6 py-2.5 sm:py-3 bg-green-500/80 backdrop-blur-md text-white font-bold text-base sm:text-lg rounded-lg sm:rounded-xl border border-white/30 shadow-lg hover:bg-green-600/80 hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+                >
+                  {bootstrapLoading ? 'Creating Admin...' : 'Create Admin'}
+                </button>
+              </form>
             </>
           ) : (
             // SIGN UP / CONTACT SECTION

@@ -138,8 +138,8 @@ const ManageUser = () => {
   // Handle create user
   const handleCreateUser = async () => {
     if (!createFormData.companyName || !createFormData.email || !createFormData.password || 
-        !createFormData.number || !createFormData.balance || !createFormData.image) {
-      setError('All fields are required including image');
+        !createFormData.number || !createFormData.balance) {
+      setError('All fields are required');
       return;
     }
 
@@ -990,7 +990,7 @@ const ManageUser = () => {
                 {/* Profile Image */}
                 <div>
                   <label className="block text-xs sm:text-sm font-bold text-black mb-2">
-                    Profile Image *
+                    Profile Image (Optional)
                   </label>
                   <input
                     type="file"

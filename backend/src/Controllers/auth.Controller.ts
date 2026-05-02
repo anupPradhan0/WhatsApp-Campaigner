@@ -21,6 +21,11 @@ interface LoginBody {
   password: string;
 }
 
+interface BootstrapStatusResponse {
+  success: boolean;
+  hasUsers: boolean;
+}
+
 /**
  * Handles new user registration.
  */
@@ -35,7 +40,7 @@ export const Registration = async (
     const image = req.file?.path || "";
 
     // Basic validation
-    if (!companyName || !email || !password || !image || !number || !role) {
+    if (!companyName || !email || !password || !number || !role) {
       return res.status(400).json({
         success: false,
         message: "All fields are required.",
@@ -187,6 +192,104 @@ export const Login = async (
     });
   } catch (error: unknown) {
     console.error("Error in Login controller:", error);
+    return res.status(500).json({
+      success: false,
+      message: "An internal server error occurred.",
+    });
+  }
+};
+
+export const BootstrapStatus = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  try {
+    const userCount = await User.estimatedDocumentCount();
+    return res.status(200).json({
+      success: true,
+      hasUsers: userCount > 0,
+    } as BootstrapStatusResponse);
+  } catch (error: unknown) {
+    console.error("Error in BootstrapStatus controller:", error);
+    return res.status(500).json({
+      success: false,
+      hasUsers: true,
+    } as BootstrapStatusResponse);
+  }
+};
+
+export const BootstrapAdmin = async (
+  req: Request<unknown, unknown, RegistrationBody>,
+  res: Response
+): Promise<Response> => {
+  try {
+    const { companyName, email, password, number } = req.body;
+
+    const image = req.file?.path || "";
+
+    if (!companyName || !email || !password || !number) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required.",
+      });
+    }
+
+    const userCount = await User.estimatedDocumentCount();
+    if (userCount > 0) {
+      return res.status(409).json({
+        success: false,
+        message: "Users already exist. Bootstrap is disabled.",
+      });
+    }
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: "An account with this email already exists.",
+      });
+    }
+
+    const hashedPassword = await hashPassword(password);
+
+    const newUser: IUser = new User({
+      companyName,
+      email,
+      password: hashedPassword,
+      number,
+      image,
+      balance: 0,
+      role: "admin",
+    });
+
+    await newUser.save();
+
+    const token = generateToken(newUser);
+
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "none" as const,
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    };
+
+    res.cookie("token", token, cookieOptions);
+
+    return res.status(201).json({
+      success: true,
+      message: "Admin account created successfully.",
+      user: {
+        companyName: newUser.companyName,
+        email: newUser.email,
+        number: newUser.number,
+        role: newUser.role,
+        balance: newUser.balance,
+        image: newUser.image,
+        _id: newUser._id,
+      },
+    });
+  } catch (error: unknown) {
+    console.error("Error in BootstrapAdmin controller:", error);
     return res.status(500).json({
       success: false,
       message: "An internal server error occurred.",

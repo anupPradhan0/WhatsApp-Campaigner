@@ -29,7 +29,7 @@ export const uploadUserImageToCloudinary = async (
             return;
         }
 
-        const userId = req.user?._id;
+        const userId = req.user?._id || 'bootstrap';
         const timestamp = Date.now();
         const publicId = `user-${userId}-${timestamp}`;
 

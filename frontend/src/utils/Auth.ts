@@ -22,6 +22,10 @@ export const getUserRole = (): UserRole | null => {
 };
 
 export const isTokenValid = (): boolean => {
-  const userStr = localStorage.getItem('user');
-  return userStr !== null;
+  const token = localStorage.getItem('token');
+  return token !== null;
+};
+
+export const getAuthToken = (): string | null => {
+  return localStorage.getItem('token');
 };

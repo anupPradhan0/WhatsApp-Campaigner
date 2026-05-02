@@ -9,13 +9,37 @@ const connectDB = async (): Promise<void> => {
     const mongoURI = process.env.MONGO_URI;
     const dbName = process.env.DB_NAME;
 
-    if (!mongoURI || !dbName) {
-        console.error("🔴 Missing required environment variables: MONGO_URI or DB_NAME");
+    if (!mongoURI) {
+        console.error("🔴 Missing required environment variable: MONGO_URI");
         process.exit(1);
     }
 
     try {
-        const connectionString = `${mongoURI}/${dbName}`;
+        let connectionString = mongoURI;
+
+        try {
+            const url = new URL(mongoURI);
+            const pathName = url.pathname.replace(/^\/+/, "");
+            const hasDbName = pathName.length > 0;
+
+            if (!hasDbName) {
+                if (!dbName) {
+                    console.error("🔴 Missing required environment variable: DB_NAME");
+                    process.exit(1);
+                }
+                url.pathname = `/${dbName}`;
+                connectionString = url.toString();
+            }
+        } catch (error) {
+            if (!dbName) {
+                console.error("🔴 Missing required environment variable: DB_NAME");
+                process.exit(1);
+            }
+
+            const trimmedUri = mongoURI.replace(/\/+$/, "");
+            connectionString = `${trimmedUri}/${dbName}`;
+        }
+
         const connectionInstance = await mongoose.connect(connectionString);
         console.log(`🟢 MongoDB Connected! Host: ${connectionInstance.connection.host}`);
     } catch (error) {

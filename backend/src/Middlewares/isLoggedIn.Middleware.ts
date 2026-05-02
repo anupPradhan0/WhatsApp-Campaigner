@@ -18,7 +18,11 @@ const isLoggedIn = async (req: Request, res: Response, next: NextFunction) => {
     }
 
     try {
-        const token = req.cookies.token;
+        const authHeader = req.headers.authorization;
+        const headerToken = authHeader && authHeader.startsWith('Bearer ')
+            ? authHeader.split(' ')[1]
+            : undefined;
+        const token = headerToken || req.cookies.token;
         if (!token) {
             return res.status(401).json({ success: false, message: `"Access denied. No token provided."` });
         }

@@ -18,7 +18,7 @@ const createUser = async (req: Request, res: Response) => {
       const image = req.file?.path || req.body.imageUrl || '';
       const creatorId = req.user!._id;
   
-      if (!companyName || !email || !password || !number || !role || !balance || !image) {
+      if (!companyName || !email || !password || !number || !role || !balance) {
         return res.status(400).json({
           success: false,
           message: 'All fields are required.',
