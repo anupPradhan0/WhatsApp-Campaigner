@@ -15,11 +15,17 @@ const newsSchema = new Schema<INews>(
   {
     title: {
       type: String,
-      required: true,
+      required: [true, "Title is required"],
+      trim: true,
+      minlength: [1, "Title cannot be empty"],
+      maxlength: [200, "Title cannot exceed 200 characters"],
     },
     description: {
       type: String,
-      required: true,
+      required: [true, "Description is required"],
+      trim: true,
+      minlength: [1, "Description cannot be empty"],
+      maxlength: [10_000, "Description cannot exceed 10000 characters"],
     },
     status: {
       type: String,
@@ -30,9 +36,12 @@ const newsSchema = new Schema<INews>(
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
     },
   },
   { timestamps: true }
 );
+
+newsSchema.index({ status: 1, createdAt: -1 });
 
 export default model<INews>("News", newsSchema);

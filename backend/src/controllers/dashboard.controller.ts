@@ -885,6 +885,15 @@ const support = async (req: Request, res: Response): Promise<Response> => {
       });
     }
 
+    if (!user.userID) {
+      return res.status(200).json({
+        success: true,
+        message:
+          "This account has no parent organization (top-level or self-registered).",
+        data: null,
+      });
+    }
+
     const creator = await User.findById(user.userID).lean<UserDocument>();
 
     if (!creator) {

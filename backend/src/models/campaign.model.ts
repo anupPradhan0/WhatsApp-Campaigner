@@ -174,6 +174,10 @@ campaignSchema.pre("save", function (next) {
   next();
 });
 
+campaignSchema.index({ createdBy: 1, createdAt: -1 });
+campaignSchema.index({ createdBy: 1, status: 1 });
+campaignSchema.index({ status: 1, createdAt: -1 });
+
 const Campaign: Model<ICampaign> = mongoose.model<ICampaign>(
   "Campaign",
   campaignSchema

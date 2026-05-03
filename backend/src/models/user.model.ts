@@ -15,7 +15,8 @@ export enum UserStatus {
 export interface IUser extends Document {
   _id: mongoose.Types.ObjectId;
   companyName: string;
-  userID: mongoose.Types.ObjectId;
+  /** Admin or reseller that created this account; unset for bootstrap admin and self-registration. */
+  userID?: mongoose.Types.ObjectId;
   email: string;
   image: string;
   number: number;
@@ -39,6 +40,8 @@ const userSchema = new Schema<IUser>(
     userID: {
       type: Schema.Types.ObjectId,
       ref: "User",
+      index: true,
+      sparse: true,
     },
     companyName: {
       type: String,
@@ -52,7 +55,7 @@ const userSchema = new Schema<IUser>(
       lowercase: true,
       trim: true,
       match: [
-        /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
         "Please provide a valid email address",
       ],
     },
@@ -73,6 +76,7 @@ const userSchema = new Schema<IUser>(
     balance: {
       type: Number,
       default: 0,
+      min: [0, "Balance cannot be negative"],
     },
     role: {
       type: String,
@@ -94,6 +98,7 @@ const userSchema = new Schema<IUser>(
     totalCampaigns: {
       type: Number,
       default: 0,
+      min: 0,
     },
     allCampaign: [
       {
@@ -127,6 +132,9 @@ const userSchema = new Schema<IUser>(
     timestamps: true,
   }
 );
+
+userSchema.index({ role: 1, status: 1 });
+userSchema.index({ status: 1, createdAt: -1 });
 
 const User = model<IUser>("User", userSchema);
 

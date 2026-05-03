@@ -35,14 +35,27 @@ const transactionSchema = new Schema<ITransaction>(
       type: Number,
       required: true,
       min: 0,
+      validate: {
+        validator: (v: number) =>
+          Number.isFinite(v) && v <= Number.MAX_SAFE_INTEGER,
+        message: "Amount must be a finite number",
+      },
     },
     balanceBefore: {
       type: Number,
       required: true,
+      validate: {
+        validator: (v: number) => Number.isFinite(v),
+        message: "balanceBefore must be a finite number",
+      },
     },
     balanceAfter: {
       type: Number,
       required: true,
+      validate: {
+        validator: (v: number) => Number.isFinite(v),
+        message: "balanceAfter must be a finite number",
+      },
     },
     status: {
       type: String,

@@ -142,8 +142,8 @@ Ensure you have the following installed before proceeding:
 # Node.js (v20.15.0 or higher, but below v21.0.0)
 node --version  # Should output v20.x.x
 
-# npm (v9.0.0 or higher)
-npm --version
+# pnpm (v9.0.0 or higher) — enable via: corepack enable
+pnpm --version
 
 # MongoDB (v6.0 or higher - local or Atlas)
 mongod --version
@@ -170,32 +170,24 @@ git clone https://github.com/M0rs-Ruki/WhatsApp-Campaigner.git
 cd WhatsApp-Campaigner
 ```
 
-### Step 2: Backend Setup
+### Step 2: Install dependencies (workspace)
+
+From the repository root:
 
 ```bash
-# Navigate to backend directory
-cd backend
-
-# Install dependencies
-npm install
-
-# Create environment file
-cp .env.example .env
-# Edit .env with your configuration
+pnpm install
 ```
 
-### Step 3: Frontend Setup
+### Step 3: Backend and frontend environment files
 
 ```bash
-# Navigate to frontend directory (from root)
-cd ../frontend
+# Backend
+cp backend/.env.example backend/.env
+# Edit backend/.env with your configuration
 
-# Install dependencies
-npm install
-
-# Create environment file
-cp .env.example .env
-# Edit .env with your configuration
+# Frontend
+cp frontend/.env.example frontend/.env
+# Edit frontend/.env with your configuration
 ```
 
 ### Step 4: Database Setup
@@ -271,38 +263,23 @@ VITE_API_URL=http://localhost:8080
 
 **Terminal 1 - Backend:**
 ```bash
-cd backend
-npm run dev
+pnpm --filter ./backend run dev
 # Server starts at http://localhost:8080
 ```
 
 **Terminal 2 - Frontend:**
 ```bash
-cd frontend
-npm run dev
+pnpm --filter ./frontend run dev
 # Application starts at http://localhost:5173
 ```
 
-#### Option 2: Run Concurrently
+#### Option 2: Run concurrently from the repo root
 
-Create `package.json` in root:
+The root `package.json` already includes a `dev` script using `concurrently`. From the repository root:
 
-```json
-{
-  "scripts": {
-    "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm run dev\"",
-    "install-all": "cd backend && npm install && cd ../frontend && npm install"
-  },
-  "devDependencies": {
-    "concurrently": "^8.0.0"
-  }
-}
-```
-
-Then run:
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 ### Accessing the Application
@@ -319,31 +296,21 @@ npm run dev
 #### Backend Build
 
 ```bash
-cd backend
-
-# Clean previous build
-npm run clean
-
-# Compile TypeScript to JavaScript
-npm run build
+pnpm --filter ./backend run clean
+pnpm --filter ./backend run build
 
 # Test production build locally
-npm start
+pnpm --filter ./backend start
 ```
 
 #### Frontend Build
 
 ```bash
-cd frontend
-
-# Run linter
-npm run lint
-
-# Build for production
-npm run build
+pnpm --filter ./frontend run lint
+pnpm --filter ./frontend run build
 
 # Preview production build
-npm run preview
+pnpm --filter ./frontend run preview
 ```
 
 ---
@@ -359,8 +326,8 @@ npm run preview
 
 2. **Configure Settings**
    ```
-   Build Command: cd backend && npm install && npm run build
-   Start Command: cd backend && npm start
+   Build Command: pnpm install && pnpm --filter ./backend run build
+   Start Command: pnpm --filter ./backend start
    ```
 
 3. **Environment Variables**
@@ -381,7 +348,7 @@ npm run preview
      ```
      Framework: Vite
      Root Directory: frontend
-     Build Command: npm run build
+     Build Command: pnpm run build
      Output Directory: dist
      ```
 
@@ -621,13 +588,13 @@ PORT=8081
 
 #### TypeScript Compilation Errors
 ```bash
-# Clear cache and reinstall
-rm -rf node_modules package-lock.json
-npm install
+# Clear cache and reinstall (from repo root)
+rm -rf node_modules backend/node_modules frontend/node_modules
+pnpm install
 
 # Rebuild
-rm -rf dist
-npm run build
+rm -rf backend/dist
+pnpm --filter ./backend run build
 ```
 
 #### CORS Errors
@@ -661,12 +628,10 @@ curl -X POST http://localhost:8080/api/auth/login \
 
 ```bash
 # Frontend
-cd frontend
-npx tsc --noEmit
+pnpm --filter ./frontend exec tsc --noEmit
 
 # Backend
-cd backend
-npx tsc --noEmit
+pnpm --filter ./backend exec tsc --noEmit
 ```
 
 ---

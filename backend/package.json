@@ -9,7 +9,7 @@
     "start": "node dist/server.js",
     "dev": "tsx watch src/server.ts",
     "clean": "rm -rf dist",
-    "prebuild": "npm run clean"
+    "prebuild": "pnpm run clean"
   },
   "author": "Anup Pradhan (Mors)",
   "license": "ISC",
