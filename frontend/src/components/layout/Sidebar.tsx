@@ -6,7 +6,6 @@ import {
   Users, UserCheck,
   BarChart3, Megaphone,
   Newspaper, GitBranch, AlertCircle, Building2,
-  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { menuConfig, type MenuSection } from '../../constants/Roles';
 import { getUserRole } from '../../utils/Auth';
@@ -88,28 +87,6 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           <X size={15} style={{ color: '#f87171' }} />
         </button>
 
-        {/* Collapse toggle — desktop only, poking out on the right edge */}
-        <button
-          onClick={() => { setCollapsed(c => !c); setTooltip(null); }}
-          className="hidden lg:flex items-center justify-center absolute"
-          style={{
-            top: 20,
-            right: -10,
-            width: 20,
-            height: 20,
-            borderRadius: '50%',
-            background: '#27272a',
-            border: '1px solid #3f3f46',
-            cursor: 'pointer',
-            zIndex: 10,
-          }}
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          {collapsed
-            ? <ChevronRight size={11} style={{ color: '#a1a1aa' }} />
-            : <ChevronLeft  size={11} style={{ color: '#a1a1aa' }} />
-          }
-        </button>
 
         {/* Logo — click to collapse */}
         <div
