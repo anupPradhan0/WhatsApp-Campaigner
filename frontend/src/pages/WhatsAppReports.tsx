@@ -1,945 +1,281 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
-import {
-  X,
-  Eye,
-  Calendar,
-  Plus,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  Loader2,
-} from "lucide-react";
+import { X, Eye, Calendar, Plus, ChevronLeft, ChevronRight, Download, Loader2, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 
-interface Campaign {
-  campaignId: string;
-  campaignName: string;
-  message: string;
-  createdBy: string;
-  status: string;
-  statusMessage: string;
-  mobileNumberCount: number;
-  createdAt: string;
-  image: string;
-}
+const D = {
+  surface: '#111113', surface2: '#18181b', border: '#27272a', border2: '#3f3f46',
+  text: '#f4f4f5', textMuted: '#71717a', textSubtle: '#52525b',
+  green: '#16a34a', greenLight: '#4ade80', greenDim: 'rgba(22,163,74,0.12)', greenBorder: 'rgba(22,163,74,0.3)',
+  blue: '#3b82f6', blueDim: 'rgba(59,130,246,0.12)',
+  amber: '#fbbf24', amberDim: 'rgba(251,191,36,0.1)',
+  red: '#f87171', redDim: 'rgba(248,113,113,0.1)', redBorder: 'rgba(248,113,113,0.3)',
+};
 
-interface UserData {
-  companyName: string;
-  email: string;
-  number: string;
-  role: string;
-  status: string;
-  createdAt: string;
-}
+const inp: React.CSSProperties = { width: '100%', padding: '9px 12px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, fontSize: 13, color: D.text, outline: 'none', boxSizing: 'border-box' };
+const dateInp: React.CSSProperties = { background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 7, color: D.text, fontSize: 12, padding: '6px 10px', outline: 'none', colorScheme: 'dark' };
 
-interface ReportsData {
-  totalCampaigns: number;
-  campaigns: Campaign[];
-}
-
-const WhatsAppReports = () => {
-  const navigate = useNavigate();
-  const [reportsData, setReportsData] = useState<ReportsData | null>(null);
-  const [userData, setUserData] = useState<UserData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  // Download state
-  const [downloadingCampaigns, setDownloadingCampaigns] = useState<Set<string>>(
-    new Set()
-  );
-  const [downloadError, setDownloadError] = useState<string | null>(null);
-
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
-
-  // Filters
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-
-  // Modal
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(
-    null
-  );
-
-  // Fetch reports data
-  const fetchReportsData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const { data: result } = await api.get("/api/dashboard/whatsapp-reports");
-
-      if (result.success) {
-        setReportsData(result.data);
-        setUserData(result.userData);
-      } else {
-        setError(result.message || "Failed to load reports data");
-      }
-    } catch (err) {
-      setError("Network error. Please try again.");
-      console.error("Reports fetch error:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchReportsData();
-  }, [fetchReportsData]);
-
-  const handleDownloadImage = async (imageUrl: string): Promise<void> => {
-    try {
-      const response = await fetch(imageUrl);
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${
-        selectedCampaign?.campaignName || "campaign"
-      }_image.jpg`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("Download failed:", error);
-    }
+const statusColor = (s: string) => {
+  const m: Record<string, [string, string]> = {
+    pending: [D.amber, D.amberDim], delivered: [D.greenLight, D.greenDim],
+    processing: [D.blue, D.blueDim], failed: [D.red, D.redDim],
   };
+  return m[s?.toLowerCase()] ?? [D.textMuted, 'rgba(255,255,255,0.05)'];
+};
 
-  // Handle Excel Download
-  const handleDownloadExcel = async (campaignId: string) => {
-    if (downloadingCampaigns.has(campaignId)) return;
+const StatusBadge = ({ s }: { s: string }) => {
+  const [c, bg] = statusColor(s);
+  return <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.06em', color: c, background: bg, border: `1px solid ${c}44` }}>{s || 'N/A'}</span>;
+};
 
-    try {
-      setDownloadingCampaigns((prev) => new Set(prev).add(campaignId));
-      setDownloadError(null);
-
-      const response = await api.get(
-        `/api/dashboard/export-campaign/${campaignId}`,
-        {
-          responseType: "blob",
-          validateStatus: () => true,
-        }
-      );
-
-      if (response.status >= 400) {
-        let msg = "Failed to download campaign data";
-        try {
-          const text = await (response.data as Blob).text();
-          const j = JSON.parse(text) as { message?: string };
-          msg = j.message || msg;
-        } catch {
-          /* non-JSON error body */
-        }
-        throw new Error(msg);
-      }
-
-      const contentDisposition =
-        response.headers["content-disposition"] ||
-        response.headers["Content-Disposition"];
-      let filename = `Campaign_${campaignId}.xlsx`;
-
-      if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/i);
-        if (filenameMatch?.[1]) {
-          filename = filenameMatch[1];
-        }
-      }
-
-      const blob = response.data as Blob;
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-
-      // Cleanup
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        console.error("Download error:", err);
-        setDownloadError(err.message || "Failed to download campaign data");
-      } else {
-        console.error("Download error:", err);
-        setDownloadError("Failed to download campaign data");
-      }
-
-      // Auto-dismiss error after 5 seconds
-      setTimeout(() => {
-        setDownloadError(null);
-      }, 5000);
-    } finally {
-      setDownloadingCampaigns((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(campaignId);
-        return newSet;
-      });
-    }
-  };
-
-  // Filter campaigns by date range
-  const getFilteredCampaigns = () => {
-    if (!reportsData) return [];
-
-    let filtered = reportsData.campaigns;
-
-    if (startDate && endDate) {
-      filtered = filtered.filter((campaign) => {
-        const campaignDate = new Date(campaign.createdAt);
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        return campaignDate >= start && campaignDate <= end;
-      });
-    }
-
-    return filtered;
-  };
-
-  const filteredCampaigns = getFilteredCampaigns();
-  const totalPages = Math.ceil(filteredCampaigns.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentCampaigns = filteredCampaigns.slice(startIndex, endIndex);
-
-  // Reset to page 1 when items per page or filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [itemsPerPage, startDate, endDate]);
-
-  // Format date
-  const formatDate = (dateString: string) => {
-    try {
-      return format(new Date(dateString), "dd-MMM-yyyy hh:mm a");
-    } catch {
-      return dateString;
-    }
-  };
-
-  const stripHtmlTags = (html: string) => {
-    if (!html) return "";
-    return html.replace(/<[^>]*>/g, "");
-  };
-
-  // Truncate message
-  const truncateMessage = (message: string, maxLength: number = 100) => {
-    if (message.length <= maxLength) return message;
-    return message.substring(0, maxLength) + "...";
-  };
-
-  // Get status badge
-  const getStatusBadge = (status: string) => {
-    const badges = {
-      active: "bg-green-500",
-      inactive: "bg-red-500",
-      deleted: "bg-gray-500",
-    };
-    return badges[status.toLowerCase() as keyof typeof badges] || "bg-gray-500";
-  };
-
-  const getCampaignStatusBadge = (status: string | undefined) => {
-    if (!status) return "bg-gray-500";
-    const badges = {
-      pending: "bg-yellow-500",
-      delivered: "bg-green-500",
-      failed: "bg-red-500",
-      processing: "bg-blue-500",
-    };
-    return badges[status.toLowerCase() as keyof typeof badges] || "bg-gray-500";
-  };
-
-  // Open details modal
-  const openDetailsModal = (campaign: Campaign) => {
-    setSelectedCampaign(campaign);
-    setShowDetailsModal(true);
-  };
-
-  // Navigate to Send WhatsApp page
-  const handleAddCampaign = () => {
-    navigate("/send-whatsapp");
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="p-8 bg-white/40 backdrop-blur-lg rounded-2xl border border-white/60 shadow-xl">
-          <p className="text-xl font-semibold text-black">Loading Reports...</p>
-        </div>
-      </div>
-    );
-  }
-
+const Paginator = ({ page, total, onChange }: { page: number; total: number; onChange: (p: number) => void }) => {
+  if (total <= 1) return null;
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Page Header - Mobile Optimized */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 p-4 sm:p-5 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-        <div>
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-black">
-            WhatsApp Campaign Reports
-          </h2>
-          <p className="text-xs sm:text-sm text-gray-600 mt-1">
-            View all your sent campaigns
-          </p>
-        </div>
-
-        {/* Add Campaign Button */}
-        <button
-          onClick={handleAddCampaign}
-          className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-green-500/80 backdrop-blur-md text-white font-bold text-sm sm:text-base rounded-lg sm:rounded-xl border border-white/30 shadow-lg hover:bg-green-600/80 transition-all active:scale-95"
-        >
-          <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-          Add Campaign
-        </button>
-      </div>
-
-      {/* Error Message */}
-      {error && (
-        <div className="p-3 sm:p-4 bg-red-100/60 backdrop-blur-md rounded-lg sm:rounded-xl border border-red-300 shadow-lg">
-          <p className="text-red-700 font-semibold text-sm sm:text-base">
-            {error}
-          </p>
-        </div>
-      )}
-
-      {/* Download Error Notification */}
-      {downloadError && (
-        <div className="p-3 sm:p-4 bg-red-100/60 backdrop-blur-md rounded-lg sm:rounded-xl border border-red-300 shadow-lg animate-pulse">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-red-700 font-semibold text-sm sm:text-base flex-1">
-              {downloadError}
-            </p>
-            <button
-              onClick={() => setDownloadError(null)}
-              className="text-red-700 hover:text-red-900 flex-shrink-0"
-            >
-              <X className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Date Filter Section - Mobile Optimized */}
-      <div className="p-3 sm:p-4 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-4">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-black flex-shrink-0" />
-            <span className="text-xs sm:text-sm font-bold text-black">
-              Filter by Date:
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2 bg-white/60 backdrop-blur-sm px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl border sm:border-2 border-white/80">
-            <div className="flex flex-col">
-              <label className="text-[9px] text-black opacity-60 font-bold mb-0.5">
-                From
-              </label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="bg-transparent text-black text-xs sm:text-sm font-semibold focus:outline-none w-full min-w-[100px]"
-              />
-            </div>
-            <span className="text-black font-bold mt-3">-</span>
-            <div className="flex flex-col">
-              <label className="text-[9px] text-black opacity-60 font-bold mb-0.5">
-                To
-              </label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="bg-transparent text-black text-xs sm:text-sm font-semibold focus:outline-none w-full min-w-[100px]"
-              />
-            </div>
-          </div>
-
-          <button
-            onClick={() => {
-              setStartDate("");
-              setEndDate("");
-            }}
-            className="px-3 sm:px-4 py-2 bg-blue-500/60 backdrop-blur-md text-white text-sm font-semibold rounded-lg sm:rounded-xl border border-white/30 hover:bg-blue-600/60 transition-all active:scale-95"
-          >
-            Reset Filter
-          </button>
-
-          <div className="sm:ml-auto text-xs sm:text-sm text-black font-semibold">
-            Showing {startIndex + 1} to{" "}
-            {Math.min(endIndex, filteredCampaigns.length)} of{" "}
-            {filteredCampaigns.length}
-          </div>
-        </div>
-      </div>
-
-      {/* Show Entries Selector */}
-      <div className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-        <span className="text-xs sm:text-sm font-bold text-black">SHOW</span>
-        <select
-          value={itemsPerPage}
-          onChange={(e) => setItemsPerPage(Number(e.target.value))}
-          className="px-2 sm:px-3 py-1.5 sm:py-2 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-sm text-black font-semibold focus:outline-none focus:border-green-500"
-        >
-          <option value={10}>10</option>
-          <option value={25}>25</option>
-          <option value={50}>50</option>
-        </select>
-        <span className="text-xs sm:text-sm font-bold text-black">ENTRIES</span>
-      </div>
-
-      {/* Mobile Card View */}
-      <div className="md:hidden space-y-3">
-        {currentCampaigns.length === 0 ? (
-          <div className="p-6 bg-white/40 backdrop-blur-lg rounded-xl border border-white/60 shadow-xl text-center">
-            <p className="text-base font-semibold text-black opacity-70">
-              No campaigns found
-            </p>
-            <p className="text-sm text-black opacity-60 mt-2">
-              Try adjusting your date filters
-            </p>
-          </div>
-        ) : (
-          currentCampaigns.map((campaign, index) => (
-            <div
-              key={campaign.campaignId}
-              className="p-3 bg-white/40 backdrop-blur-lg rounded-xl border border-white/60 shadow-lg"
-            >
-              {/* Header Row */}
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-black opacity-70">
-                  #{startIndex + index + 1}
-                </span>
-                <span className="px-2 py-0.5 bg-blue-500 text-white text-[10px] font-bold rounded-full">
-                  {campaign.mobileNumberCount} Numbers
-                </span>
-              </div>
-
-              {/* Campaign Name */}
-              <p className="text-sm font-bold text-black mb-1.5 line-clamp-1">
-                {campaign.campaignName}
-              </p>
-
-              {/* Message Preview */}
-              <p className="text-xs text-black opacity-80 line-clamp-2 mb-2">
-                {truncateMessage(stripHtmlTags(campaign.message), 80)}
-              </p>
-
-              {/* Creator + Date */}
-              <div className="text-[10px] text-black opacity-60 mb-2 pb-2 border-b border-white/30">
-                <div className="mb-1">
-                  <p className="mb-1">Status:</p>
-                  <span
-                    className={`px-2 py-0.5 text-white text-[10px] font-bold rounded-full ${getCampaignStatusBadge(
-                      campaign.status
-                    )}`}
-                  >
-                    {campaign.status ? campaign.status.toUpperCase() : "N/A"}
-                  </span>
-                </div>
-                <div>Date: {formatDate(campaign.createdAt)}</div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 justify-end">
-                <button
-                  onClick={() => openDetailsModal(campaign)}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-green-500 backdrop-blur-sm rounded-lg hover:bg-green-600/60 transition-all text-white text-xs font-semibold active:scale-95"
-                >
-                  <Eye className="w-3 h-3" />
-                  View
-                </button>
-                <button
-                  onClick={() => handleDownloadExcel(campaign.campaignId)}
-                  disabled={downloadingCampaigns.has(campaign.campaignId)}
-                  className="p-1.5 bg-blue-500/60 backdrop-blur-sm rounded-lg hover:bg-blue-600 transition-all disabled:opacity-50 active:scale-95"
-                >
-                  {downloadingCampaigns.has(campaign.campaignId) ? (
-                    <Loader2 className="w-3 h-3 text-white animate-spin" />
-                  ) : (
-                    <Download className="w-3 h-3 text-white" />
-                  )}
-                </button>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Desktop Table View */}
-      <div className="hidden md:block p-4 sm:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b-2 border-white/60">
-                <th className="text-left py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-bold text-black uppercase">
-                  ID
-                </th>
-                <th className="text-left py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-bold text-black uppercase">
-                  Campaign Name
-                </th>
-                <th className="text-left py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-bold text-black uppercase">
-                  Message
-                </th>
-                <th className="text-left py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-bold text-black uppercase">
-                  Status
-                </th>
-                <th className="text-left py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-bold text-black uppercase">
-                  Mobile Numbers
-                </th>
-                <th className="text-left py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-bold text-black uppercase">
-                  Created At
-                </th>
-                <th className="text-left py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-bold text-black uppercase">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentCampaigns.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="py-8 sm:py-12 text-center text-black opacity-70"
-                  >
-                    <p className="text-base sm:text-lg font-semibold">
-                      No campaigns found
-                    </p>
-                    <p className="text-xs sm:text-sm mt-2">
-                      Try adjusting your date filters
-                    </p>
-                  </td>
-                </tr>
-              ) : (
-                currentCampaigns.map((campaign, index) => (
-                  <tr
-                    key={campaign.campaignId}
-                    className="border-b border-white/30 hover:bg-white/20 transition-all"
-                  >
-                    <td className="py-3 sm:py-4 px-3 sm:px-4 text-black text-sm font-semibold">
-                      {startIndex + index + 1}
-                    </td>
-                    <td className="py-3 sm:py-4 px-3 sm:px-4 text-black text-sm font-semibold max-w-[200px]">
-                      {campaign.campaignName}
-                    </td>
-                    <td className="py-3 sm:py-4 px-3 sm:px-4 text-black text-sm font-semibold max-w-[300px]">
-                      <div className="line-clamp-2">
-                        {truncateMessage(stripHtmlTags(campaign.message), 80)}
-                      </div>
-                      {campaign.message.length > 80 && (
-                        <button
-                          onClick={() => openDetailsModal(campaign)}
-                          className="text-green-600 font-bold text-xs sm:text-sm mt-1 hover:underline"
-                        >
-                          Read More
-                        </button>
-                      )}
-                    </td>
-                    <td className="py-3 sm:py-4 px-3 sm:px-4">
-                      <span
-                        className={`px-2 sm:px-3 py-0.5 sm:py-1 text-white text-[10px] sm:text-xs font-bold rounded-full ${getCampaignStatusBadge(
-                          campaign.status
-                        )}`}
-                      >
-                        {campaign.status
-                          ? campaign.status.toUpperCase()
-                          : "N/A"}
-                      </span>
-                    </td>
-
-                    <td className="py-3 sm:py-4 px-3 sm:px-4 text-center">
-                      <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-blue-500 text-white text-xs sm:text-sm font-bold rounded-full">
-                        {campaign.mobileNumberCount}
-                      </span>
-                    </td>
-                    <td className="py-3 sm:py-4 px-3 sm:px-4 text-black text-sm font-semibold whitespace-nowrap">
-                      {formatDate(campaign.createdAt)}
-                    </td>
-                    <td className="py-3 sm:py-4 px-3 sm:px-4">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => openDetailsModal(campaign)}
-                          className="p-2 bg-green-500/60 backdrop-blur-sm rounded-lg hover:bg-green-600/80 transition-all"
-                          title="View Details"
-                        >
-                          <Eye className="w-4 h-4 text-white" />
-                        </button>
-                        <button
-                          onClick={() =>
-                            handleDownloadExcel(campaign.campaignId)
-                          }
-                          disabled={downloadingCampaigns.has(
-                            campaign.campaignId
-                          )}
-                          className="p-2 bg-blue-500/60 backdrop-blur-sm rounded-lg hover:bg-blue-600/80 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Download Excel"
-                        >
-                          {downloadingCampaigns.has(campaign.campaignId) ? (
-                            <Loader2 className="w-4 h-4 text-white animate-spin" />
-                          ) : (
-                            <Download className="w-4 h-4 text-white" />
-                          )}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Pagination */}
-      {filteredCampaigns.length > 0 && (
-        <>
-          <div className="text-xs sm:text-sm text-black font-semibold p-3 sm:p-4 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-            Showing {startIndex + 1} to{" "}
-            {Math.min(endIndex, filteredCampaigns.length)} of{" "}
-            {filteredCampaigns.length} entries
-          </div>
-
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-1.5 sm:gap-2 p-3 sm:p-4 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-              <button
-                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className="p-1.5 sm:p-2 bg-white/60 backdrop-blur-sm rounded-lg border border-white/80 font-semibold text-black hover:bg-white/80 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
-
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum: number;
-                if (totalPages <= 5) {
-                  pageNum = i + 1;
-                } else if (currentPage <= 3) {
-                  pageNum = i + 1;
-                } else if (currentPage >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i;
-                } else {
-                  pageNum = currentPage - 2 + i;
-                }
-
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => setCurrentPage(pageNum)}
-                    className={`px-2.5 sm:px-4 py-1.5 sm:py-2 text-sm font-bold rounded-lg border-2 transition-all ${
-                      currentPage === pageNum
-                        ? "bg-green-500 text-white border-green-600 shadow-lg"
-                        : "bg-white/60 text-black border-white/80 hover:bg-white/80"
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
-
-              <button
-                onClick={() =>
-                  setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-                }
-                disabled={currentPage === totalPages}
-                className="p-1.5 sm:p-2 bg-white/60 backdrop-blur-sm rounded-lg border border-white/80 font-semibold text-black hover:bg-white/80 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Campaign Details Modal - Mobile Optimized */}
-      {showDetailsModal && selectedCampaign && userData && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
-          <div className="bg-white/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border-2 border-green-500 shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-5 md:p-6">
-              {/* Header */}
-              <div className="flex items-center justify-between gap-3 mb-4 sm:mb-6">
-                <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-black">
-                  Campaign Details
-                </h3>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() =>
-                      handleDownloadExcel(selectedCampaign.campaignId)
-                    }
-                    disabled={downloadingCampaigns.has(
-                      selectedCampaign.campaignId
-                    )}
-                    className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-green-500/80 backdrop-blur-md text-white font-bold text-xs sm:text-sm rounded-lg sm:rounded-xl border border-white/30 shadow-lg hover:bg-green-600/80 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
-                    title="Download Excel"
-                  >
-                    {downloadingCampaigns.has(selectedCampaign.campaignId) ? (
-                      <>
-                        <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
-                        <span className="hidden sm:inline">Downloading...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Download className="w-4 h-4 sm:w-5 sm:h-5" />
-                        <span className="sm:hidden">Download</span>
-                        <span className="hidden sm:inline">Download Excel</span>
-                      </>
-                    )}
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setShowDetailsModal(false);
-                      setSelectedCampaign(null);
-                    }}
-                    className="p-1.5 sm:p-2 hover:bg-gray-200 rounded-lg transition-all flex-shrink-0"
-                  >
-                    <X className="w-5 h-5 sm:w-6 sm:h-6 text-black" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-4 sm:space-y-5">
-                {/* USER DETAILS SECTION */}
-                <div className="p-4 sm:p-5 md:p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl sm:rounded-2xl border sm:border-2 border-blue-400 shadow-lg">
-                  <h4 className="text-base sm:text-lg md:text-xl font-bold text-blue-800 mb-3 sm:mb-4 flex items-center gap-2">
-                    <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-blue-600 animate-pulse"></div>
-                    User Information
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
-                    <div>
-                      <span className="text-[10px] sm:text-xs font-bold text-blue-700 uppercase">
-                        Company Name
-                      </span>
-                      <p className="text-black font-bold text-sm sm:text-base md:text-lg mt-1">
-                        {userData.companyName}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] sm:text-xs font-bold text-blue-700 uppercase">
-                        Email
-                      </span>
-                      <p className="text-black font-semibold text-xs sm:text-sm break-all mt-1">
-                        {userData.email}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] sm:text-xs font-bold text-blue-700 uppercase">
-                        Phone
-                      </span>
-                      <p className="text-black font-semibold text-xs sm:text-sm mt-1">
-                        {userData.number}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] sm:text-xs font-bold text-blue-700 uppercase">
-                        Role
-                      </span>
-                      <p className="text-black font-semibold uppercase text-xs sm:text-sm mt-1">
-                        {userData.role}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] sm:text-xs font-bold text-blue-700 uppercase">
-                        Status
-                      </span>
-                      <p className="mt-1">
-                        <span
-                          className={`px-2 sm:px-3 py-0.5 sm:py-1 text-white text-[10px] sm:text-xs font-bold rounded-full ${getStatusBadge(
-                            userData.status
-                          )}`}
-                        >
-                          {userData.status.toUpperCase()}
-                        </span>
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] sm:text-xs font-bold text-blue-700 uppercase">
-                        Member Since
-                      </span>
-                      <p className="text-black font-semibold text-xs sm:text-sm mt-1">
-                        {formatDate(userData.createdAt)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* CAMPAIGN DETAILS SECTION */}
-                <div className="p-4 sm:p-5 md:p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-xl sm:rounded-2xl border sm:border-2 border-green-400 shadow-lg">
-                  <h4 className="text-base sm:text-lg md:text-xl font-bold text-green-800 mb-3 sm:mb-4 flex items-center gap-2">
-                    <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-green-600 animate-pulse"></div>
-                    Campaign Information
-                  </h4>
-
-                  {/* Campaign Basic Info */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-5">
-                    <div className="col-span-1 sm:col-span-2 md:col-span-1">
-                      <span className="text-[10px] sm:text-xs font-bold text-green-700 uppercase">
-                        Campaign ID
-                      </span>
-                      <p className="text-black font-mono text-xs sm:text-sm break-all mt-1 bg-white px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg">
-                        {selectedCampaign.campaignId}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] sm:text-xs font-bold text-green-700 uppercase">
-                        Campaign Name
-                      </span>
-                      <p className="text-black font-bold text-sm sm:text-base md:text-lg mt-1">
-                        {selectedCampaign.campaignName}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] sm:text-xs font-bold text-green-700 uppercase">
-                        Created By
-                      </span>
-                      <p className="text-black font-semibold text-xs sm:text-sm mt-1">
-                        {selectedCampaign.createdBy}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] sm:text-xs font-bold text-green-700 uppercase">
-                        Recipients
-                      </span>
-                      <p className="text-blue-600 font-bold text-xl sm:text-2xl mt-1">
-                        {selectedCampaign.mobileNumberCount}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] sm:text-xs font-bold text-green-700 uppercase">
-                        Created At
-                      </span>
-                      <p className="text-black font-semibold text-xs sm:text-sm mt-1">
-                        {formatDate(selectedCampaign.createdAt)}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] sm:text-xs font-bold text-green-700 uppercase">
-                        Status
-                      </span>
-                      <p className="mt-1">
-                        <span
-                          className={`px-2 sm:px-3 py-0.5 sm:py-1 text-white text-[10px] sm:text-xs font-bold rounded-full ${getCampaignStatusBadge(
-                            selectedCampaign.status
-                          )}`}
-                        >
-                          {selectedCampaign.status
-                            ? selectedCampaign.status.toUpperCase()
-                            : "N/A"}
-                        </span>
-                      </p>
-                    </div>
-                    <div className="col-span-1 sm:col-span-2">
-                      <span className="text-[10px] sm:text-xs font-bold text-orange-700 uppercase">
-                        Admin Message
-                      </span>
-                      <p className="text-black font-semibold text-xs sm:text-sm mt-1.5 p-2.5 sm:p-3 bg-white rounded-lg border border-orange-300">
-                        {selectedCampaign.statusMessage || "No message added"}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Campaign Media */}
-                  {selectedCampaign.image && (
-                    <div className="mb-4 sm:mb-5">
-                      <span className="text-xs sm:text-sm font-bold text-green-800 mb-2 sm:mb-3 block">
-                        📷 Campaign Media
-                      </span>
-                      <div className="bg-white p-3 sm:p-4 rounded-lg sm:rounded-xl border sm:border-2 border-green-300 shadow-md">
-                        <img
-                          src={selectedCampaign.image}
-                          alt="Campaign media"
-                          className="w-full max-h-[300px] sm:max-h-[400px] object-contain rounded-lg shadow-lg"
-                          onError={(e) => {
-                            e.currentTarget.src =
-                              "https://via.placeholder.com/600x400?text=Image+Not+Available";
-                          }}
-                        />
-                        <div className="mt-2 sm:mt-3">
-                          <button
-                            onClick={() =>
-                              handleDownloadImage(selectedCampaign.image)
-                            }
-                            className="block w-full px-4 sm:px-5 py-2.5 sm:py-3 bg-green-500/80 backdrop-blur-md text-white font-bold text-sm sm:text-base rounded-lg sm:rounded-xl border border-white/30 shadow-lg hover:bg-green-600/80 hover:shadow-xl transition-all text-center active:scale-95"
-                          >
-                            📥 Download Image
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Campaign Message */}
-                  <div>
-                    <span className="text-xs sm:text-sm font-bold text-green-800 mb-2 sm:mb-3 block">
-                      💬 Campaign Message
-                    </span>
-                    <div className="bg-white p-3 sm:p-4 md:p-5 rounded-lg sm:rounded-xl border sm:border-2 border-green-300 shadow-md">
-                      <p className="text-black text-xs sm:text-sm md:text-base leading-relaxed whitespace-pre-wrap">
-                        {stripHtmlTags(selectedCampaign.message)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* STATS SUMMARY */}
-                <div className="p-4 sm:p-5 md:p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl sm:rounded-2xl border sm:border-2 border-purple-400 shadow-lg">
-                  <h4 className="text-base sm:text-lg md:text-xl font-bold text-purple-800 mb-3 sm:mb-4 flex items-center gap-2">
-                    <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-purple-600 animate-pulse"></div>
-                    Campaign Statistics
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                    <div className="text-center p-4 sm:p-5 bg-white rounded-lg sm:rounded-xl shadow-md border sm:border-2 border-blue-200 hover:scale-105 transition-transform">
-                      <p className="text-3xl sm:text-4xl md:text-5xl font-bold text-blue-600">
-                        {selectedCampaign.mobileNumberCount}
-                      </p>
-                      <p className="text-[10px] sm:text-xs md:text-sm text-gray-700 font-bold mt-1 sm:mt-2 uppercase">
-                        Total Recipients
-                      </p>
-                    </div>
-                    <div className="text-center p-4 sm:p-5 bg-white rounded-lg sm:rounded-xl shadow-md border sm:border-2 border-green-200 hover:scale-105 transition-transform">
-                      <p className="text-3xl sm:text-4xl md:text-5xl font-bold text-green-600">
-                        {selectedCampaign.message.length}
-                      </p>
-                      <p className="text-[10px] sm:text-xs md:text-sm text-gray-700 font-bold mt-1 sm:mt-2 uppercase">
-                        Characters
-                      </p>
-                    </div>
-                    <div className="text-center p-4 sm:p-5 bg-white rounded-lg sm:rounded-xl shadow-md border sm:border-2 border-purple-200 hover:scale-105 transition-transform">
-                      <p className="text-3xl sm:text-4xl md:text-5xl font-bold text-purple-600">
-                        {Math.ceil(selectedCampaign.message.length / 160)}
-                      </p>
-                      <p className="text-[10px] sm:text-xs md:text-sm text-gray-700 font-bold mt-1 sm:mt-2 uppercase">
-                        SMS Parts
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Close Button */}
-              <div className="mt-4 sm:mt-6">
-                <button
-                  onClick={() => {
-                    setShowDetailsModal(false);
-                    setSelectedCampaign(null);
-                  }}
-                  className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-green-500 to-green-600 text-white font-bold text-sm sm:text-base md:text-lg rounded-lg sm:rounded-xl hover:from-green-600 hover:to-green-700 transition-all shadow-lg active:scale-95"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: D.surface, border: `1px solid ${D.border}`, borderRadius: 10, padding: '12px 16px' }}>
+      <button onClick={() => onChange(page - 1)} disabled={page === 1} style={{ padding: '5px 7px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 6, cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1, display: 'flex' }}><ChevronLeft size={15} style={{ color: D.textMuted }} /></button>
+      {Array.from({ length: Math.min(5, total) }, (_, i) => {
+        const p = total <= 5 ? i + 1 : page <= 3 ? i + 1 : page >= total - 2 ? total - 4 + i : page - 2 + i;
+        return <button key={p} onClick={() => onChange(p)} style={{ width: 32, height: 32, borderRadius: 6, fontSize: 12, fontWeight: 600, border: `1px solid ${page === p ? D.green : D.border}`, background: page === p ? D.green : D.surface2, color: page === p ? '#fff' : D.textMuted, cursor: 'pointer' }}>{p}</button>;
+      })}
+      <button onClick={() => onChange(page + 1)} disabled={page === total} style={{ padding: '5px 7px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 6, cursor: page === total ? 'not-allowed' : 'pointer', opacity: page === total ? 0.4 : 1, display: 'flex' }}><ChevronRight size={15} style={{ color: D.textMuted }} /></button>
     </div>
   );
 };
 
-export default WhatsAppReports;
+interface Campaign { campaignId: string; campaignName: string; message: string; createdBy: string; status: string; statusMessage: string; mobileNumberCount: number; createdAt: string; image: string; }
+interface UserData { companyName: string; email: string; number: string; role: string; status: string; createdAt: string; }
+interface ReportsData { totalCampaigns: number; campaigns: Campaign[]; }
+
+const stripHtml = (h: string) => h?.replace(/<[^>]*>/g, '') ?? '';
+const trunc = (s: string, n = 80) => s.length <= n ? s : s.slice(0, n) + '…';
+const fmtDate = (s: string) => { try { return format(new Date(s), 'dd MMM yyyy, hh:mm a'); } catch { return s; } };
+
+export default function WhatsAppReports() {
+  const navigate = useNavigate();
+  const [data, setData] = useState<ReportsData | null>(null);
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [downloading, setDownloading] = useState<Set<string>>(new Set());
+  const [dlError, setDlError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [selected, setSelected] = useState<Campaign | null>(null);
+
+  const fetchData = useCallback(async () => {
+    try { setLoading(true); const { data: r } = await api.get('/api/dashboard/whatsapp-reports'); if (r.success) { setData(r.data); setUserData(r.userData); } else setError(r.message || 'Failed'); } catch { setError('Network error.'); } finally { setLoading(false); }
+  }, []);
+  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { setPage(1); }, [perPage, startDate, endDate]);
+
+  const filtered = (data?.campaigns ?? []).filter(c => {
+    if (!startDate || !endDate) return true;
+    const d = new Date(c.createdAt), s = new Date(startDate), e = new Date(endDate); e.setHours(23, 59, 59, 999);
+    return d >= s && d <= e;
+  });
+  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
+  const idx = (page - 1) * perPage;
+  const paginated = filtered.slice(idx, idx + perPage);
+
+  const downloadExcel = async (id: string) => {
+    if (downloading.has(id)) return;
+    setDownloading(p => new Set(p).add(id)); setDlError(null);
+    try {
+      const res = await api.get(`/api/dashboard/export-campaign/${id}`, { responseType: 'blob', validateStatus: () => true });
+      if (res.status >= 400) { const t = await (res.data as Blob).text(); throw new Error(JSON.parse(t)?.message || 'Failed'); }
+      const cd = res.headers['content-disposition'] || ''; const fn = cd.match(/filename="?(.+)"?/i)?.[1] || `Campaign_${id}.xlsx`;
+      const url = URL.createObjectURL(res.data as Blob); const a = document.createElement('a'); a.href = url; a.download = fn; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    } catch (e) { setDlError(e instanceof Error ? e.message : 'Failed'); setTimeout(() => setDlError(null), 5000); }
+    finally { setDownloading(p => { const n = new Set(p); n.delete(id); return n; }); }
+  };
+
+  const downloadImage = async (url: string) => {
+    try { const r = await fetch(url); const b = await r.blob(); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = `${selected?.campaignName || 'campaign'}_image.jpg`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); } catch { /* */ }
+  };
+
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400, flexDirection: 'column', gap: 12 }}>
+      <div style={{ width: 36, height: 36, borderRadius: '50%', border: `3px solid ${D.border}`, borderTopColor: D.green, animation: 'spin 0.8s linear infinite' }} />
+      <p style={{ color: D.textMuted, fontSize: 13 }}>Loading reports…</p>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+
+  return (
+    <>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}} .row-h:hover td{background:rgba(255,255,255,0.025)!important} input[type=date]::-webkit-calendar-picker-indicator{filter:invert(0.5)} select option{background:#18181b;color:#f4f4f5}`}</style>
+
+      {dlError && (
+        <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, background: D.redDim, border: `1px solid ${D.redBorder}`, borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, maxWidth: 340 }}>
+          <AlertCircle size={14} style={{ color: D.red, flexShrink: 0 }} />
+          <p style={{ fontSize: 12, color: D.text, flex: 1 }}>{dlError}</p>
+          <button onClick={() => setDlError(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}><X size={13} style={{ color: D.textMuted }} /></button>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: D.text, margin: 0 }}>WhatsApp Reports</h1>
+            <p style={{ fontSize: 13, color: D.textMuted, marginTop: 4 }}>{data?.totalCampaigns ?? 0} total campaigns</p>
+          </div>
+          <button onClick={() => navigate('/send-whatsapp')} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', background: D.green, color: '#fff', fontWeight: 600, fontSize: 13, border: 'none', borderRadius: 8, cursor: 'pointer' }}>
+            <Plus size={15} /> New Campaign
+          </button>
+        </div>
+
+        {error && <div style={{ padding: '10px 14px', background: D.redDim, border: `1px solid ${D.redBorder}`, borderRadius: 8 }}><p style={{ color: D.red, fontSize: 13 }}>{error}</p></div>}
+
+        {/* Filter bar */}
+        <div style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <Calendar size={14} style={{ color: D.textMuted }} />
+          <span style={{ fontSize: 11, color: D.textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Filter</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div><div style={{ fontSize: 10, color: D.textSubtle, marginBottom: 2 }}>FROM</div><input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={dateInp} /></div>
+            <span style={{ color: D.textSubtle, fontSize: 13 }}>→</span>
+            <div><div style={{ fontSize: 10, color: D.textSubtle, marginBottom: 2 }}>TO</div><input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={dateInp} /></div>
+          </div>
+          {(startDate || endDate) && <button onClick={() => { setStartDate(''); setEndDate(''); }} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', background: D.surface2, border: `1px solid ${D.border2}`, borderRadius: 6, cursor: 'pointer', color: D.textMuted, fontSize: 12 }}><X size={11} /> Clear</button>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
+            <span style={{ fontSize: 11, color: D.textMuted }}>Show</span>
+            <select value={perPage} onChange={e => setPerPage(Number(e.target.value))} style={{ background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 6, color: D.text, fontSize: 12, padding: '4px 8px', outline: 'none' }}>{[10,25,50].map(n => <option key={n} value={n}>{n}</option>)}</select>
+            <span style={{ fontSize: 11, color: D.textSubtle }}>{idx + 1}–{Math.min(idx + perPage, filtered.length)} of {filtered.length}</span>
+          </div>
+        </div>
+
+        {/* Desktop table */}
+        <div className="hidden md:block" style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead><tr style={{ borderBottom: `1px solid ${D.border}` }}>
+                {['#', 'Campaign', 'Message', 'Status', 'Recipients', 'Date', 'Actions'].map(h => (
+                  <th key={h} style={{ padding: '12px 14px', textAlign: 'left', fontSize: 10, color: D.textSubtle, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {paginated.length === 0 ? <tr><td colSpan={7} style={{ padding: '40px', textAlign: 'center', color: D.textSubtle, fontSize: 13 }}>No campaigns found. Try adjusting filters.</td></tr>
+                  : paginated.map((c, i) => (
+                  <tr key={c.campaignId} className="row-h" style={{ borderBottom: `1px solid rgba(39,39,42,0.5)` }}>
+                    <td style={{ padding: '11px 14px', fontSize: 12, color: D.textSubtle }}>{idx + i + 1}</td>
+                    <td style={{ padding: '11px 14px', fontSize: 13, color: D.text, fontWeight: 500, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.campaignName}</td>
+                    <td style={{ padding: '11px 14px', maxWidth: 220 }}>
+                      <p style={{ fontSize: 12, color: D.textMuted, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{trunc(stripHtml(c.message))}</p>
+                      {c.message.length > 80 && <button onClick={() => setSelected(c)} style={{ fontSize: 11, color: D.greenLight, background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginTop: 2 }}>Read more</button>}
+                    </td>
+                    <td style={{ padding: '11px 14px' }}><StatusBadge s={c.status} /></td>
+                    <td style={{ padding: '11px 14px' }}><span style={{ fontSize: 12, fontWeight: 600, color: D.blue, background: D.blueDim, padding: '3px 8px', borderRadius: 20 }}>{c.mobileNumberCount}</span></td>
+                    <td style={{ padding: '11px 14px', fontSize: 12, color: D.textMuted, whiteSpace: 'nowrap' }}>{fmtDate(c.createdAt)}</td>
+                    <td style={{ padding: '11px 14px' }}>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button onClick={() => setSelected(c)} title="View" style={{ width: 30, height: 30, borderRadius: 7, background: D.greenDim, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Eye size={13} style={{ color: D.greenLight }} /></button>
+                        <button onClick={() => downloadExcel(c.campaignId)} disabled={downloading.has(c.campaignId)} title="Download Excel" style={{ width: 30, height: 30, borderRadius: 7, background: D.blueDim, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: downloading.has(c.campaignId) ? 0.5 : 1 }}>
+                          {downloading.has(c.campaignId) ? <Loader2 size={13} style={{ color: D.blue, animation: 'spin 0.8s linear infinite' }} /> : <Download size={13} style={{ color: D.blue }} />}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Mobile cards */}
+        <div className="md:hidden" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {paginated.length === 0 ? <div style={{ padding: 32, textAlign: 'center', background: D.surface, border: `1px solid ${D.border}`, borderRadius: 12 }}><p style={{ color: D.textSubtle, fontSize: 13 }}>No campaigns found.</p></div>
+            : paginated.map((c, i) => (
+            <div key={c.campaignId} style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 10, padding: '12px 14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <span style={{ fontSize: 11, color: D.textSubtle }}>#{idx + i + 1}</span>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <StatusBadge s={c.status} />
+                  <span style={{ fontSize: 11, fontWeight: 600, color: D.blue, background: D.blueDim, padding: '2px 7px', borderRadius: 20 }}>{c.mobileNumberCount}</span>
+                </div>
+              </div>
+              <p style={{ fontSize: 13, fontWeight: 600, color: D.text, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.campaignName}</p>
+              <p style={{ fontSize: 12, color: D.textMuted, marginBottom: 8, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{trunc(stripHtml(c.message), 80)}</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, borderTop: `1px solid ${D.border}` }}>
+                <span style={{ fontSize: 11, color: D.textSubtle }}>{format(new Date(c.createdAt), 'dd MMM, hh:mm a')}</span>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button onClick={() => setSelected(c)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: D.greenDim, border: 'none', borderRadius: 6, cursor: 'pointer', color: D.greenLight, fontSize: 12, fontWeight: 600 }}><Eye size={12} /> View</button>
+                  <button onClick={() => downloadExcel(c.campaignId)} disabled={downloading.has(c.campaignId)} style={{ width: 28, height: 28, borderRadius: 6, background: D.blueDim, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                    {downloading.has(c.campaignId) ? <Loader2 size={12} style={{ color: D.blue, animation: 'spin 0.8s linear infinite' }} /> : <Download size={12} style={{ color: D.blue }} />}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <Paginator page={page} total={totalPages} onChange={p => { setPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
+      </div>
+
+      {/* Details modal */}
+      {selected && userData && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }} onClick={() => setSelected(null)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 14, width: '100%', maxWidth: 620, maxHeight: '90vh', overflowY: 'auto' }}>
+            {/* header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px', borderBottom: `1px solid ${D.border}` }}>
+              <p style={{ fontSize: 16, fontWeight: 700, color: D.text }}>Campaign Details</p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => downloadExcel(selected.campaignId)} disabled={downloading.has(selected.campaignId)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: D.greenDim, border: `1px solid ${D.greenBorder}`, borderRadius: 7, cursor: 'pointer', color: D.greenLight, fontSize: 12, fontWeight: 600 }}>
+                  {downloading.has(selected.campaignId) ? <><Loader2 size={12} style={{ animation: 'spin 0.8s linear infinite' }} /> Downloading…</> : <><Download size={12} /> Download Excel</>}
+                </button>
+                <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={18} style={{ color: D.textMuted }} /></button>
+              </div>
+            </div>
+            <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* User info */}
+              <div style={{ background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 10, padding: 14 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: D.textSubtle, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>User Information</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  {[['Company', userData.companyName], ['Email', userData.email], ['Phone', userData.number], ['Role', userData.role.toUpperCase()]].map(([l, v]) => (
+                    <div key={l}><p style={{ fontSize: 10, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>{l}</p><p style={{ fontSize: 12, color: D.text, fontWeight: 500, wordBreak: 'break-all' }}>{v}</p></div>
+                  ))}
+                </div>
+              </div>
+              {/* Campaign info */}
+              <div style={{ background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 10, padding: 14 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: D.textSubtle, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Campaign Information</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                  {[['Name', selected.campaignName], ['Created By', selected.createdBy], ['Recipients', String(selected.mobileNumberCount)], ['Date', fmtDate(selected.createdAt)]].map(([l, v]) => (
+                    <div key={l}><p style={{ fontSize: 10, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>{l}</p><p style={{ fontSize: 12, color: D.text, fontWeight: 500 }}>{v}</p></div>
+                  ))}
+                </div>
+                <div><p style={{ fontSize: 10, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>Status</p><StatusBadge s={selected.status} /></div>
+                {selected.statusMessage && <div style={{ marginTop: 10 }}><p style={{ fontSize: 10, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', marginBottom: 3 }}>Admin Note</p><p style={{ fontSize: 12, color: D.textMuted, background: D.surface, border: `1px solid ${D.border}`, borderRadius: 6, padding: '8px 10px' }}>{selected.statusMessage}</p></div>}
+              </div>
+              {/* Media */}
+              {selected.image && (
+                <div style={{ background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 10, padding: 14 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: D.textSubtle, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Media</p>
+                  <img src={selected.image} alt="Campaign media" style={{ width: '100%', maxHeight: 280, objectFit: 'contain', borderRadius: 8 }} onError={e => { (e.currentTarget as HTMLImageElement).src = 'https://via.placeholder.com/600x400?text=Image+Not+Available'; }} />
+                  <button onClick={() => downloadImage(selected.image)} style={{ marginTop: 10, width: '100%', padding: '8px 0', background: D.greenDim, border: `1px solid ${D.greenBorder}`, borderRadius: 7, cursor: 'pointer', color: D.greenLight, fontSize: 13, fontWeight: 600 }}>Download Image</button>
+                </div>
+              )}
+              {/* Message */}
+              <div style={{ background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 10, padding: 14 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: D.textSubtle, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Message</p>
+                <p style={{ fontSize: 13, color: D.textMuted, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{stripHtml(selected.message)}</p>
+              </div>
+              {/* Stats */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+                {[['Recipients', selected.mobileNumberCount, D.blue], ['Characters', selected.message.length, D.greenLight], ['SMS Parts', Math.ceil(selected.message.length / 160), '#a78bfa']].map(([l, v, c]) => (
+                  <div key={String(l)} style={{ background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, padding: '12px 10px', textAlign: 'center' }}>
+                    <p style={{ fontSize: 20, fontWeight: 700, color: String(c) }}>{v}</p>
+                    <p style={{ fontSize: 10, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', marginTop: 4 }}>{l}</p>
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => setSelected(null)} style={{ width: '100%', padding: '9px 0', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, cursor: 'pointer', color: D.textMuted, fontSize: 13, fontWeight: 600 }}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
