@@ -1,512 +1,249 @@
-import { useState, useEffect, useCallback } from 'react';
-import type { FormEvent, ChangeEvent  } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import type { FormEvent, ChangeEvent } from 'react';
 import axios from 'axios';
+import { Building2, Mail, Phone, Lock, Camera, CheckCircle, AlertCircle, X, Eye, EyeOff } from 'lucide-react';
 import { api } from '../api/client';
 
-interface BusinessData {
-  companyName: string;
-  email: string;
-  number: string;
-  image?: string;
-}
+const D = {
+  surface: '#111113', surface2: '#18181b', border: '#27272a', border2: '#3f3f46',
+  text: '#f4f4f5', textMuted: '#71717a', textSubtle: '#52525b',
+  green: '#16a34a', greenLight: '#4ade80', greenDim: 'rgba(22,163,74,0.12)', greenBorder: 'rgba(22,163,74,0.3)',
+  blue: '#3b82f6', blueDim: 'rgba(59,130,246,0.12)',
+  red: '#f87171', redDim: 'rgba(248,113,113,0.1)', redBorder: 'rgba(248,113,113,0.3)',
+  amber: '#fbbf24', amberDim: 'rgba(251,191,36,0.08)',
+};
 
-const ManageBusiness = () => {
-  const [originalData, setOriginalData] = useState<BusinessData>({
-    companyName: '',
-    email: '',
-    number: '',
-  });
+const inp: React.CSSProperties = { width: '100%', padding: '10px 12px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, fontSize: 13, color: D.text, outline: 'none', boxSizing: 'border-box' };
 
-  const [formData, setFormData] = useState<BusinessData>({
-    companyName: '',
-    email: '',
-    number: '',
-  });
+const FieldFocus = (e: React.FocusEvent<HTMLInputElement>) => { e.currentTarget.style.borderColor = D.green; };
+const FieldBlur  = (e: React.FocusEvent<HTMLInputElement>) => { e.currentTarget.style.borderColor = D.border; };
 
-  const [passwordData, setPasswordData] = useState({
-    newPassword: '',
-    confirmPassword: ''
-  });
+interface BusinessData { companyName: string; email: string; number: string; image?: string; }
 
+const SectionCard = ({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) => (
+  <div style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 12, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 20px', borderBottom: `1px solid ${D.border}`, background: D.surface2 }}>
+      {icon}
+      <p style={{ fontSize: 14, fontWeight: 600, color: D.text }}>{title}</p>
+    </div>
+    <div style={{ padding: 20 }}>{children}</div>
+  </div>
+);
+
+const FInput = ({ label, hint, ...p }: { label: string; hint?: string } & React.InputHTMLAttributes<HTMLInputElement>) => (
+  <div>
+    <label style={{ fontSize: 11, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>{label}</label>
+    <input {...p} style={{ ...inp, ...(p.style ?? {}) }} onFocus={FieldFocus} onBlur={FieldBlur} />
+    {hint && <p style={{ fontSize: 11, color: D.textSubtle, marginTop: 5 }}>{hint}</p>}
+  </div>
+);
+
+export default function ManageBusiness() {
+  const [originalData, setOriginalData] = useState<BusinessData>({ companyName: '', email: '', number: '' });
+  const [formData, setFormData] = useState<BusinessData>({ companyName: '', email: '', number: '' });
+  const [passwordData, setPasswordData] = useState({ newPassword: '', confirmPassword: '' });
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(true);
   const [success, setSuccess] = useState('');
-  const [error, setError] = useState<string>('');
-  const [previewUrl, setPreviewUrl] = useState<string>('');
+  const [error, setError] = useState('');
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [showPwd, setShowPwd] = useState(false);
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false);
 
   const getUserId = (): string | null => {
-    const userStr = localStorage.getItem('user');
-    if (!userStr) return null;
-    
-    try {
-      const user = JSON.parse(userStr);
-      return user._id;
-    } catch (error) {
-      console.error('Error parsing user data:', error);
-      return null;
-    }
+    try { return JSON.parse(localStorage.getItem('user') || '{}')._id ?? null; } catch { return null; }
   };
 
-  const fetchBusinessDetails = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     try {
       setFetchLoading(true);
-      const { data: result } = await api.get<{
-        success: boolean;
-        message?: string;
-        data: {
-          companyName?: string;
-          email?: string;
-          number?: string | number;
-          image?: string;
-        };
-      }>('/api/dashboard/manage-business');
-
-      if (result.success) {
-        const data = {
-          companyName: result.data.companyName || '',
-          email: result.data.email || '',
-          number: String(result.data.number ?? ''),
-          image: result.data.image || '',
-        };
-
-        setOriginalData(data);
-        setFormData(data);
-
-        if (result.data.image) {
-          setPreviewUrl(result.data.image);
-        }
-      } else {
-        setError(result.message || 'Failed to load business details');
-      }
-    } catch (err) {
-      setError('Network error. Please try again.');
-      console.error('Fetch error:', err);
-    } finally {
-      setFetchLoading(false);
-    }
+      const { data: r } = await api.get('/api/dashboard/manage-business');
+      if (r.success) {
+        const d = { companyName: r.data.companyName || '', email: r.data.email || '', number: String(r.data.number ?? ''), image: r.data.image || '' };
+        setOriginalData(d); setFormData(d);
+        if (r.data.image) setPreviewUrl(r.data.image);
+      } else setError(r.message || 'Failed');
+    } catch { setError('Network error.'); } finally { setFetchLoading(false); }
   }, []);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-  useEffect(() => {
-    fetchBusinessDetails();
-  }, [fetchBusinessDetails]);
+  const handleInput = (e: ChangeEvent<HTMLInputElement>) => { const { name, value } = e.target; setFormData(p => ({ ...p, [name]: value })); setError(''); };
+  const handlePwd   = (e: ChangeEvent<HTMLInputElement>) => { const { name, value } = e.target; setPasswordData(p => ({ ...p, [name]: value })); setError(''); };
 
-  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    setError('');
-  };
-
-  const handlePasswordChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setPasswordData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    setError('');
-  };
-
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const maxSize = 5 * 1024 * 1024;
-    if (file.size > maxSize) {
-      setError('Image size must be less than 5MB');
-      return;
-    }
-
-    if (!file.type.startsWith('image/')) {
-      setError('Please select a valid image file');
-      return;
-    }
-
-    setSelectedImage(file);
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
-    setError('');
-  };
-
-  const isValidEmail = (email: string): boolean => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
-
-  const isValidPhoneNumber = (number: string): boolean => {
-    const phoneRegex = /^[0-9]{10}$/;
-    return phoneRegex.test(number);
+  const handleFile = (e: ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    if (f.size > 5 * 1024 * 1024) { setError('Max 5MB'); return; }
+    if (!f.type.startsWith('image/')) { setError('Invalid image type'); return; }
+    setSelectedImage(f); setPreviewUrl(URL.createObjectURL(f)); setError('');
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
+    e.preventDefault(); setError(''); setSuccess('');
+    const userId = getUserId(); if (!userId) { setError('Session expired. Please login.'); return; }
 
-    const userId = getUserId();
-    if (!userId) {
-      setError('User not found. Please login again.');
-      return;
-    }
+    const updates: Partial<BusinessData> = {};
+    if (formData.companyName !== originalData.companyName && formData.companyName.trim()) updates.companyName = formData.companyName;
+    if (formData.email !== originalData.email && formData.email.trim()) updates.email = formData.email;
+    if (formData.number !== originalData.number && formData.number.trim()) updates.number = formData.number;
 
-    const profileUpdates: Partial<BusinessData> = {};
-    
-    if (formData.companyName !== originalData.companyName && formData.companyName.trim()) {
-      profileUpdates.companyName = formData.companyName;
-    }
-    if (formData.email !== originalData.email && formData.email.trim()) {
-      profileUpdates.email = formData.email;
-    }
-    if (formData.number !== originalData.number && formData.number.trim()) {
-      profileUpdates.number = formData.number;
-    }
+    const hasProfile = Object.keys(updates).length > 0 || !!selectedImage;
+    const hasPwd = !!(passwordData.newPassword || passwordData.confirmPassword);
+    if (!hasProfile && !hasPwd) { setError('No changes detected.'); return; }
 
-    const hasProfileUpdate = Object.keys(profileUpdates).length > 0 || selectedImage;
-    const hasPasswordUpdate = passwordData.newPassword || passwordData.confirmPassword;
+    if (updates.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(updates.email)) { setError('Invalid email address'); return; }
+    if (updates.number && !/^[0-9]{10}$/.test(updates.number)) { setError('Enter a valid 10-digit number'); return; }
 
-    if (!hasProfileUpdate && !hasPasswordUpdate) {
-      setError('No changes detected. Please modify at least one field.');
-      return;
-    }
-
-    if (profileUpdates.email && !isValidEmail(profileUpdates.email)) {
-      setError('Please enter a valid email address');
-      return;
-    }
-
-    if (profileUpdates.number && !isValidPhoneNumber(profileUpdates.number)) {
-      setError('Please enter a valid 10-digit phone number');
-      return;
-    }
-
-    if (hasPasswordUpdate) {
-      if (!passwordData.newPassword || !passwordData.confirmPassword) {
-        setError('Please fill in both password fields');
-        return;
-      }
-
-      if (passwordData.newPassword !== passwordData.confirmPassword) {
-        setError('Passwords do not match');
-        return;
-      }
-
-      if (passwordData.newPassword.length < 5) {
-        setError('Password must be at least 5 characters long');
-        return;
-      }
+    if (hasPwd) {
+      if (!passwordData.newPassword || !passwordData.confirmPassword) { setError('Fill in both password fields'); return; }
+      if (passwordData.newPassword !== passwordData.confirmPassword) { setError('Passwords do not match'); return; }
+      if (passwordData.newPassword.length < 5) { setError('Password must be at least 5 characters'); return; }
     }
 
     setLoading(true);
-
     try {
-      let profileUpdateSuccess = false;
-      let passwordUpdateSuccess = false;
+      let profileOk = false; let pwdOk = false;
+      const changed: string[] = [];
 
-      if (hasProfileUpdate) {
-        const profileFormData = new FormData();
+      if (hasProfile) {
+        const fd = new FormData();
+        if (updates.companyName) { fd.append('companyName', updates.companyName); changed.push('company name'); }
+        if (updates.email)       { fd.append('email', updates.email); changed.push('email'); }
+        if (updates.number)      { fd.append('number', updates.number); changed.push('phone number'); }
+        if (selectedImage)       { fd.append('image', selectedImage); changed.push('profile image'); }
 
-        if (profileUpdates.companyName) profileFormData.append('companyName', profileUpdates.companyName);
-        if (profileUpdates.email) profileFormData.append('email', profileUpdates.email);
-        if (profileUpdates.number) profileFormData.append('number', profileUpdates.number);
-        if (selectedImage) profileFormData.append('image', selectedImage);
-
-        const { data: profileResult } = await api.put<{
-          success: boolean;
-          message?: string;
-          user: {
-            companyName: string;
-            email: string;
-            number: number;
-            image?: string;
-          };
-        }>('/api/auth/update-profile', profileFormData);
-
-        if (profileResult.success) {
-          profileUpdateSuccess = true;
-
-          const userStr = localStorage.getItem('user');
-          if (userStr) {
-            const user = JSON.parse(userStr);
-            const updatedUser = {
-              ...user,
-              companyName: profileResult.user.companyName,
-              email: profileResult.user.email,
-              number: String(profileResult.user.number),
-              image: profileResult.user.image,
-            };
-            localStorage.setItem('user', JSON.stringify(updatedUser));
-          }
-
-          setOriginalData({
-            companyName: profileResult.user.companyName,
-            email: profileResult.user.email,
-            number: String(profileResult.user.number),
-            image: profileResult.user.image,
-          });
-
-          setFormData({
-            companyName: profileResult.user.companyName,
-            email: profileResult.user.email,
-            number: String(profileResult.user.number),
-            image: profileResult.user.image,
-          });
-
-          if (profileResult.user.image) {
-            setPreviewUrl(profileResult.user.image);
-          }
-
+        const { data: r } = await api.put('/api/auth/update-profile', fd);
+        if (r.success) {
+          profileOk = true;
+          const u = JSON.parse(localStorage.getItem('user') || '{}');
+          localStorage.setItem('user', JSON.stringify({ ...u, companyName: r.user.companyName, email: r.user.email, number: String(r.user.number), image: r.user.image }));
+          const nd = { companyName: r.user.companyName, email: r.user.email, number: String(r.user.number), image: r.user.image };
+          setOriginalData(nd); setFormData(nd);
+          if (r.user.image) setPreviewUrl(r.user.image);
           setSelectedImage(null);
-        } else {
-          setError(profileResult.message || 'Failed to update profile');
-          setLoading(false);
-          return;
-        }
+        } else { setError(r.message || 'Profile update failed'); setLoading(false); return; }
       }
 
-      if (hasPasswordUpdate) {
-        const { data: passwordResult } = await api.put<{
-          success: boolean;
-          message?: string;
-        }>('/api/user/change-own-password', {
-          newPassword: passwordData.newPassword,
-          confirmPassword: passwordData.confirmPassword
-        });
-
-        if (passwordResult.success) {
-          passwordUpdateSuccess = true;
-          setPasswordData({ newPassword: '', confirmPassword: '' });
-        } else {
-          setError(passwordResult.message || 'Failed to change password');
-          setLoading(false);
-          return;
-        }
+      if (hasPwd) {
+        const { data: r } = await api.put('/api/user/change-own-password', { newPassword: passwordData.newPassword, confirmPassword: passwordData.confirmPassword });
+        if (r.success) { pwdOk = true; setPasswordData({ newPassword: '', confirmPassword: '' }); }
+        else { setError(r.message || 'Password change failed'); setLoading(false); return; }
       }
 
-      const changedFields = [];
-      if (profileUpdates.companyName) changedFields.push('company name');
-      if (profileUpdates.email) changedFields.push('email');
-      if (profileUpdates.number) changedFields.push('phone number');
-      if (selectedImage) changedFields.push('profile image');
-
-      if (profileUpdateSuccess && passwordUpdateSuccess) {
-        setSuccess(`${changedFields.join(', ')} and password updated successfully!`);
-      } else if (profileUpdateSuccess) {
-        setSuccess(`${changedFields.join(', ')} updated successfully!`);
-      } else if (passwordUpdateSuccess) {
-        setSuccess('Password changed successfully!');
-      }
+      if (profileOk && pwdOk) setSuccess(`${changed.join(', ')} and password updated!`);
+      else if (profileOk) setSuccess(`${changed.join(', ')} updated!`);
+      else if (pwdOk) setSuccess('Password changed successfully!');
 
       window.scrollTo({ top: 0, behavior: 'smooth' });
       setTimeout(() => setSuccess(''), 5000);
-
     } catch (err) {
-      if (axios.isAxiosError(err) && err.response?.data && typeof err.response.data === 'object' && 'message' in err.response.data) {
-        setError(String((err.response.data as { message?: string }).message));
-      } else {
-        setError('Network error. Please try again.');
-      }
-      console.error('Update error:', err);
-    } finally {
-      setLoading(false);
-    }
+      if (axios.isAxiosError(err)) setError(String((err.response?.data as { message?: string })?.message ?? 'Network error.'));
+      else setError('Network error.');
+    } finally { setLoading(false); }
   };
 
-  if (fetchLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen p-4">
-        <div className="p-6 sm:p-8 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-          <p className="text-base sm:text-xl font-semibold text-black">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4 sm:space-y-6 max-w-6xl mx-auto px-3 sm:px-4 lg:px-6">
-      
-      {/* Page Header - Mobile Optimized */}
-      <div className="p-4 sm:p-5 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-black">Update Profile</h2>
-        <p className="text-xs sm:text-sm text-gray-600 mt-1">Update your profile information, image, and change password</p>
-      </div>
-
-      {/* Success Message - Mobile Optimized */}
-      {success && (
-        <div className="p-3 sm:p-4 bg-green-500/30 backdrop-blur-md rounded-lg sm:rounded-xl border border-white/50 shadow-lg animate-fade-in">
-          <p className="text-black font-semibold text-sm sm:text-base">{success}</p>
-        </div>
-      )}
-
-      {/* Error Message - Mobile Optimized */}
-      {error && (
-        <div className="p-3 sm:p-4 bg-red-100/60 backdrop-blur-md rounded-lg sm:rounded-xl border border-red-300 shadow-lg animate-fade-in">
-          <p className="text-red-700 font-semibold text-sm sm:text-base">{error}</p>
-        </div>
-      )}
-
-      {/* Main Form */}
-      <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-        
-        {/* Profile Information Section */}
-        <div className="p-4 sm:p-5 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-          <h3 className="text-base sm:text-lg md:text-xl font-bold text-black mb-3 sm:mb-4">Profile Information</h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-            
-            {/* Company Name */}
-            <div>
-              <label htmlFor="companyName" className="block text-xs sm:text-sm font-bold text-black mb-2 uppercase">
-                Company Name
-              </label>
-              <input
-                type="text"
-                id="companyName"
-                name="companyName"
-                value={formData.companyName}
-                onChange={handleInputChange}
-                placeholder={`Current: ${originalData.companyName || 'Not set'}`}
-                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-sm sm:text-base text-black placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all"
-                disabled={loading}
-              />
-            </div>
-
-            {/* Email Address */}
-            <div>
-              <label htmlFor="email" className="block text-xs sm:text-sm font-bold text-black mb-2 uppercase">
-                Email Address
-              </label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                placeholder={`Current: ${originalData.email || 'Not set'}`}
-                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-sm sm:text-base text-black placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all"
-                disabled={loading}
-              />
-            </div>
-
-            {/* Business Contact */}
-            <div>
-              <label htmlFor="number" className="block text-xs sm:text-sm font-bold text-black mb-2 uppercase">
-                Business Contact
-              </label>
-              <div className="flex gap-2">
-                <div className="px-2 sm:px-3 md:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-black font-semibold text-sm sm:text-base flex items-center">
-                  +91
-                </div>
-                <input
-                  type="tel"
-                  id="number"
-                  name="number"
-                  value={formData.number}
-                  onChange={handleInputChange}
-                  placeholder={`Current: ${originalData.number || 'Not set'}`}
-                  maxLength={10}
-                  className="flex-1 px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-sm sm:text-base text-black placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all"
-                  disabled={loading}
-                />
-              </div>
-              <p className="text-[10px] sm:text-xs text-black opacity-60 mt-2">* Enter 10-digit mobile number without country code</p>
-            </div>
-
-            {/* Business Logo - Mobile Optimized */}
-            <div>
-              <label htmlFor="image" className="block text-xs sm:text-sm font-bold text-black mb-2 uppercase">
-                Business Logo
-              </label>
-              
-              {previewUrl && (
-                <div className="mb-3 sm:mb-4">
-                  <img 
-                    src={previewUrl} 
-                    alt="Business Logo Preview" 
-                    className="w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 object-cover rounded-lg sm:rounded-xl border-2 border-green-500 shadow-lg"
-                  />
-                </div>
-              )}
-
-              <input
-                type="file"
-                id="image"
-                accept="image/*"
-                onChange={handleFileChange}
-                disabled={loading}
-                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-black text-xs sm:text-sm file:mr-2 sm:file:mr-4 file:py-1.5 sm:file:py-2 file:px-3 sm:file:px-4 file:rounded-lg file:border-0 file:bg-green-500 file:text-white file:text-xs sm:file:text-sm file:font-semibold file:cursor-pointer hover:file:bg-green-600 transition-all disabled:opacity-50"
-              />
-              <p className="text-[10px] sm:text-xs text-black opacity-60 mt-2">* Maximum file size: 5MB. Supported formats: JPG, PNG, GIF, WebP</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Change Password Section */}
-        <div className="p-4 sm:p-5 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-          <h3 className="text-base sm:text-lg md:text-xl font-bold text-black mb-2">Change Password</h3>
-          <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">Leave blank if you don't want to change your password</p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-            
-            {/* New Password */}
-            <div>
-              <label htmlFor="newPassword" className="block text-xs sm:text-sm font-bold text-black mb-2 uppercase">
-                New Password
-              </label>
-              <input
-                type="password"
-                id="newPassword"
-                name="newPassword"
-                value={passwordData.newPassword}
-                onChange={handlePasswordChange}
-                placeholder="Enter new password (min 5 characters)"
-                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-sm sm:text-base text-black placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                disabled={loading}
-              />
-            </div>
-
-            {/* Confirm Password */}
-            <div>
-              <label htmlFor="confirmPassword" className="block text-xs sm:text-sm font-bold text-black mb-2 uppercase">
-                Confirm New Password
-              </label>
-              <input
-                type="password"
-                id="confirmPassword"
-                name="confirmPassword"
-                value={passwordData.confirmPassword}
-                onChange={handlePasswordChange}
-                placeholder="Confirm new password"
-                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-sm sm:text-base text-black placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                disabled={loading}
-              />
-            </div>
-          </div>
-
-          {/* Password Requirements - Mobile Optimized */}
-          <div className="mt-3 sm:mt-4 p-2.5 sm:p-3 bg-yellow-50 rounded-lg border border-yellow-300">
-            <p className="text-[10px] sm:text-xs text-gray-700">
-              <span className="font-bold">Password Requirements:</span><br />
-              • Minimum 5 characters<br />
-              • Both passwords must match
-            </p>
-          </div>
-        </div>
-
-        {/* Submit Button - Full Width on Mobile */}
-        <div className="flex justify-center pt-2 sm:pt-4">
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full sm:w-auto px-6 sm:px-8 md:px-12 py-2.5 sm:py-3 md:py-4 bg-green-500/80 backdrop-blur-md text-white font-bold text-sm sm:text-base md:text-lg rounded-lg sm:rounded-xl border border-white/30 shadow-lg hover:bg-green-600/80 hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
-          >
-            {loading ? 'Saving Changes...' : 'Save Changes'}
-          </button>
-        </div>
-      </form>
+  if (fetchLoading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400, flexDirection: 'column', gap: 12 }}>
+      <div style={{ width: 36, height: 36, borderRadius: '50%', border: `3px solid ${D.border}`, borderTopColor: D.green, animation: 'spin 0.8s linear infinite' }} />
+      <p style={{ color: D.textMuted, fontSize: 13 }}>Loading profile…</p>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
-};
 
-export default ManageBusiness;
+  return (
+    <>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}} input[type=file]::file-selector-button{background:${D.green};color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;margin-right:10px}`}</style>
+
+      <div style={{ maxWidth: 680, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+        {/* Header */}
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: D.text, margin: 0 }}>Manage Business</h1>
+          <p style={{ fontSize: 13, color: D.textMuted, marginTop: 4 }}>Update your profile information, logo, and password</p>
+        </div>
+
+        {/* Alerts */}
+        {success && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', background: D.greenDim, border: `1px solid ${D.greenBorder}`, borderRadius: 10 }}>
+            <CheckCircle size={16} style={{ color: D.greenLight, flexShrink: 0 }} />
+            <p style={{ fontSize: 13, color: D.greenLight, flex: 1 }}>{success}</p>
+            <button onClick={() => setSuccess('')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}><X size={14} style={{ color: D.greenLight }} /></button>
+          </div>
+        )}
+        {error && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', background: D.redDim, border: `1px solid ${D.redBorder}`, borderRadius: 10 }}>
+            <AlertCircle size={16} style={{ color: D.red, flexShrink: 0 }} />
+            <p style={{ fontSize: 13, color: D.red, flex: 1 }}>{error}</p>
+            <button onClick={() => setError('')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}><X size={14} style={{ color: D.red }} /></button>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Profile info */}
+          <SectionCard icon={<Building2 size={16} style={{ color: D.greenLight }} />} title="Profile Information">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <FInput label="Company Name" type="text" name="companyName" value={formData.companyName} onChange={handleInput} placeholder={`Current: ${originalData.companyName || 'Not set'}`} disabled={loading} />
+              <FInput label="Email Address" type="email" name="email" value={formData.email} onChange={handleInput} placeholder={`Current: ${originalData.email || 'Not set'}`} disabled={loading} />
+              <div>
+                <label style={{ fontSize: 11, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Business Contact</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ padding: '10px 12px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, fontSize: 13, color: D.textMuted, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Phone size={12} style={{ color: D.textSubtle }} /> +91
+                  </div>
+                  <input type="tel" name="number" value={formData.number} onChange={handleInput} maxLength={10} placeholder={`Current: ${originalData.number || 'Not set'}`} disabled={loading} style={inp} onFocus={FieldFocus} onBlur={FieldBlur} />
+                </div>
+                <p style={{ fontSize: 11, color: D.textSubtle, marginTop: 5 }}>10-digit number without country code</p>
+              </div>
+            </div>
+          </SectionCard>
+
+          {/* Logo */}
+          <SectionCard icon={<Camera size={16} style={{ color: D.blue }} />} title="Business Logo">
+            {previewUrl && (
+              <div style={{ marginBottom: 14 }}>
+                <img src={previewUrl} alt="Logo preview" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 10, border: `2px solid ${D.greenBorder}` }} />
+              </div>
+            )}
+            <input type="file" accept="image/*" onChange={handleFile} disabled={loading} style={{ ...inp, padding: '8px 12px', cursor: 'pointer' }} />
+            <p style={{ fontSize: 11, color: D.textSubtle, marginTop: 8 }}>Max 5MB · JPG, PNG, GIF, WebP</p>
+          </SectionCard>
+
+          {/* Password */}
+          <SectionCard icon={<Lock size={16} style={{ color: D.amber }} />} title="Change Password">
+            <p style={{ fontSize: 12, color: D.textSubtle, marginBottom: 14 }}>Leave blank if you don't want to change your password.</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div>
+                <label style={{ fontSize: 11, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>New Password</label>
+                <div style={{ position: 'relative' }}>
+                  <input type={showPwd ? 'text' : 'password'} name="newPassword" value={passwordData.newPassword} onChange={handlePwd} placeholder="Min 5 characters" disabled={loading} style={{ ...inp, paddingRight: 40 }} onFocus={FieldFocus} onBlur={FieldBlur} />
+                  <button type="button" onClick={() => setShowPwd(p => !p)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                    {showPwd ? <EyeOff size={14} style={{ color: D.textMuted }} /> : <Eye size={14} style={{ color: D.textMuted }} />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Confirm Password</label>
+                <div style={{ position: 'relative' }}>
+                  <input type={showConfirmPwd ? 'text' : 'password'} name="confirmPassword" value={passwordData.confirmPassword} onChange={handlePwd} placeholder="Repeat new password" disabled={loading} style={{ ...inp, paddingRight: 40 }} onFocus={FieldFocus} onBlur={FieldBlur} />
+                  <button type="button" onClick={() => setShowConfirmPwd(p => !p)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                    {showConfirmPwd ? <EyeOff size={14} style={{ color: D.textMuted }} /> : <Eye size={14} style={{ color: D.textMuted }} />}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div style={{ marginTop: 12, padding: '10px 12px', background: D.amberDim, border: `1px solid ${D.amber}33`, borderRadius: 8 }}>
+              <p style={{ fontSize: 11, color: D.textSubtle, lineHeight: 1.7 }}>
+                <span style={{ fontWeight: 700, color: D.amber }}>Requirements: </span>
+                Minimum 5 characters · Both fields must match
+              </p>
+            </div>
+          </SectionCard>
+
+          {/* Submit */}
+          <button type="submit" disabled={loading} style={{ padding: '11px 0', background: loading ? D.surface2 : D.green, color: loading ? D.textMuted : '#fff', fontWeight: 600, fontSize: 14, border: loading ? `1px solid ${D.border}` : 'none', borderRadius: 8, cursor: loading ? 'not-allowed' : 'pointer', transition: 'background 0.2s' }}>
+            {loading ? 'Saving changes…' : 'Save Changes'}
+          </button>
+        </form>
+      </div>
+    </>
+  );
+}

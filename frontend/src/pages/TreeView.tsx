@@ -1,266 +1,101 @@
-import { useState, useEffect, useCallback } from "react";
-import {
-  ChevronRight,
-  ChevronDown,
-  User,
-  Users,
-  ShieldCheck,
-  X,
-} from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import { ChevronRight, ChevronDown, User, Users, ShieldCheck, X } from "lucide-react";
 import { getUserRole } from "../utils/Auth";
 import { UserRole } from "../constants/Roles";
 import { api } from "../api/client";
 
-interface TreeNode {
-  id: string;
-  companyName: string;
-  email: string;
-  number: string;
-  role: string;
-  balance: number;
-  totalCampaigns: number;
-  status: string;
-  directResellers: number;
-  directUsers: number;
-  level: number;
-  children: TreeNode[];
-}
+const D = {
+  surface: '#111113', surface2: '#18181b', surface3: '#1c1c1f', border: '#27272a', border2: '#3f3f46',
+  text: '#f4f4f5', textMuted: '#71717a', textSubtle: '#52525b',
+  green: '#16a34a', greenLight: '#4ade80', greenDim: 'rgba(22,163,74,0.12)', greenBorder: 'rgba(22,163,74,0.3)',
+  blue: '#3b82f6', blueDim: 'rgba(59,130,246,0.12)',
+  amber: '#fbbf24', amberDim: 'rgba(251,191,36,0.1)',
+  red: '#f87171', redDim: 'rgba(248,113,113,0.1)', redBorder: 'rgba(248,113,113,0.3)',
+};
 
-interface TreeData {
-  totalCount: number;
-  tree: TreeNode;
-}
+interface TreeNode { id: string; companyName: string; email: string; number: string; role: string; balance: number; totalCampaigns: number; status: string; directResellers: number; directUsers: number; level: number; children: TreeNode[]; }
+interface TreeData { totalCount: number; tree: TreeNode; }
 
-const TreeView = () => {
+const roleStyle = (role: string) => {
+  if (role === 'admin')    return { color: D.blue,      dim: D.blueDim,   Icon: ShieldCheck };
+  if (role === 'reseller') return { color: D.greenLight, dim: D.greenDim,  Icon: Users };
+  return                           { color: D.amber,     dim: D.amberDim,  Icon: User };
+};
+
+const StatusDot = ({ s }: { s: string }) => (
+  <span style={{ width: 7, height: 7, borderRadius: '50%', background: s === 'active' ? D.greenLight : D.red, display: 'inline-block', flexShrink: 0 }} />
+);
+
+export default function TreeView() {
   const [treeData, setTreeData] = useState<TreeData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
-  const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [error, setError] = useState('');
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<TreeNode | null>(null);
 
   const userRole = getUserRole();
-  const isAdminOrReseller =
-    userRole === UserRole.ADMIN || userRole === UserRole.RESELLER;
+  const isAdminOrReseller = userRole === UserRole.ADMIN || userRole === UserRole.RESELLER;
 
-  // Fetch tree data
-  const fetchTreeData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const { data: result } = await api.get<{
-        success: boolean;
-        message?: string;
-        data: TreeData;
-      }>("/api/dashboard/tree-view");
-
-      if (result.success) {
-        setTreeData(result.data);
-        // Expand root node by default
-        if (result.data.tree) {
-          setExpandedNodes(new Set([result.data.tree.id]));
-        }
-      } else {
-        setError(result.message || "Failed to load tree data");
-      }
-    } catch (err) {
-      setError("Network error. Please try again.");
-      console.error("Tree fetch error:", err);
-    } finally {
-      setLoading(false);
-    }
+  const fetchData = useCallback(async () => {
+    try { setLoading(true); const { data: r } = await api.get('/api/dashboard/tree-view'); if (r.success) { setTreeData(r.data); if (r.data.tree) setExpanded(new Set([r.data.tree.id])); } else setError(r.message || 'Failed'); } catch { setError('Network error.'); } finally { setLoading(false); }
   }, []);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-  useEffect(() => {
-    fetchTreeData();
-  }, [fetchTreeData]);
+  const toggle = (id: string) => setExpanded(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
 
-  // Toggle node expansion
-  const toggleNode = (nodeId: string) => {
-    setExpandedNodes((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(nodeId)) {
-        newSet.delete(nodeId);
-      } else {
-        newSet.add(nodeId);
-      }
-      return newSet;
-    });
-  };
-
-  // Get role icon and color
-  const getRoleStyle = (role: string) => {
-    const styles = {
-      admin: {
-        icon: ShieldCheck,
-        color: "text-blue-600",
-        bgColor: "bg-blue-500/20",
-        borderColor: "border-blue-500",
-      },
-      reseller: {
-        icon: Users,
-        color: "text-green-600",
-        bgColor: "bg-green-500/20",
-        borderColor: "border-green-500",
-      },
-      user: {
-        icon: User,
-        color: "text-orange-600",
-        bgColor: "bg-orange-500/20",
-        borderColor: "border-orange-500",
-      },
-    };
-    return styles[role as keyof typeof styles] || styles.user;
-  };
-
-  // Get status badge
-  const getStatusBadge = (status: string) => {
-    const badges = {
-      active: "bg-green-500",
-      inactive: "bg-red-500",
-      deleted: "bg-gray-500",
-    };
-    return badges[status as keyof typeof badges] || "bg-gray-500";
-  };
-
-  // Open details modal
-  const openDetailsModal = (node: TreeNode) => {
-    setSelectedNode(node);
-    setShowDetailsModal(true);
-  };
-
-  // Render tree node recursively - Mobile Optimized
-  // Render tree node recursively - COMPACT VERSION
-  const renderTreeNode = (node: TreeNode, depth: number = 0) => {
-    const isExpanded = expandedNodes.has(node.id);
-    const hasChildren = node.children && node.children.length > 0;
-    const roleStyle = getRoleStyle(node.role);
-    const RoleIcon = roleStyle.icon;
-
-    // Separate users and resellers
-    const userChildren =
-      node.children?.filter((child) => child.role === "user") || [];
-    const resellerChildren =
-      node.children?.filter((child) => child.role === "reseller") || [];
-
-    // Indentation multiplier - SMALLER
-    const indentClass =
-      depth === 0
-        ? ""
-        : depth === 1
-        ? "ml-3 sm:ml-4"
-        : depth === 2
-        ? "ml-6 sm:ml-8"
-        : "ml-9 sm:ml-12";
+  const renderNode = (node: TreeNode, depth = 0): React.ReactElement => {
+    const isExp = expanded.has(node.id);
+    const hasKids = node.children?.length > 0;
+    const rs = roleStyle(node.role);
+    const users = node.children?.filter(c => c.role === 'user') ?? [];
+    const resellers = node.children?.filter(c => c.role === 'reseller') ?? [];
+    const indentPx = depth * 20;
 
     return (
-      <div key={node.id} className="relative">
-        {/* Main Node Card - COMPACT */}
-        <div className={`flex items-start gap-1.5 sm:gap-2 ${indentClass}`}>
-          {/* Tree Branch Lines */}
-          {depth > 0 && (
-            <div className="relative flex items-center">
-              <div className="absolute -left-1.5 sm:-left-2 top-2.5 sm:top-3 w-1.5 sm:w-2 h-px bg-gray-400"></div>
-            </div>
-          )}
-
-          {/* Expand/Collapse Button - SMALL */}
-          {hasChildren ? (
-            <button
-              onClick={() => toggleNode(node.id)}
-              className="z-10 p-1 hover:bg-gray-200 rounded-lg transition-all flex-shrink-0"
-            >
-              {isExpanded ? (
-                <ChevronDown className="w-4 h-4 text-black" />
-              ) : (
-                <ChevronRight className="w-4 h-4 text-black" />
-              )}
-            </button>
-          ) : (
-            <div className="w-5 flex-shrink-0"></div>
-          )}
-
-          {/* Node Card - COMPACT */}
+      <div key={node.id}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingLeft: indentPx, marginBottom: 6 }}>
+          {depth > 0 && <div style={{ width: 14, height: 1, background: D.border2, flexShrink: 0 }} />}
+          {hasKids
+            ? <button onClick={() => toggle(node.id)} style={{ width: 20, height: 20, borderRadius: 5, background: D.surface2, border: `1px solid ${D.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                {isExp ? <ChevronDown size={11} style={{ color: D.textMuted }} /> : <ChevronRight size={11} style={{ color: D.textMuted }} />}
+              </button>
+            : <div style={{ width: 20 }} />}
           <div
-            onClick={() => openDetailsModal(node)}
-            className={`flex-1 flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 p-2 sm:p-2.5 ${roleStyle.bgColor} backdrop-blur-lg rounded-lg sm:rounded-xl border sm:border-2 ${roleStyle.borderColor} shadow-md hover:shadow-lg transition-all cursor-pointer group`}
+            onClick={() => setSelected(node)}
+            style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, cursor: 'pointer', transition: 'border-color 0.15s' }}
+            onMouseEnter={e => (e.currentTarget.style.borderColor = rs.color + '88')}
+            onMouseLeave={e => (e.currentTarget.style.borderColor = D.border)}
           >
-            {/* Role Icon + Basic Info */}
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <div
-                className={`p-1 sm:p-1.5 ${roleStyle.bgColor} rounded-lg flex-shrink-0`}
-              >
-                <RoleIcon
-                  className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${roleStyle.color}`}
-                />
+            <div style={{ width: 28, height: 28, borderRadius: 6, background: rs.dim, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <rs.Icon size={13} style={{ color: rs.color }} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: D.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>{node.companyName}</p>
+                <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.06em', color: rs.color, background: rs.dim, flexShrink: 0 }}>{node.role}</span>
+                <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 20, background: D.surface, border: `1px solid ${D.border}`, color: D.textSubtle, flexShrink: 0 }}>L{node.level}</span>
               </div>
-
-              {/* Info */}
-              <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
-                  <p className="font-bold text-black text-xs sm:text-sm truncate">
-                    {node.companyName}
-                  </p>
-                  <span
-                    className={`px-1.5 py-0.5 text-[9px] sm:text-xs font-bold rounded-full ${roleStyle.color} ${roleStyle.bgColor} uppercase`}
-                  >
-                    {node.role}
-                  </span>
-                  {node.level <= 3 && (
-                    <span className="px-1.5 py-0.5 text-[9px] sm:text-xs font-bold rounded-full bg-gray-200 text-gray-700">
-                      L{node.level}
-                    </span>
-                  )}
-                </div>
-                <p className="text-[10px] sm:text-xs text-gray-600 font-semibold mt-0.5">
-                  ₹{node.balance}
-                  {hasChildren && (
-                    <span className="ml-1.5 sm:ml-2 text-gray-500">
-                      ({node.children.length})
-                    </span>
-                  )}
-                </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                <StatusDot s={node.status} />
+                <span style={{ fontSize: 11, color: D.textSubtle }}>₹{node.balance}</span>
+                {hasKids && <span style={{ fontSize: 11, color: D.textSubtle }}>· {node.children.length} children</span>}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Children - NESTED & COMPACT */}
-        {hasChildren && isExpanded && (
-          <div
-            className={`mt-1.5 sm:mt-2 space-y-1.5 sm:space-y-2 relative ${indentClass}`}
-          >
-            {/* Vertical line */}
-            <div className="absolute -left-1.5 sm:-left-2 top-0 bottom-0 w-px bg-gray-300"></div>
-
-            {/* Users Section */}
-            {userChildren.length > 0 && (
-              <div>
-                <div className="ml-1.5 sm:ml-2 mb-1.5 px-2 sm:px-2.5 py-0.5 bg-orange-500/20 rounded-lg border border-orange-300 inline-block">
-                  <p className="text-[10px] sm:text-xs font-bold text-orange-700 uppercase">
-                    Users ({userChildren.length})
-                  </p>
-                </div>
-                <div className="space-y-1 sm:space-y-1.5">
-                  {userChildren.map((child) =>
-                    renderTreeNode(child, depth + 1)
-                  )}
-                </div>
+        {hasKids && isExp && (
+          <div style={{ paddingLeft: indentPx + 26, borderLeft: `1px solid ${D.border}`, marginLeft: indentPx + 9, marginBottom: 4 }}>
+            {users.length > 0 && (
+              <div style={{ marginBottom: 6 }}>
+                <div style={{ display: 'inline-block', fontSize: 9, fontWeight: 700, color: D.amber, background: D.amberDim, padding: '2px 8px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, marginLeft: -2 }}>Users ({users.length})</div>
+                {users.map(c => renderNode(c, depth + 1))}
               </div>
             )}
-
-            {/* Resellers Section */}
-            {resellerChildren.length > 0 && (
+            {resellers.length > 0 && (
               <div>
-                <div className="ml-1.5 sm:ml-2 mb-1.5 px-2 sm:px-2.5 py-0.5 bg-green-500/20 rounded-lg border border-green-300 inline-block">
-                  <p className="text-[10px] sm:text-xs font-bold text-green-700 uppercase">
-                    Resellers ({resellerChildren.length})
-                  </p>
-                </div>
-                <div className="space-y-1 sm:space-y-1.5">
-                  {resellerChildren.map((child) =>
-                    renderTreeNode(child, depth + 1)
-                  )}
-                </div>
+                <div style={{ display: 'inline-block', fontSize: 9, fontWeight: 700, color: D.greenLight, background: D.greenDim, padding: '2px 8px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, marginLeft: -2 }}>Resellers ({resellers.length})</div>
+                {resellers.map(c => renderNode(c, depth + 1))}
               </div>
             )}
           </div>
@@ -269,299 +104,113 @@ const TreeView = () => {
     );
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen p-4">
-        <div className="p-6 sm:p-8 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-          <p className="text-base sm:text-xl font-semibold text-black">
-            Loading Network Tree...
-          </p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400, flexDirection: 'column', gap: 12 }}>
+      <div style={{ width: 36, height: 36, borderRadius: '50%', border: `3px solid ${D.border}`, borderTopColor: D.green, animation: 'spin 0.8s linear infinite' }} />
+      <p style={{ color: D.textMuted, fontSize: 13 }}>Loading network…</p>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
 
-  if (!isAdminOrReseller) {
-    return (
-      <div className="p-3 sm:p-6">
-        <div className="p-3 sm:p-4 bg-red-100/60 backdrop-blur-md rounded-lg sm:rounded-xl border border-red-300 shadow-lg">
-          <p className="text-red-700 font-semibold text-sm sm:text-base">
-            Access Denied. Only Admin and Reseller can access this page.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  if (!isAdminOrReseller) return (
+    <div style={{ padding: '10px 14px', background: D.redDim, border: `1px solid ${D.redBorder}`, borderRadius: 8 }}>
+      <p style={{ color: D.red, fontSize: 13 }}>Access Denied. Only Admin and Reseller can view this page.</p>
+    </div>
+  );
 
-  if (error) {
-    return (
-      <div className="p-3 sm:p-6">
-        <div className="p-3 sm:p-4 bg-red-100/60 backdrop-blur-md rounded-lg sm:rounded-xl border border-red-300 shadow-lg">
-          <p className="text-red-700 font-semibold text-sm sm:text-base">
-            {error}
-          </p>
-        </div>
-      </div>
-    );
-  }
+  if (error) return (
+    <div style={{ padding: '10px 14px', background: D.redDim, border: `1px solid ${D.redBorder}`, borderRadius: 8 }}>
+      <p style={{ color: D.red, fontSize: 13 }}>{error}</p>
+    </div>
+  );
 
   if (!treeData) return null;
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Page Header with Summary - Mobile Optimized */}
-      <div className="p-4 sm:p-5 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+    <>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
           <div>
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-black text-center">
-              Network Tree View
-            </h2>
-            <p className="text-xs sm:text-sm text-gray-600 mt-1 text-center">
-              Your complete network hierarchy
-            </p>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: D.text, margin: 0 }}>Network Tree</h1>
+            <p style={{ fontSize: 13, color: D.textMuted, marginTop: 4 }}>Your complete network hierarchy</p>
           </div>
+          <div style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 10, padding: '10px 18px', textAlign: 'center' }}>
+            <p style={{ fontSize: 24, fontWeight: 700, color: D.text }}>{treeData.totalCount}</p>
+            <p style={{ fontSize: 10, color: D.textSubtle, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 2 }}>Total Members</p>
+          </div>
+        </div>
 
-          {/* Total Count Card */}
-          <div className="p-3 sm:p-4 bg-gradient-to-r from-blue-500/20 to-green-500/20 backdrop-blur-md rounded-lg sm:rounded-xl border sm:border-2 border-white/60 shadow-lg">
-            <p className="text-xs sm:text-sm font-bold text-black uppercase opacity-70 text-center">
-              Total Network
-            </p>
-            <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-black mt-0.5 sm:mt-1 text-center">
-              {treeData.totalCount}
-            </p>
-            <p className="text-[10px] sm:text-xs text-gray-600 mt-0.5 sm:mt-1 text-center">
-              Total members in your network
-            </p>
+        {/* Legend */}
+        <div style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 10, padding: '10px 16px', display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+          <p style={{ fontSize: 10, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', alignSelf: 'center' }}>Legend:</p>
+          {[['Admin', D.blue, ShieldCheck], ['Reseller', D.greenLight, Users], ['User', D.amber, User]].map(([label, color, Icon]) => (
+            <div key={String(label)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {React.createElement(Icon as React.ComponentType<{size: number; style: React.CSSProperties}>, { size: 14, style: { color: String(color) } })}
+              <span style={{ fontSize: 12, color: D.textMuted, fontWeight: 500 }}>{String(label)}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Tree */}
+        <div style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 12, padding: '16px', overflowX: 'auto' }}>
+          <div style={{ minWidth: 280 }}>
+            {renderNode(treeData.tree)}
           </div>
         </div>
       </div>
 
-      {/* Legend - Mobile Optimized */}
-      <div className="p-3 sm:p-4 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-        <p className="text-xs sm:text-sm font-bold text-black mb-2 sm:mb-3">
-          Legend:
-        </p>
-        <div className="flex flex-row flex-wrap gap-2 sm:gap-4 justify-start">
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 flex-shrink-0" />
-            <span className="text-xs sm:text-sm font-semibold text-black">
-              Admin
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <Users className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 flex-shrink-0" />
-            <span className="text-xs sm:text-sm font-semibold text-black">
-              Reseller
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <User className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600 flex-shrink-0" />
-            <span className="text-xs sm:text-sm font-semibold text-black">
-              User
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Tree Structure - Mobile Optimized */}
-      <div className="p-3 sm:p-4 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl overflow-x-auto">
-        <div className="space-y-1.5 sm:space-y-2 min-w-[280px]">
-          {renderTreeNode(treeData.tree)}
-        </div>
-      </div>
-
-      {/* Details Modal - Mobile Optimized */}
-      {showDetailsModal && selectedNode && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
-          <div className="bg-white/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border sm:border-2 border-green-500 shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-5 md:p-6">
-              <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-black">
-                  Member Details
-                </h3>
-                <button
-                  onClick={() => {
-                    setShowDetailsModal(false);
-                    setSelectedNode(null);
-                  }}
-                  className="p-1.5 sm:p-2 hover:bg-gray-200 rounded-lg transition-all flex-shrink-0"
-                >
-                  <X className="w-5 h-5 sm:w-6 sm:h-6 text-black" />
-                </button>
+      {/* Details modal */}
+      {selected && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }} onClick={() => setSelected(null)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 14, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${D.border}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {(() => { const rs = roleStyle(selected.role); return <div style={{ width: 36, height: 36, borderRadius: 8, background: rs.dim, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><rs.Icon size={18} style={{ color: rs.color }} /></div>; })()}
+                <div>
+                  <p style={{ fontSize: 15, fontWeight: 700, color: D.text }}>{selected.companyName}</p>
+                  <p style={{ fontSize: 11, color: D.textMuted, textTransform: 'uppercase' }}>{selected.role} · Level {selected.level}</p>
+                </div>
               </div>
-
-              <div className="space-y-3 sm:space-y-4">
-                {/* Role Badge */}
-                <div className="flex items-center gap-2 sm:gap-3">
-                  {(() => {
-                    const roleStyle = getRoleStyle(selectedNode.role);
-                    const RoleIcon = roleStyle.icon;
-                    return (
-                      <>
-                        <div
-                          className={`p-2 sm:p-3 ${roleStyle.bgColor} rounded-lg sm:rounded-xl flex-shrink-0`}
-                        >
-                          <RoleIcon
-                            className={`w-6 h-6 sm:w-8 sm:h-8 ${roleStyle.color}`}
-                          />
-                        </div>
-                        <div>
-                          <p className="text-xs sm:text-sm font-bold text-gray-600">
-                            Role
-                          </p>
-                          <p
-                            className={`text-base sm:text-lg md:text-xl font-bold ${roleStyle.color} uppercase`}
-                          >
-                            {selectedNode.role}
-                          </p>
-                        </div>
-                      </>
-                    );
-                  })()}
+              <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={18} style={{ color: D.textMuted }} /></button>
+            </div>
+            <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* Info grid */}
+              <div style={{ background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 10, padding: 14 }}>
+                <p style={{ fontSize: 10, fontWeight: 700, color: D.textSubtle, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 12 }}>Member Details</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  {[['Email', selected.email], ['Phone', selected.number]].map(([l, v]) => (
+                    <div key={l} style={{ gridColumn: '1/-1' }}><p style={{ fontSize: 10, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', marginBottom: 3 }}>{l}</p><p style={{ fontSize: 12, color: D.text, wordBreak: 'break-all' }}>{v}</p></div>
+                  ))}
+                  {[['Balance', `₹${selected.balance}`], ['Campaigns', String(selected.totalCampaigns)], ['Resellers', String(selected.directResellers)], ['Direct Users', String(selected.directUsers)]].map(([l, v]) => (
+                    <div key={l}><p style={{ fontSize: 10, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', marginBottom: 3 }}>{l}</p>
+                      <p style={{ fontSize: 14, fontWeight: 700, color: l === 'Balance' ? D.greenLight : D.text }}>{v}</p>
+                    </div>
+                  ))}
                 </div>
-
-                {/* Details Grid - Mobile Responsive */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-50 rounded-lg sm:rounded-xl">
-                  <div className="col-span-1 sm:col-span-2">
-                    <span className="text-xs sm:text-sm font-bold text-gray-600">
-                      User ID:
-                    </span>
-                    <p className="text-black font-semibold break-all text-xs sm:text-sm">
-                      {selectedNode.id}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-xs sm:text-sm font-bold text-gray-600">
-                      Company Name:
-                    </span>
-                    <p className="text-black font-semibold text-sm sm:text-base">
-                      {selectedNode.companyName}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-xs sm:text-sm font-bold text-gray-600">
-                      Phone Number:
-                    </span>
-                    <p className="text-black font-semibold text-sm sm:text-base">
-                      {selectedNode.number}
-                    </p>
-                  </div>
-                  <div className="col-span-1 sm:col-span-2">
-                    <span className="text-xs sm:text-sm font-bold text-gray-600">
-                      Email:
-                    </span>
-                    <p className="text-black font-semibold break-all text-xs sm:text-sm">
-                      {selectedNode.email}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-xs sm:text-sm font-bold text-gray-600">
-                      Balance:
-                    </span>
-                    <p className="text-green-600 font-bold text-lg sm:text-xl">
-                      ₹{selectedNode.balance}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-xs sm:text-sm font-bold text-gray-600">
-                      Total Campaigns:
-                    </span>
-                    <p className="text-black font-semibold text-sm sm:text-base">
-                      {selectedNode.totalCampaigns}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-xs sm:text-sm font-bold text-gray-600">
-                      Status:
-                    </span>
-                    <p>
-                      <span
-                        className={`px-2 sm:px-3 py-0.5 sm:py-1 text-white text-xs font-bold rounded-full ${getStatusBadge(
-                          selectedNode.status
-                        )}`}
-                      >
-                        {selectedNode.status.toUpperCase()}
-                      </span>
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-xs sm:text-sm font-bold text-gray-600">
-                      Level:
-                    </span>
-                    <p className="text-black font-semibold text-sm sm:text-base">
-                      Level {selectedNode.level}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-xs sm:text-sm font-bold text-gray-600">
-                      Direct Resellers:
-                    </span>
-                    <p className="text-green-600 font-bold text-base sm:text-lg">
-                      {selectedNode.directResellers}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-xs sm:text-sm font-bold text-gray-600">
-                      Direct Users:
-                    </span>
-                    <p className="text-orange-600 font-bold text-base sm:text-lg">
-                      {selectedNode.directUsers}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Network Summary - Mobile Grid */}
-                <div className="p-3 sm:p-4 bg-blue-50 rounded-lg sm:rounded-xl border sm:border-2 border-blue-300">
-                  <p className="text-xs sm:text-sm font-bold text-blue-700 mb-2">
-                    Network Summary:
-                  </p>
-                  <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                    <div className="text-center">
-                      <p className="text-xl sm:text-2xl font-bold text-blue-600">
-                        {selectedNode.directResellers}
-                      </p>
-                      <p className="text-[10px] sm:text-xs text-gray-600">
-                        Resellers
-                      </p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xl sm:text-2xl font-bold text-orange-600">
-                        {selectedNode.directUsers}
-                      </p>
-                      <p className="text-[10px] sm:text-xs text-gray-600">
-                        Users
-                      </p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xl sm:text-2xl font-bold text-green-600">
-                        {selectedNode.children.length}
-                      </p>
-                      <p className="text-[10px] sm:text-xs text-gray-600">
-                        Total Direct
-                      </p>
-                    </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
+                  <p style={{ fontSize: 10, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase' }}>Status</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <StatusDot s={selected.status} />
+                    <span style={{ fontSize: 12, fontWeight: 600, color: selected.status === 'active' ? D.greenLight : D.red, textTransform: 'uppercase' }}>{selected.status}</span>
                   </div>
                 </div>
               </div>
-
-              {/* Close Button - Full Width on Mobile */}
-              <div className="mt-4 sm:mt-6">
-                <button
-                  onClick={() => {
-                    setShowDetailsModal(false);
-                    setSelectedNode(null);
-                  }}
-                  className="w-full px-4 sm:px-6 py-2.5 sm:py-3 bg-green-500 text-white text-sm sm:text-base font-bold rounded-lg sm:rounded-xl hover:bg-green-600 transition-all active:scale-95"
-                >
-                  Close
-                </button>
+              {/* Stats */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+                {[['Resellers', selected.directResellers, D.greenLight], ['Users', selected.directUsers, D.amber], ['Total Direct', selected.children.length, D.blue]].map(([l, v, c]) => (
+                  <div key={String(l)} style={{ background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, padding: '12px 10px', textAlign: 'center' }}>
+                    <p style={{ fontSize: 20, fontWeight: 700, color: String(c) }}>{v}</p>
+                    <p style={{ fontSize: 10, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', marginTop: 4 }}>{l}</p>
+                  </div>
+                ))}
               </div>
+              <button onClick={() => setSelected(null)} style={{ width: '100%', padding: '9px 0', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, cursor: 'pointer', color: D.textMuted, fontSize: 13, fontWeight: 600 }}>Close</button>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
-};
-
-export default TreeView;
+}

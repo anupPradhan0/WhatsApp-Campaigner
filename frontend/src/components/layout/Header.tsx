@@ -23,21 +23,13 @@ const Header = ({ onToggleSidebar, isSidebarOpen }: HeaderProps) => {
   useEffect(() => {
     const userStr = localStorage.getItem('user');
     if (userStr) {
-      try {
-        const user = JSON.parse(userStr);
-        setUserData(user);
-      } catch (error) {
-        console.error('Error parsing user data:', error);
-      }
+      try { setUserData(JSON.parse(userStr)); } catch { /* ignore */ }
     }
   }, []);
 
   const handleLogout = async () => {
-    try {
-      await api.post('/api/auth/logout');
-    } catch (error) {
-      console.error('Logout failed:', error);
-    } finally {
+    try { await api.post('/api/auth/logout'); } catch { /* ignore */ }
+    finally {
       localStorage.removeItem('user');
       localStorage.removeItem('token');
       navigate('/');
@@ -45,75 +37,77 @@ const Header = ({ onToggleSidebar, isSidebarOpen }: HeaderProps) => {
   };
 
   return (
-    <header className="w-full bg-white/30 backdrop-blur-xl border-b border-white/30 sticky top-0 z-50 shadow-lg">
-      <div className="flex items-center justify-between px-3 sm:px-4 md:px-6 py-3 md:py-4">
-        
-        {/* Left Side - Hamburger + Title */}
-        <div className="flex items-center gap-2 sm:gap-4">
-          {/* Mobile Hamburger Menu */}
+    <header
+      className="w-full sticky top-0 z-50"
+      style={{ background: '#111113', borderBottom: '1px solid #27272a' }}
+    >
+      <div className="flex items-center justify-between px-4 md:px-6 py-3">
+
+        {/* Left */}
+        <div className="flex items-center gap-3">
           <button
             onClick={onToggleSidebar}
-            className="lg:hidden p-2 rounded-lg bg-white/40 backdrop-blur-md border border-white/50 hover:bg-white/60 transition-all duration-300 active:scale-95"
+            className="lg:hidden p-2 rounded-lg transition-colors"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid #27272a' }}
             aria-label="Toggle menu"
           >
-            {isSidebarOpen ? (
-              <X className="w-5 h-5 sm:w-6 sm:h-6 text-black" />
-            ) : (
-              <Menu className="w-5 h-5 sm:w-6 sm:h-6 text-black" />
-            )}
+            {isSidebarOpen
+              ? <X className="w-5 h-5" style={{ color: '#f4f4f5' }} />
+              : <Menu className="w-5 h-5" style={{ color: '#f4f4f5' }} />
+            }
           </button>
-
-          {/* Page Title */}
-          <h1 className="text-lg sm:text-2xl md:text-3xl font-bold text-black">
-            Dashboard
-          </h1>
+          <h1 className="text-lg font-semibold" style={{ color: '#f4f4f5' }}>Dashboard</h1>
         </div>
 
-        {/* Right Side - Profile & Logout */}
-        <div className="flex items-center gap-2 sm:gap-4 md:gap-6">
-          
-          {/* User Info Card (Hidden on mobile, visible on large screens) */}
-          <div className="hidden lg:flex items-center gap-3 px-4 py-2 bg-white/40 backdrop-blur-md rounded-xl border border-white/50">
-            <div className="text-right">
-              <p className="text-xs font-semibold text-gray-600 uppercase">Welcome Back</p>
-              <p className="text-sm font-bold text-black">{userData?.companyName || 'User'}</p>
+        {/* Right */}
+        <div className="flex items-center gap-3">
+
+          {/* Welcome chip — desktop only */}
+          <div
+            className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid #27272a' }}
+          >
+            <div>
+              <p style={{ fontSize: 11, color: '#71717a', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Welcome back</p>
+              <p style={{ fontSize: 13, color: '#f4f4f5', fontWeight: 600 }}>{userData?.companyName || 'User'}</p>
             </div>
           </div>
 
-          {/* Profile Picture */}
+          {/* Avatar */}
           <button
             onClick={() => navigate('/manage-business')}
-            className="relative group flex-shrink-0"
+            className="flex-shrink-0 relative group"
             title="View Profile"
           >
             {userData?.image ? (
               <img
                 src={userData.image}
                 alt={userData.companyName || 'Profile'}
-                className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full object-cover border-2 sm:border-4 border-green-500 shadow-xl hover:scale-110 hover:border-green-600 transition-all duration-300 cursor-pointer"
+                className="w-9 h-9 rounded-full object-cover transition-transform hover:scale-105"
+                style={{ border: '2px solid #16a34a' }}
                 onError={(e) => {
-                  e.currentTarget.src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(userData.companyName || 'User') + '&background=10b981&color=fff&size=128';
+                  e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.companyName || 'U')}&background=16a34a&color=fff&size=128`;
                 }}
               />
             ) : (
-              <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center text-white font-bold text-base sm:text-lg md:text-xl shadow-xl hover:scale-110 transition-all duration-300 cursor-pointer border-2 sm:border-4 border-green-500">
+              <div
+                className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm transition-transform hover:scale-105"
+                style={{ background: '#16a34a', border: '2px solid rgba(22,163,74,0.5)' }}
+              >
                 {userData?.companyName?.charAt(0).toUpperCase() || 'U'}
               </div>
             )}
-            
-            {/* Hover Tooltip - Hidden on mobile */}
-            <div className="hidden md:block absolute -bottom-10 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-black text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap pointer-events-none">
-              Click to view profile
-              <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-black rotate-45"></div>
-            </div>
           </button>
 
-          {/* Logout Button */}
-          <button 
+          {/* Logout */}
+          <button
             onClick={handleLogout}
-            className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 bg-gradient-to-r from-red-500 to-red-600 backdrop-blur-md rounded-lg md:rounded-xl border border-red-400 md:border-2 font-bold text-white text-sm sm:text-base hover:from-red-600 hover:to-red-700 hover:shadow-xl hover:scale-105 transition-all duration-300 active:scale-95"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+            style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(248,113,113,0.18)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(248,113,113,0.1)'; }}
           >
-            <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
+            <LogOut size={15} />
             <span className="hidden sm:inline">Logout</span>
           </button>
         </div>

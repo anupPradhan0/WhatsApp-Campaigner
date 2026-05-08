@@ -1,865 +1,303 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
-import {
-  X,
-  Plus,
-  Edit2,
-  Trash2,
-  ChevronLeft,
-  ChevronRight,
-  Eye,
-} from "lucide-react";
+import { X, Plus, Edit2, Trash2, ChevronLeft, ChevronRight, Eye, AlertCircle } from "lucide-react";
 import { getUserRole } from "../utils/Auth";
 import { UserRole } from "../constants/Roles";
 import { api } from "../api/client";
 
-interface NewsItem {
-  id: string;
-  title: string;
-  description: string;
-  status: "ACTIVE" | "INACTIVE";
-  createdBy: string;
-  createdAt: string;
-  updatedAt: string;
-}
+const D = {
+  surface: '#111113', surface2: '#18181b', border: '#27272a', border2: '#3f3f46',
+  text: '#f4f4f5', textMuted: '#71717a', textSubtle: '#52525b',
+  green: '#16a34a', greenLight: '#4ade80', greenDim: 'rgba(22,163,74,0.12)', greenBorder: 'rgba(22,163,74,0.3)',
+  blue: '#3b82f6', blueDim: 'rgba(59,130,246,0.12)',
+  red: '#f87171', redDim: 'rgba(248,113,113,0.1)', redBorder: 'rgba(248,113,113,0.3)',
+};
 
-interface NewsData {
-  totalNews: number;
-  news: NewsItem[];
-}
+const inp: React.CSSProperties = { width: '100%', padding: '9px 12px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, fontSize: 13, color: D.text, outline: 'none', boxSizing: 'border-box' };
+const taStyle: React.CSSProperties = { ...inp, resize: 'none' };
+const selStyle: React.CSSProperties = { ...inp };
 
-const News = () => {
-  const [newsData, setNewsData] = useState<NewsData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+const FieldFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { e.currentTarget.style.borderColor = D.green; };
+const FieldBlur  = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { e.currentTarget.style.borderColor = D.border; };
 
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+// Defined outside component to prevent remount on every render
+const NewsStatusBadge = ({ s }: { s: 'ACTIVE' | 'INACTIVE' }) => (
+  <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.05em', color: s === 'ACTIVE' ? D.greenLight : D.red, background: s === 'ACTIVE' ? D.greenDim : D.redDim, border: `1px solid ${s === 'ACTIVE' ? D.greenBorder : D.redBorder}` }}>{s}</span>
+);
 
-  // Modals
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showDescriptionModal, setShowDescriptionModal] = useState(false);
+interface NewsFormProps { formData: { title: string; description: string; status: 'ACTIVE' | 'INACTIVE' }; setFormData: React.Dispatch<React.SetStateAction<{ title: string; description: string; status: 'ACTIVE' | 'INACTIVE' }>>; onSave: () => void; label: string; actionLoading: boolean; onCancel: () => void; }
+const NewsForm = ({ formData, setFormData, onSave, label, actionLoading, onCancel }: NewsFormProps) => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div><label style={{ fontSize: 11, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Title *</label>
+      <input type="text" value={formData.title} onChange={e => setFormData(f => ({...f, title: e.target.value}))} placeholder="Enter news title" style={inp} onFocus={FieldFocus} onBlur={FieldBlur} />
+    </div>
+    <div><label style={{ fontSize: 11, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Description *</label>
+      <textarea value={formData.description} onChange={e => setFormData(f => ({...f, description: e.target.value}))} rows={5} placeholder="Enter news description" style={taStyle} onFocus={FieldFocus} onBlur={FieldBlur} />
+    </div>
+    <div><label style={{ fontSize: 11, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Status *</label>
+      <select value={formData.status} onChange={e => setFormData(f => ({...f, status: e.target.value as 'ACTIVE' | 'INACTIVE'}))} style={selStyle} onFocus={FieldFocus} onBlur={FieldBlur}>
+        <option value="ACTIVE">ACTIVE</option><option value="INACTIVE">INACTIVE</option>
+      </select>
+    </div>
+    <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+      <button onClick={onSave} disabled={actionLoading} style={{ flex: 1, padding: '9px 0', background: D.green, color: '#fff', fontWeight: 600, fontSize: 13, border: 'none', borderRadius: 8, cursor: 'pointer', opacity: actionLoading ? 0.6 : 1 }}>{actionLoading ? 'Saving…' : label}</button>
+      <button onClick={onCancel} style={{ flex: 1, padding: '9px 0', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, cursor: 'pointer', color: D.textMuted, fontSize: 13, fontWeight: 600 }}>Cancel</button>
+    </div>
+  </div>
+);
 
-  // Form data
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    status: "ACTIVE" as "ACTIVE" | "INACTIVE",
-  });
-
-  // Selected news for edit/delete
-  const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
-  const [actionLoading, setActionLoading] = useState(false);
-
-  const userRole = getUserRole();
-  const isAdmin = userRole === UserRole.ADMIN;
-
-  // Fetch news data
-  const fetchNewsData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const { data: result } = await api.get<{
-        success: boolean;
-        message?: string;
-        data: NewsData;
-      }>("/api/dashboard/news");
-
-      if (result.success) {
-        setNewsData(result.data);
-      } else {
-        setError(result.message || "Failed to load news data");
-      }
-    } catch (err) {
-      setError("Network error. Please try again.");
-      console.error("News fetch error:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchNewsData();
-  }, [fetchNewsData]);
-
-  // Pagination calculations
-  const totalPages = Math.ceil((newsData?.totalNews || 0) / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentNews = newsData?.news.slice(startIndex, endIndex) || [];
-
-  // Reset to page 1 when items per page changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [itemsPerPage]);
-
-  // Format date
-  const formatDate = (dateString: string) => {
-    try {
-      return format(new Date(dateString), "dd-MMM-yyyy hh:mm a");
-    } catch {
-      return dateString;
-    }
-  };
-
-  // Handle create news
-  const handleCreateNews = async () => {
-    if (!formData.title || !formData.description) {
-      setError("Please fill in all fields");
-      return;
-    }
-
-    setActionLoading(true);
-    setError("");
-
-    try {
-      const { data: result } = await api.post<{
-        success: boolean;
-        message?: string;
-      }>("/api/news/create", formData);
-
-      if (result.success) {
-        setSuccess("News created successfully!");
-        setShowCreateModal(false);
-        setFormData({ title: "", description: "", status: "ACTIVE" });
-        fetchNewsData();
-        setTimeout(() => setSuccess(""), 3000);
-      } else {
-        setError(result.message || "Failed to create news");
-      }
-    } catch {
-      setError("Network error. Please try again.");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Handle update news
-  const handleUpdateNews = async () => {
-    if (!selectedNews || !formData.title || !formData.description) {
-      setError("Please fill in all fields");
-      return;
-    }
-
-    setActionLoading(true);
-    setError("");
-
-    try {
-      const { data: result } = await api.put<{
-        success: boolean;
-        message?: string;
-      }>(`/api/news/update/${selectedNews.id}`, formData);
-
-      if (result.success) {
-        setSuccess("News updated successfully!");
-        setShowEditModal(false);
-        setSelectedNews(null);
-        setFormData({ title: "", description: "", status: "ACTIVE" });
-        fetchNewsData();
-        setTimeout(() => setSuccess(""), 3000);
-      } else {
-        setError(result.message || "Failed to update news");
-      }
-    } catch {
-      setError("Network error. Please try again.");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Handle delete news
-  const handleDeleteNews = async () => {
-    if (!selectedNews) return;
-
-    setActionLoading(true);
-    setError("");
-
-    try {
-      const { data: result } = await api.delete<{
-        success: boolean;
-        message?: string;
-      }>(`/api/news/delete/${selectedNews.id}`);
-
-      if (result.success) {
-        setSuccess("News deleted successfully!");
-        setShowDeleteModal(false);
-        setSelectedNews(null);
-        fetchNewsData();
-        setTimeout(() => setSuccess(""), 3000);
-      } else {
-        setError(result.message || "Failed to delete news");
-      }
-    } catch {
-      setError("Network error. Please try again.");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Open edit modal
-  const openEditModal = (news: NewsItem) => {
-    setSelectedNews(news);
-    setFormData({
-      title: news.title,
-      description: news.description,
-      status: news.status,
-    });
-    setShowEditModal(true);
-  };
-
-  // Open delete modal
-  const openDeleteModal = (news: NewsItem) => {
-    setSelectedNews(news);
-    setShowDeleteModal(true);
-  };
-
-  // Open description modal
-  const openDescriptionModal = (news: NewsItem) => {
-    setSelectedNews(news);
-    setShowDescriptionModal(true);
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="p-8 bg-white/40 backdrop-blur-lg rounded-2xl border border-white/60 shadow-xl">
-          <p className="text-xl font-semibold text-black">Loading News...</p>
-        </div>
-      </div>
-    );
-  }
-
+const Paginator = ({ page, total, onChange }: { page: number; total: number; onChange: (p: number) => void }) => {
+  if (total <= 1) return null;
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Page Header - Mobile Optimized */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 p-4 sm:p-5 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-black text-center">
-          List of All News
-        </h2>
-
-        {/* Create News Button - Only for Admin */}
-        {isAdmin && (
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-green-500/80 backdrop-blur-md text-white font-bold text-sm sm:text-base rounded-lg sm:rounded-xl border border-white/30 shadow-lg hover:bg-green-600/80 transition-all active:scale-95"
-          >
-            <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-            Create New News
-          </button>
-        )}
-      </div>
-
-      {/* Success Message */}
-      {success && (
-        <div className="p-3 sm:p-4 bg-green-500/30 backdrop-blur-md rounded-lg sm:rounded-xl border border-white/50 shadow-lg">
-          <p className="text-black font-semibold text-sm sm:text-base">
-            {success}
-          </p>
-        </div>
-      )}
-
-      {/* Error Message */}
-      {error && (
-        <div className="p-3 sm:p-4 bg-red-100/60 backdrop-blur-md rounded-lg sm:rounded-xl border border-red-300 shadow-lg">
-          <p className="text-red-700 font-semibold text-sm sm:text-base">
-            {error}
-          </p>
-        </div>
-      )}
-
-      {/* Show Entries Selector */}
-      <div className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-        <span className="text-xs sm:text-sm font-bold text-black">SHOW</span>
-        <select
-          value={itemsPerPage}
-          onChange={(e) => setItemsPerPage(Number(e.target.value))}
-          className="px-2 sm:px-3 py-1.5 sm:py-2 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-sm text-black font-semibold focus:outline-none focus:border-green-500"
-        >
-          <option value={10}>10</option>
-          <option value={25}>25</option>
-          <option value={50}>50</option>
-        </select>
-        <span className="text-xs sm:text-sm font-bold text-black">ENTRIES</span>
-      </div>
-
-      {/* Mobile Card View */}
-      <div className="md:hidden space-y-3">
-        {currentNews.length === 0 ? (
-          <div className="p-6 bg-white/40 backdrop-blur-lg rounded-xl border border-white/60 shadow-xl text-center">
-            <p className="text-base font-semibold text-black opacity-70">
-              No news available
-            </p>
-          </div>
-        ) : (
-          currentNews.map((news, index) => (
-            <div
-              key={news.id}
-              className="p-3 bg-white/40 backdrop-blur-lg rounded-xl border border-white/60 shadow-lg"
-            >
-              {/* Header Row */}
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-black opacity-70">
-                  #{startIndex + index + 1}
-                </span>
-                <span
-                  className={`px-2 py-0.5 text-white text-[10px] font-bold rounded-full ${
-                    news.status === "ACTIVE" ? "bg-green-500" : "bg-red-500"
-                  }`}
-                >
-                  {news.status}
-                </span>
-              </div>
-
-              {/* Title */}
-              <p className="text-sm font-bold text-black mb-1.5 line-clamp-1">
-                {news.title}
-              </p>
-
-              {/* Description Preview */}
-              <p className="text-xs text-black opacity-80 line-clamp-2 mb-2">
-                {news.description}
-              </p>
-
-              {/* Date + Creator */}
-              <div className="text-[10px] text-black opacity-60 mb-2 pb-2 border-b border-white/30">
-                <div>Created: {formatDate(news.createdAt)}</div>
-                <div>By: {news.createdBy}</div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 justify-end">
-                <button
-                  onClick={() => openDescriptionModal(news)}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-green-500 backdrop-blur-sm rounded-lg hover:bg-green-600/60 transition-all text-white text-xs font-semibold active:scale-95"
-                  title="View"
-                >
-                  <Eye className="w-3 h-3" />
-                  View
-                </button>
-                {isAdmin && (
-                  <>
-                    <button
-                      onClick={() => openEditModal(news)}
-                      className="p-1.5 bg-blue-500/60 backdrop-blur-sm rounded-lg hover:bg-blue-600 transition-all active:scale-95"
-                    >
-                      <Edit2 className="w-3 h-3 text-white" />
-                    </button>
-                    <button
-                      onClick={() => openDeleteModal(news)}
-                      className="p-1.5 bg-red-500/60 backdrop-blur-sm rounded-lg hover:bg-red-600 transition-all active:scale-95"
-                    >
-                      <Trash2 className="w-3 h-3 text-white" />
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Desktop Table View */}
-      <div className="hidden md:block p-4 sm:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b-2 border-white/60">
-                <th className="text-left py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-bold text-black uppercase">
-                  ID
-                </th>
-                <th className="text-left py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-bold text-black uppercase">
-                  Date
-                </th>
-                <th className="text-left py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-bold text-black uppercase">
-                  Title
-                </th>
-                <th className="text-left py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-bold text-black uppercase">
-                  Description
-                </th>
-                <th className="text-left py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-bold text-black uppercase">
-                  Status
-                </th>
-                <th className="text-left py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-bold text-black uppercase">
-                  Created By
-                </th>
-                {isAdmin && (
-                  <th className="text-left py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-bold text-black uppercase">
-                    Actions
-                  </th>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {currentNews.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={isAdmin ? 7 : 6}
-                    className="py-8 sm:py-12 text-center text-black opacity-70"
-                  >
-                    <p className="text-base sm:text-lg font-semibold">
-                      No news available
-                    </p>
-                  </td>
-                </tr>
-              ) : (
-                currentNews.map((news, index) => (
-                  <tr
-                    key={news.id}
-                    className="border-b border-white/30 hover:bg-white/20 transition-all"
-                  >
-                    <td className="py-3 sm:py-4 px-3 sm:px-4 text-black text-sm font-semibold">
-                      {startIndex + index + 1}
-                    </td>
-                    <td className="py-3 sm:py-4 px-3 sm:px-4 text-black text-sm font-semibold whitespace-nowrap">
-                      <div className="text-xs">
-                        <div>Created: {formatDate(news.createdAt)}</div>
-                        <div className="text-gray-600 mt-1">
-                          Updated: {formatDate(news.updatedAt)}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3 sm:py-4 px-3 sm:px-4 text-black text-sm font-semibold max-w-[200px]">
-                      {news.title}
-                    </td>
-                    <td className="py-3 sm:py-4 px-3 sm:px-4 text-black text-sm font-semibold max-w-[400px]">
-                      <div className="line-clamp-3">{news.description}</div>
-                      <button
-                        onClick={() => openDescriptionModal(news)}
-                        className="text-green-600 font-bold text-xs sm:text-sm mt-1 hover:underline"
-                      >
-                        Read More
-                      </button>
-                    </td>
-                    <td className="py-3 sm:py-4 px-3 sm:px-4">
-                      <span
-                        className={`px-2 sm:px-3 py-0.5 sm:py-1 text-white text-xs font-bold rounded-full ${
-                          news.status === "ACTIVE"
-                            ? "bg-green-500"
-                            : "bg-red-500"
-                        }`}
-                      >
-                        {news.status}
-                      </span>
-                    </td>
-                    <td className="py-3 sm:py-4 px-3 sm:px-4 text-black text-sm font-semibold">
-                      {news.createdBy}
-                    </td>
-                    {isAdmin && (
-                      <td className="py-3 sm:py-4 px-3 sm:px-4">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => openDescriptionModal(news)}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-green-500/80 backdrop-blur-sm rounded-lg hover:bg-green-600/60 transition-all text-white text-xs font-semibold active:scale-95"
-                            title="View"
-                          >
-                            <Eye className="w-3 h-3 text-white" />
-                            View
-                          </button>
-                          <button
-                            onClick={() => openEditModal(news)}
-                            className="p-2 bg-blue-500/60 backdrop-blur-sm rounded-lg hover:bg-blue-600/80 transition-all"
-                            title="Edit"
-                          >
-                            <Edit2 className="w-4 h-4 text-white" />
-                          </button>
-                          <button
-                            onClick={() => openDeleteModal(news)}
-                            className="p-2 bg-red-500/60 backdrop-blur-sm rounded-lg hover:bg-red-600/80 transition-all"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4 text-white" />
-                          </button>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Pagination Info and Controls */}
-      {newsData && newsData.totalNews > 0 && (
-        <>
-          <div className="text-xs sm:text-sm text-black font-semibold p-3 sm:p-4 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-            Showing {startIndex + 1} to {Math.min(endIndex, newsData.totalNews)}{" "}
-            of {newsData.totalNews} entries
-          </div>
-
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-1.5 sm:gap-2 p-3 sm:p-4 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl flex-wrap">
-              <button
-                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className="p-1.5 sm:p-2 bg-white/60 backdrop-blur-sm rounded-lg border border-white/80 font-semibold text-black hover:bg-white/80 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
-
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum: number;
-                if (totalPages <= 5) {
-                  pageNum = i + 1;
-                } else if (currentPage <= 3) {
-                  pageNum = i + 1;
-                } else if (currentPage >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i;
-                } else {
-                  pageNum = currentPage - 2 + i;
-                }
-
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => setCurrentPage(pageNum)}
-                    className={`px-2.5 sm:px-4 py-1.5 sm:py-2 text-sm font-bold rounded-lg border-2 transition-all ${
-                      currentPage === pageNum
-                        ? "bg-green-500 text-white border-green-600 shadow-lg"
-                        : "bg-white/60 text-black border-white/80 hover:bg-white/80"
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
-
-              <button
-                onClick={() =>
-                  setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-                }
-                disabled={currentPage === totalPages}
-                className="p-1.5 sm:p-2 bg-white/60 backdrop-blur-sm rounded-lg border border-white/80 font-semibold text-black hover:bg-white/80 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Create News Modal - Mobile Optimized */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
-          <div className="bg-white/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border-2 border-green-500 shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-5 md:p-6">
-              <div className="flex items-center justify-between mb-4 sm:mb-6">
-                <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-black">
-                  Create New News
-                </h3>
-                <button
-                  onClick={() => {
-                    setShowCreateModal(false);
-                    setFormData({
-                      title: "",
-                      description: "",
-                      status: "ACTIVE",
-                    });
-                    setError("");
-                  }}
-                  className="p-1.5 sm:p-2 hover:bg-gray-200 rounded-lg transition-all flex-shrink-0"
-                >
-                  <X className="w-5 h-5 sm:w-6 sm:h-6 text-black" />
-                </button>
-              </div>
-
-              <div className="space-y-3 sm:space-y-4">
-                <div>
-                  <label className="block text-xs sm:text-sm font-bold text-black mb-2">
-                    Title *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.title}
-                    onChange={(e) =>
-                      setFormData({ ...formData, title: e.target.value })
-                    }
-                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 border-2 border-gray-300 rounded-lg sm:rounded-xl text-sm sm:text-base text-black focus:outline-none focus:border-green-500"
-                    placeholder="Enter news title"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs sm:text-sm font-bold text-black mb-2">
-                    Description *
-                  </label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
-                    rows={5}
-                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 border-2 border-gray-300 rounded-lg sm:rounded-xl text-sm sm:text-base text-black focus:outline-none focus:border-green-500 resize-none"
-                    placeholder="Enter news description"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs sm:text-sm font-bold text-black mb-2">
-                    Status *
-                  </label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        status: e.target.value as "ACTIVE" | "INACTIVE",
-                      })
-                    }
-                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 border-2 border-gray-300 rounded-lg sm:rounded-xl text-sm sm:text-base text-black font-semibold focus:outline-none focus:border-green-500"
-                  >
-                    <option value="ACTIVE">ACTIVE</option>
-                    <option value="INACTIVE">INACTIVE</option>
-                  </select>
-                </div>
-
-                <div className="flex gap-2 sm:gap-3 mt-4 sm:mt-6">
-                  <button
-                    onClick={handleCreateNews}
-                    disabled={actionLoading}
-                    className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-green-500 text-white text-sm sm:text-base font-bold rounded-lg sm:rounded-xl hover:bg-green-600 transition-all disabled:opacity-50 active:scale-95"
-                  >
-                    {actionLoading ? "Creating..." : "Create News"}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowCreateModal(false);
-                      setFormData({
-                        title: "",
-                        description: "",
-                        status: "ACTIVE",
-                      });
-                      setError("");
-                    }}
-                    className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-gray-300 text-black text-sm sm:text-base font-bold rounded-lg sm:rounded-xl hover:bg-gray-400 transition-all active:scale-95"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit News Modal - Mobile Optimized */}
-      {showEditModal && selectedNews && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
-          <div className="bg-white/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border-2 border-blue-500 shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-5 md:p-6">
-              <div className="flex items-center justify-between mb-4 sm:mb-6">
-                <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-black">
-                  Edit News
-                </h3>
-                <button
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setSelectedNews(null);
-                    setFormData({
-                      title: "",
-                      description: "",
-                      status: "ACTIVE",
-                    });
-                    setError("");
-                  }}
-                  className="p-1.5 sm:p-2 hover:bg-gray-200 rounded-lg transition-all flex-shrink-0"
-                >
-                  <X className="w-5 h-5 sm:w-6 sm:h-6 text-black" />
-                </button>
-              </div>
-
-              <div className="space-y-3 sm:space-y-4">
-                <div>
-                  <label className="block text-xs sm:text-sm font-bold text-black mb-2">
-                    Title *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.title}
-                    onChange={(e) =>
-                      setFormData({ ...formData, title: e.target.value })
-                    }
-                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 border-2 border-gray-300 rounded-lg sm:rounded-xl text-sm sm:text-base text-black focus:outline-none focus:border-blue-500"
-                    placeholder="Enter news title"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs sm:text-sm font-bold text-black mb-2">
-                    Description *
-                  </label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
-                    rows={5}
-                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 border-2 border-gray-300 rounded-lg sm:rounded-xl text-sm sm:text-base text-black focus:outline-none focus:border-blue-500 resize-none"
-                    placeholder="Enter news description"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs sm:text-sm font-bold text-black mb-2">
-                    Status *
-                  </label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        status: e.target.value as "ACTIVE" | "INACTIVE",
-                      })
-                    }
-                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 border-2 border-gray-300 rounded-lg sm:rounded-xl text-sm sm:text-base text-black font-semibold focus:outline-none focus:border-blue-500"
-                  >
-                    <option value="ACTIVE">ACTIVE</option>
-                    <option value="INACTIVE">INACTIVE</option>
-                  </select>
-                </div>
-
-                <div className="flex gap-2 sm:gap-3 mt-4 sm:mt-6">
-                  <button
-                    onClick={handleUpdateNews}
-                    disabled={actionLoading}
-                    className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-blue-500 text-white text-sm sm:text-base font-bold rounded-lg sm:rounded-xl hover:bg-blue-600 transition-all disabled:opacity-50 active:scale-95"
-                  >
-                    {actionLoading ? "Updating..." : "Update News"}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowEditModal(false);
-                      setSelectedNews(null);
-                      setFormData({
-                        title: "",
-                        description: "",
-                        status: "ACTIVE",
-                      });
-                      setError("");
-                    }}
-                    className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-gray-300 text-black text-sm sm:text-base font-bold rounded-lg sm:rounded-xl hover:bg-gray-400 transition-all active:scale-95"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal - Mobile Optimized */}
-      {showDeleteModal && selectedNews && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
-          <div className="bg-white/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border-2 border-red-500 shadow-2xl w-full max-w-md">
-            <div className="p-4 sm:p-5 md:p-6">
-              <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-black mb-3 sm:mb-4">
-                Delete News
-              </h3>
-              <p className="text-black text-sm sm:text-base mb-4 sm:mb-6">
-                Are you sure you want to delete this news? This action cannot be
-                undone.
-              </p>
-              <div className="flex gap-2 sm:gap-3">
-                <button
-                  onClick={handleDeleteNews}
-                  disabled={actionLoading}
-                  className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-red-500 text-white text-sm sm:text-base font-bold rounded-lg sm:rounded-xl hover:bg-red-600 transition-all disabled:opacity-50 active:scale-95"
-                >
-                  {actionLoading ? "Deleting..." : "Yes, Delete"}
-                </button>
-                <button
-                  onClick={() => {
-                    setShowDeleteModal(false);
-                    setSelectedNews(null);
-                  }}
-                  className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-gray-300 text-black text-sm sm:text-base font-bold rounded-lg sm:rounded-xl hover:bg-gray-400 transition-all active:scale-95"
-                >
-                  No, Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Description Modal - Mobile Optimized */}
-      {showDescriptionModal && selectedNews && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
-          <div className="bg-white/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border-2 border-green-500 shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-5 md:p-6">
-              <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-black">
-                  {selectedNews.title}
-                </h3>
-                <button
-                  onClick={() => {
-                    setShowDescriptionModal(false);
-                    setSelectedNews(null);
-                  }}
-                  className="p-1.5 sm:p-2 hover:bg-gray-200 rounded-lg transition-all flex-shrink-0"
-                >
-                  <X className="w-5 h-5 sm:w-6 sm:h-6 text-black" />
-                </button>
-              </div>
-              <div className="space-y-2 sm:space-y-3">
-                <div>
-                  <span className="text-xs sm:text-sm font-bold text-gray-600">
-                    Created:{" "}
-                  </span>
-                  <span className="text-xs sm:text-sm text-black">
-                    {formatDate(selectedNews.createdAt)}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-xs sm:text-sm font-bold text-gray-600">
-                    Updated:{" "}
-                  </span>
-                  <span className="text-xs sm:text-sm text-black">
-                    {formatDate(selectedNews.updatedAt)}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-xs sm:text-sm font-bold text-gray-600">
-                    Created By:{" "}
-                  </span>
-                  <span className="text-xs sm:text-sm text-black">
-                    {selectedNews.createdBy}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-xs sm:text-sm font-bold text-gray-600">
-                    Status:{" "}
-                  </span>
-                  <span
-                    className={`px-2 sm:px-3 py-0.5 sm:py-1 text-white text-xs font-bold rounded-full ${
-                      selectedNews.status === "ACTIVE"
-                        ? "bg-green-500"
-                        : "bg-red-500"
-                    }`}
-                  >
-                    {selectedNews.status}
-                  </span>
-                </div>
-              </div>
-              <div className="mt-4 sm:mt-6">
-                <h4 className="text-base sm:text-lg font-bold text-black mb-2">
-                  Description:
-                </h4>
-                <p className="text-black text-sm sm:text-base whitespace-pre-wrap">
-                  {selectedNews.description}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: D.surface, border: `1px solid ${D.border}`, borderRadius: 10, padding: '12px 16px' }}>
+      <button onClick={() => onChange(page - 1)} disabled={page === 1} style={{ padding: '5px 7px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 6, cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1, display: 'flex' }}><ChevronLeft size={15} style={{ color: D.textMuted }} /></button>
+      {Array.from({ length: Math.min(5, total) }, (_, i) => {
+        const p = total <= 5 ? i + 1 : page <= 3 ? i + 1 : page >= total - 2 ? total - 4 + i : page - 2 + i;
+        return <button key={p} onClick={() => onChange(p)} style={{ width: 32, height: 32, borderRadius: 6, fontSize: 12, fontWeight: 600, border: `1px solid ${page === p ? D.green : D.border}`, background: page === p ? D.green : D.surface2, color: page === p ? '#fff' : D.textMuted, cursor: 'pointer' }}>{p}</button>;
+      })}
+      <button onClick={() => onChange(page + 1)} disabled={page === total} style={{ padding: '5px 7px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 6, cursor: page === total ? 'not-allowed' : 'pointer', opacity: page === total ? 0.4 : 1, display: 'flex' }}><ChevronRight size={15} style={{ color: D.textMuted }} /></button>
     </div>
   );
 };
 
-export default News;
+interface NewsItem { id: string; title: string; description: string; status: 'ACTIVE' | 'INACTIVE'; createdBy: string; createdAt: string; updatedAt: string; }
+interface NewsData { totalNews: number; news: NewsItem[]; }
+
+const fmtDate = (s: string) => { try { return format(new Date(s), 'dd MMM yyyy, hh:mm a'); } catch { return s; } };
+
+type ModalType = 'create' | 'edit' | 'delete' | 'view' | null;
+
+export default function News() {
+  const [newsData, setNewsData] = useState<NewsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const [modal, setModal] = useState<ModalType>(null);
+  const [selected, setSelected] = useState<NewsItem | null>(null);
+  const [formData, setFormData] = useState({ title: '', description: '', status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE' });
+  const [actionLoading, setActionLoading] = useState(false);
+  const [alert, setAlert] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+
+  const userRole = getUserRole();
+  const isAdmin = userRole === UserRole.ADMIN;
+
+  const showAlert = (type: 'success' | 'error', msg: string) => { setAlert({ type, msg }); setTimeout(() => setAlert(null), 4000); };
+
+  const fetchData = useCallback(async () => {
+    try { setLoading(true); const { data: r } = await api.get('/api/dashboard/news'); if (r.success) setNewsData(r.data); else showAlert('error', r.message || 'Failed'); } catch { showAlert('error', 'Network error.'); } finally { setLoading(false); }
+  }, []);
+  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { setPage(1); }, [perPage]);
+
+  const total = newsData?.totalNews ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
+  const idx = (page - 1) * perPage;
+  const current = newsData?.news.slice(idx, idx + perPage) ?? [];
+
+  const openCreate = () => { setFormData({ title: '', description: '', status: 'ACTIVE' }); setModal('create'); };
+  const openEdit   = (n: NewsItem) => { setSelected(n); setFormData({ title: n.title, description: n.description, status: n.status }); setModal('edit'); };
+  const openDelete = (n: NewsItem) => { setSelected(n); setModal('delete'); };
+  const openView   = (n: NewsItem) => { setSelected(n); setModal('view'); };
+  const closeModal = () => { setModal(null); setSelected(null); };
+
+  const handleCreate = async () => {
+    if (!formData.title || !formData.description) { showAlert('error', 'Please fill in all fields'); return; }
+    setActionLoading(true);
+    try { const { data: r } = await api.post('/api/news/create', formData); if (r.success) { showAlert('success', 'News created!'); closeModal(); fetchData(); } else showAlert('error', r.message || 'Failed'); } catch { showAlert('error', 'Network error.'); } finally { setActionLoading(false); }
+  };
+
+  const handleUpdate = async () => {
+    if (!selected || !formData.title || !formData.description) { showAlert('error', 'Please fill in all fields'); return; }
+    setActionLoading(true);
+    try { const { data: r } = await api.put(`/api/news/update/${selected.id}`, formData); if (r.success) { showAlert('success', 'News updated!'); closeModal(); fetchData(); } else showAlert('error', r.message || 'Failed'); } catch { showAlert('error', 'Network error.'); } finally { setActionLoading(false); }
+  };
+
+  const handleDelete = async () => {
+    if (!selected) return;
+    setActionLoading(true);
+    try { const { data: r } = await api.delete(`/api/news/delete/${selected.id}`); if (r.success) { showAlert('success', 'News deleted!'); closeModal(); fetchData(); } else showAlert('error', r.message || 'Failed'); } catch { showAlert('error', 'Network error.'); } finally { setActionLoading(false); }
+  };
+
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400, flexDirection: 'column', gap: 12 }}>
+      <div style={{ width: 36, height: 36, borderRadius: '50%', border: `3px solid ${D.border}`, borderTopColor: D.green, animation: 'spin 0.8s linear infinite' }} />
+      <p style={{ color: D.textMuted, fontSize: 13 }}>Loading news…</p>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+
+  return (
+    <>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}} .row-h:hover td{background:rgba(255,255,255,0.025)!important} select option{background:#18181b;color:#f4f4f5}`}</style>
+
+      {alert && (
+        <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, background: alert.type === 'success' ? D.greenDim : D.redDim, border: `1px solid ${alert.type === 'success' ? D.greenBorder : D.redBorder}`, borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, maxWidth: 340 }}>
+          <AlertCircle size={14} style={{ color: alert.type === 'success' ? D.greenLight : D.red, flexShrink: 0 }} />
+          <p style={{ fontSize: 12, color: D.text, flex: 1 }}>{alert.msg}</p>
+          <button onClick={() => setAlert(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}><X size={13} style={{ color: D.textMuted }} /></button>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: D.text, margin: 0 }}>News</h1>
+            <p style={{ fontSize: 13, color: D.textMuted, marginTop: 4 }}>{total} news items</p>
+          </div>
+          {isAdmin && <button onClick={openCreate} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', background: D.green, color: '#fff', fontWeight: 600, fontSize: 13, border: 'none', borderRadius: 8, cursor: 'pointer' }}><Plus size={15} /> Create News</button>}
+        </div>
+
+        {/* Toolbar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: D.surface, border: `1px solid ${D.border}`, borderRadius: 10, padding: '10px 14px', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 11, color: D.textMuted }}>Show</span>
+            <select value={perPage} onChange={e => setPerPage(Number(e.target.value))} style={{ background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 6, color: D.text, fontSize: 12, padding: '4px 8px', outline: 'none' }}>{[10,25,50].map(n => <option key={n} value={n}>{n}</option>)}</select>
+            <span style={{ fontSize: 11, color: D.textSubtle }}>entries</span>
+          </div>
+          <span style={{ fontSize: 11, color: D.textSubtle }}>{idx + 1}–{Math.min(idx + perPage, total)} of {total}</span>
+        </div>
+
+        {/* Desktop table */}
+        <div className="hidden md:block" style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead><tr style={{ borderBottom: `1px solid ${D.border}` }}>
+                {['#', 'Date', 'Title', 'Description', 'Status', 'By', ...(isAdmin ? ['Actions'] : [])].map(h => (
+                  <th key={h} style={{ padding: '12px 14px', textAlign: 'left', fontSize: 10, color: D.textSubtle, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {current.length === 0
+                  ? <tr><td colSpan={isAdmin ? 7 : 6} style={{ padding: '40px', textAlign: 'center', color: D.textSubtle, fontSize: 13 }}>No news available.</td></tr>
+                  : current.map((n, i) => (
+                  <tr key={n.id} className="row-h" style={{ borderBottom: `1px solid rgba(39,39,42,0.5)` }}>
+                    <td style={{ padding: '11px 14px', fontSize: 12, color: D.textSubtle }}>{idx + i + 1}</td>
+                    <td style={{ padding: '11px 14px', fontSize: 11, color: D.textSubtle, whiteSpace: 'nowrap' }}>
+                      <div>{fmtDate(n.createdAt)}</div>
+                      <div style={{ color: D.textSubtle, marginTop: 2 }}>Upd: {fmtDate(n.updatedAt)}</div>
+                    </td>
+                    <td style={{ padding: '11px 14px', fontSize: 13, color: D.text, fontWeight: 500, maxWidth: 160 }}>{n.title}</td>
+                    <td style={{ padding: '11px 14px', maxWidth: 280 }}>
+                      <p style={{ fontSize: 12, color: D.textMuted, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', margin: 0 }}>{n.description}</p>
+                      <button onClick={() => openView(n)} style={{ fontSize: 11, color: D.greenLight, background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginTop: 2 }}>Read more</button>
+                    </td>
+                    <td style={{ padding: '11px 14px' }}><NewsStatusBadge s={n.status} /></td>
+                    <td style={{ padding: '11px 14px', fontSize: 12, color: D.textMuted }}>{n.createdBy}</td>
+                    {isAdmin && (
+                      <td style={{ padding: '11px 14px' }}>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button onClick={() => openView(n)} title="View" style={{ width: 30, height: 30, borderRadius: 7, background: D.greenDim, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Eye size={13} style={{ color: D.greenLight }} /></button>
+                          <button onClick={() => openEdit(n)} title="Edit" style={{ width: 30, height: 30, borderRadius: 7, background: D.blueDim, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Edit2 size={13} style={{ color: D.blue }} /></button>
+                          <button onClick={() => openDelete(n)} title="Delete" style={{ width: 30, height: 30, borderRadius: 7, background: D.redDim, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Trash2 size={13} style={{ color: D.red }} /></button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Mobile cards */}
+        <div className="md:hidden" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {current.length === 0
+            ? <div style={{ padding: 32, textAlign: 'center', background: D.surface, border: `1px solid ${D.border}`, borderRadius: 12 }}><p style={{ color: D.textSubtle, fontSize: 13 }}>No news available.</p></div>
+            : current.map((n, i) => (
+            <div key={n.id} style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 10, padding: '12px 14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <span style={{ fontSize: 11, color: D.textSubtle }}>#{idx + i + 1}</span>
+                <NewsStatusBadge s={n.status} />
+              </div>
+              <p style={{ fontSize: 13, fontWeight: 600, color: D.text, marginBottom: 4 }}>{n.title}</p>
+              <p style={{ fontSize: 12, color: D.textMuted, marginBottom: 8, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{n.description}</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, borderTop: `1px solid ${D.border}` }}>
+                <span style={{ fontSize: 11, color: D.textSubtle }}>By {n.createdBy} · {format(new Date(n.createdAt), 'dd MMM')}</span>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button onClick={() => openView(n)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: D.greenDim, border: 'none', borderRadius: 6, cursor: 'pointer', color: D.greenLight, fontSize: 12, fontWeight: 600 }}><Eye size={12} /> View</button>
+                  {isAdmin && <>
+                    <button onClick={() => openEdit(n)} style={{ width: 28, height: 28, borderRadius: 6, background: D.blueDim, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Edit2 size={12} style={{ color: D.blue }} /></button>
+                    <button onClick={() => openDelete(n)} style={{ width: 28, height: 28, borderRadius: 6, background: D.redDim, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Trash2 size={12} style={{ color: D.red }} /></button>
+                  </>}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <Paginator page={page} total={totalPages} onChange={p => { setPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
+      </div>
+
+      {/* Create modal */}
+      {modal === 'create' && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }} onClick={closeModal}>
+          <div onClick={e => e.stopPropagation()} style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 14, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${D.border}` }}>
+              <p style={{ fontSize: 15, fontWeight: 700, color: D.text }}>Create News</p>
+              <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={18} style={{ color: D.textMuted }} /></button>
+            </div>
+            <div style={{ padding: 20 }}><NewsForm formData={formData} setFormData={setFormData} onSave={handleCreate} label="Create News" actionLoading={actionLoading} onCancel={closeModal} /></div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit modal */}
+      {modal === 'edit' && selected && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }} onClick={closeModal}>
+          <div onClick={e => e.stopPropagation()} style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 14, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${D.border}` }}>
+              <p style={{ fontSize: 15, fontWeight: 700, color: D.text }}>Edit News</p>
+              <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={18} style={{ color: D.textMuted }} /></button>
+            </div>
+            <div style={{ padding: 20 }}><NewsForm formData={formData} setFormData={setFormData} onSave={handleUpdate} label="Save Changes" actionLoading={actionLoading} onCancel={closeModal} /></div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete modal */}
+      {modal === 'delete' && selected && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }} onClick={closeModal}>
+          <div onClick={e => e.stopPropagation()} style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 14, width: '100%', maxWidth: 380 }}>
+            <div style={{ padding: 24, textAlign: 'center' }}>
+              <div style={{ width: 48, height: 48, borderRadius: '50%', background: D.redDim, border: `1px solid ${D.redBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}><Trash2 size={22} style={{ color: D.red }} /></div>
+              <p style={{ fontSize: 15, fontWeight: 700, color: D.text, marginBottom: 8 }}>Delete News</p>
+              <p style={{ fontSize: 13, color: D.textMuted, marginBottom: 20 }}>Are you sure you want to delete "<strong style={{ color: D.text }}>{selected.title}</strong>"? This action cannot be undone.</p>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={handleDelete} disabled={actionLoading} style={{ flex: 1, padding: '9px 0', background: D.red, color: '#fff', fontWeight: 600, fontSize: 13, border: 'none', borderRadius: 8, cursor: 'pointer', opacity: actionLoading ? 0.6 : 1 }}>{actionLoading ? 'Deleting…' : 'Delete'}</button>
+                <button onClick={closeModal} style={{ flex: 1, padding: '9px 0', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, cursor: 'pointer', color: D.textMuted, fontSize: 13, fontWeight: 600 }}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View modal */}
+      {modal === 'view' && selected && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }} onClick={closeModal}>
+          <div onClick={e => e.stopPropagation()} style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 14, width: '100%', maxWidth: 560, maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${D.border}` }}>
+              <p style={{ fontSize: 15, fontWeight: 700, color: D.text }}>{selected.title}</p>
+              <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={18} style={{ color: D.textMuted }} /></button>
+            </div>
+            <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, padding: 12 }}>
+                {[['Status', null], ['By', selected.createdBy], ['Created', fmtDate(selected.createdAt)], ['Updated', fmtDate(selected.updatedAt)]].map(([l, v]) => (
+                  <div key={String(l)}>
+                    <p style={{ fontSize: 10, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{l}</p>
+                    {l === 'Status' ? <NewsStatusBadge s={selected.status} /> : <p style={{ fontSize: 12, color: D.text }}>{v}</p>}
+                  </div>
+                ))}
+              </div>
+              <div style={{ background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, padding: 14 }}>
+                <p style={{ fontSize: 11, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', marginBottom: 8 }}>Description</p>
+                <p style={{ fontSize: 13, color: D.textMuted, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{selected.description}</p>
+              </div>
+              <button onClick={closeModal} style={{ width: '100%', padding: '9px 0', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, cursor: 'pointer', color: D.textMuted, fontSize: 13, fontWeight: 600 }}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

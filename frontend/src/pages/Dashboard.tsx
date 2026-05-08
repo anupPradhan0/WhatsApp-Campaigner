@@ -1,27 +1,39 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer,
 } from "recharts";
 import Marquee from "react-fast-marquee";
 import {
-  Wallet,
-  Users,
-  Settings,
-  TrendingUp,
-  ZoomIn,
-  ZoomOut,
-  Maximize2,
+  Wallet, Users, Settings, TrendingUp,
+  Megaphone, MessageSquare, ArrowUpRight, Radio,
 } from "lucide-react";
 import { getUserRole } from "../utils/Auth";
 import { UserRole } from "../constants/Roles";
 import { api } from "../api/client";
+
+/* ── design tokens ── */
+const D = {
+  bg:          '#0a0a0c',
+  surface:     '#111113',
+  surface2:    '#18181b',
+  border:      '#27272a',
+  border2:     '#3f3f46',
+  text:        '#f4f4f5',
+  textMuted:   '#71717a',
+  textSubtle:  '#52525b',
+  green:       '#16a34a',
+  greenLight:  '#4ade80',
+  greenDim:    'rgba(22,163,74,0.12)',
+  blue:        '#3b82f6',
+  blueDim:     'rgba(59,130,246,0.12)',
+  amber:       '#fbbf24',
+  amberDim:    'rgba(251,191,36,0.12)',
+  purple:      '#a78bfa',
+  purpleDim:   'rgba(167,139,250,0.12)',
+  red:         '#f87171',
+  redDim:      'rgba(248,113,113,0.12)',
+};
 
 interface DashboardData {
   companyName: string;
@@ -32,479 +44,400 @@ interface DashboardData {
   totalUsers: number;
   totalCampaigns: number;
   totalMessages: number;
-  weeklyStats: Array<{
-    weekRange: string;
-    totalCampaigns: number;
-    totalMessages: number;
-  }>;
-  topFiveCampaigns: Array<{
-    _id: string;
-    campaignName: string;
-    numberCount: number;
-    status: string;
-    createdAt: string;
-  }>;
-  latestNews: {
-    title: string;
-    description: string;
-    status: string;
-    createdAt: string;
-  };
+  weeklyStats: Array<{ weekRange: string; totalCampaigns: number; totalMessages: number }>;
+  topFiveCampaigns: Array<{ _id: string; campaignName: string; numberCount: number; status: string; createdAt: string }>;
+  latestNews: { title: string; description: string; status: string; createdAt: string };
 }
 
-const Dashboard = () => {
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(
-    null
-  );
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [zoomLevel, setZoomLevel] = useState(1);
-  const [chartHeight, setChartHeight] = useState(400);
+/* ── small reusable pieces ── */
+const Card = ({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) => (
+  <div style={{
+    background: D.surface, border: `1px solid ${D.border}`,
+    borderRadius: 12, ...style,
+  }}>
+    {children}
+  </div>
+);
 
+const Badge = ({ label, color, bg }: { label: string; color: string; bg: string }) => (
+  <span style={{
+    fontSize: 11, fontWeight: 600, color, background: bg,
+    padding: '3px 9px', borderRadius: 20, whiteSpace: 'nowrap',
+    border: `1px solid ${color}33`,
+  }}>
+    {label}
+  </span>
+);
+
+const statusColor = (status: string) => {
+  const s = status?.toLowerCase();
+  if (s === 'completed' || s === 'success') return { color: D.greenLight, bg: D.greenDim };
+  if (s === 'pending')                      return { color: D.amber,      bg: D.amberDim };
+  if (s === 'failed'  || s === 'error')     return { color: D.red,        bg: D.redDim };
+  return { color: D.textMuted, bg: 'rgba(255,255,255,0.06)' };
+};
+
+const CustomTooltip = ({ active, payload }: {
+  active?: boolean;
+  payload?: Array<{ payload: { weekRange: string; totalCampaigns: number; totalMessages: number }; value: number; dataKey: string }>;
+}) => {
+  if (!active || !payload?.length) return null;
+  const d = payload[0].payload;
+  return (
+    <div style={{
+      background: D.surface2, border: `1px solid ${D.border2}`,
+      borderRadius: 8, padding: '10px 14px',
+      boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+    }}>
+      <p style={{ fontSize: 11, color: D.textSubtle, marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{d.weekRange}</p>
+      <p style={{ fontSize: 13, color: D.blue,       fontWeight: 600, marginBottom: 3 }}>Campaigns: {d.totalCampaigns}</p>
+      <p style={{ fontSize: 13, color: D.greenLight, fontWeight: 600 }}>Messages: {d.totalMessages}</p>
+    </div>
+  );
+};
+
+/* ── main component ── */
+const Dashboard = () => {
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [loading, setLoading]             = useState(true);
+  const [error, setError]                 = useState("");
+  const [chartHeight, setChartHeight]     = useState(300);
   const userRole = getUserRole();
 
-  // Dynamic chart height based on screen size
   useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 640) {
-        setChartHeight(250); // Mobile
-      } else if (window.innerWidth < 1024) {
-        setChartHeight(300); // Tablet
-      } else {
-        setChartHeight(400); // Desktop
-      }
-    };
-
-    window.addEventListener("resize", handleResize);
-    handleResize(); // Initial call
-
-    return () => window.removeEventListener("resize", handleResize);
+    const handle = () => setChartHeight(window.innerWidth < 640 ? 200 : window.innerWidth < 1024 ? 240 : 300);
+    window.addEventListener("resize", handle);
+    handle();
+    return () => window.removeEventListener("resize", handle);
   }, []);
 
-  // Fetch dashboard data
   const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
-      const { data: result } = await api.get<{
-        success: boolean;
-        message?: string;
-        data: DashboardData;
-      }>("/api/dashboard/home");
-
-      if (result.success) {
-        setDashboardData(result.data);
-      } else {
-        setError(result.message || "Failed to load dashboard data");
-      }
-    } catch (err) {
+      const { data: result } = await api.get<{ success: boolean; message?: string; data: DashboardData }>("/api/dashboard/home");
+      if (result.success) setDashboardData(result.data);
+      else setError(result.message || "Failed to load dashboard data");
+    } catch {
       setError("Network error. Please try again.");
-      console.error("Dashboard fetch error:", err);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
-
-  // Filter data by date range
-  const getFilteredChartData = () => {
-    if (!dashboardData) return [];
-    return dashboardData.weeklyStats;
-  };
-
-  // Custom tooltip for chart
-  const CustomTooltip = ({
-    active,
-    payload,
-  }: {
-    active?: boolean;
-    payload?: Array<{
-      payload: {
-        weekRange: string;
-        totalCampaigns: number;
-        totalMessages: number;
-      };
-      value: number;
-      dataKey: string;
-    }>;
-  }) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      return (
-        <div className="bg-white/95 backdrop-blur-md p-3 sm:p-4 rounded-lg sm:rounded-xl border-2 border-blue-500 shadow-xl">
-          <p className="font-bold text-black text-xs sm:text-sm mb-2">
-            📅 {data.weekRange}
-          </p>
-          <p className="text-blue-600 font-semibold text-xs sm:text-sm">
-            📊 Campaigns: {data.totalCampaigns}
-          </p>
-          <p className="text-green-600 font-semibold text-xs sm:text-sm">
-            💬 Messages: {data.totalMessages}
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
+  useEffect(() => { fetchDashboardData(); }, [fetchDashboardData]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen p-4">
-        <div className="p-6 sm:p-8 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-          <p className="text-base sm:text-xl font-semibold text-black">
-            Loading Dashboard...
-          </p>
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400, flexDirection: 'column', gap: 12 }}>
+        <div style={{
+          width: 40, height: 40, borderRadius: '50%',
+          border: `3px solid ${D.border}`, borderTopColor: D.green,
+          animation: 'spin 0.8s linear infinite',
+        }} />
+        <p style={{ color: D.textMuted, fontSize: 13 }}>Loading dashboard…</p>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-3 sm:p-6">
-        <div className="p-3 sm:p-4 bg-red-100/60 backdrop-blur-md rounded-lg sm:rounded-xl border border-red-300 shadow-lg">
-          <p className="text-red-700 font-semibold text-sm sm:text-base">
-            {error}
-          </p>
-        </div>
+      <div style={{ padding: '12px 16px', background: D.redDim, border: `1px solid ${D.red}44`, borderRadius: 10 }}>
+        <p style={{ color: D.red, fontSize: 14 }}>{error}</p>
       </div>
     );
   }
 
   if (!dashboardData) return null;
 
-  const filteredData = getFilteredChartData();
+  const isAdminOrReseller = userRole === UserRole.ADMIN || userRole === UserRole.RESELLER;
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+
+  const statCards = [
+    {
+      show: true,
+      label: userRole === UserRole.ADMIN ? 'Total Messages' : 'Available Balance',
+      value: userRole === UserRole.ADMIN ? dashboardData.totalMessages.toLocaleString() : `₹${dashboardData.balance.toLocaleString()}`,
+      icon: userRole === UserRole.ADMIN ? TrendingUp : Wallet,
+      accent: userRole === UserRole.ADMIN ? D.red       : D.green,
+      iconBg:  userRole === UserRole.ADMIN ? D.redDim   : D.greenDim,
+      iconColor: userRole === UserRole.ADMIN ? D.red    : D.greenLight,
+    },
+    {
+      show: isAdminOrReseller,
+      label: 'Total Resellers',
+      value: dashboardData.totalReseller.toLocaleString(),
+      icon: Settings,
+      accent: D.blue,
+      iconBg:    D.blueDim,
+      iconColor: D.blue,
+    },
+    {
+      show: isAdminOrReseller,
+      label: 'Total Users',
+      value: dashboardData.totalUsers.toLocaleString(),
+      icon: Users,
+      accent: D.amber,
+      iconBg:    D.amberDim,
+      iconColor: D.amber,
+    },
+    {
+      show: true,
+      label: 'Total Campaigns',
+      value: dashboardData.totalCampaigns.toLocaleString(),
+      icon: Megaphone,
+      accent: D.purple,
+      iconBg:    D.purpleDim,
+      iconColor: D.purple,
+    },
+  ].filter(c => c.show);
+
+  const cols = statCards.length;
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Latest News Ticker - Mobile Optimized */}
-      {dashboardData.latestNews ? (
-        <div className="bg-gradient-to-r from-red-500 to-orange-500 backdrop-blur-md rounded-lg sm:rounded-xl border border-white/30 shadow-lg overflow-hidden">
-          <Marquee pauseOnHover gradient={false} speed={50}>
-            <div className="flex items-center gap-4 sm:gap-8 py-2 sm:py-3 px-3 sm:px-4">
-              <span className="text-white font-bold text-sm sm:text-base md:text-lg">
-                🔔 {dashboardData.latestNews.title}
-              </span>
-              <span className="text-white font-semibold text-sm sm:text-base md:text-lg">
-                • {dashboardData.latestNews.description}
-              </span>
-              <span className="text-white font-semibold text-xs sm:text-sm md:text-base opacity-80">
-                📅{" "}
-                {new Date(
-                  dashboardData.latestNews.createdAt
-                ).toLocaleDateString("en-IN")}
-              </span>
-            </div>
-          </Marquee>
-        </div>
-      ) : (
-        <div className="bg-yellow-500/80 backdrop-blur-md rounded-lg sm:rounded-xl border border-white/30 shadow-lg p-3 sm:p-4">
-          <p className="text-white font-bold text-center text-sm sm:text-base">
-            ⚠️ No news available at the moment
-          </p>
-        </div>
-      )}
+    <>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.5)} }
+        .stat-card:hover { background: ${D.surface2} !important; }
+        .campaign-row:hover td { background: rgba(255,255,255,0.025) !important; }
+        @media (max-width:639px)  { .stat-grid { grid-template-columns: repeat(2,1fr) !important; } }
+        @media (min-width:640px)  { .stat-grid { grid-template-columns: repeat(${cols > 2 ? 2 : cols},1fr) !important; } }
+        @media (min-width:1024px) { .stat-grid { grid-template-columns: repeat(${cols},1fr) !important; } }
+        @media (min-width:1024px) { .main-grid { grid-template-columns: 3fr 2fr !important; } }
+      `}</style>
 
-      {/* Stats Cards Grid - Fully Responsive */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
-        {/* Available Balance */}
-        {/* Available Balance or Total Messages - Admin sees Messages */}
-        <div className="p-4 sm:p-5 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl hover:shadow-2xl transition-all">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div
-              className={`p-3 sm:p-4 ${
-                userRole === UserRole.ADMIN
-                  ? "bg-red-500/30"
-                  : "bg-green-500/30"
-              } backdrop-blur-sm rounded-lg sm:rounded-xl flex-shrink-0`}
-            >
-              {userRole === UserRole.ADMIN ? (
-                <TrendingUp className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-red-600" />
-              ) : (
-                <Wallet className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-green-600" />
-              )}
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs sm:text-sm font-bold text-black uppercase opacity-70 truncate">
-                {userRole === UserRole.ADMIN
-                  ? "Total Messages Reached"
-                  : "Available Balance"}
-              </p>
-              <p className="text-xl sm:text-2xl md:text-3xl font-bold text-black mt-0.5 sm:mt-1">
-                {userRole === UserRole.ADMIN
-                  ? dashboardData.totalMessages
-                  : `₹${dashboardData.balance}`}
-              </p>
-            </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+        {/* ── Page header ── */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: D.text, margin: 0, lineHeight: 1.2 }}>
+              {greeting}, {dashboardData.companyName || 'there'} 👋
+            </h1>
+            <p style={{ fontSize: 13, color: D.textMuted, marginTop: 4 }}>
+              Here's what's happening with your campaigns today.
+            </p>
+          </div>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            background: D.surface, border: `1px solid ${D.border}`,
+            borderRadius: 8, padding: '6px 12px',
+          }}>
+            <div style={{
+              width: 7, height: 7, borderRadius: '50%', background: D.greenLight,
+              animation: 'pulse-dot 2s ease-in-out infinite', flexShrink: 0,
+            }} />
+            <span style={{ fontSize: 12, color: D.textMuted, fontWeight: 500 }}>
+              {dashboardData.role || userRole}
+            </span>
           </div>
         </div>
 
-        {/* Total Resellers - Only for Admin/Reseller */}
-        {(userRole === UserRole.ADMIN || userRole === UserRole.RESELLER) && (
-          <div className="p-4 sm:p-5 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl hover:shadow-2xl transition-all">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <div className="p-3 sm:p-4 bg-blue-500/30 backdrop-blur-sm rounded-lg sm:rounded-xl flex-shrink-0">
-                <Settings className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-blue-600" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs sm:text-sm font-bold text-black uppercase opacity-70 truncate">
-                  Total Resellers
-                </p>
-                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-black mt-0.5 sm:mt-1">
-                  {dashboardData.totalReseller}
-                </p>
-              </div>
+        {/* ── News ticker ── */}
+        {dashboardData.latestNews ? (
+          <div style={{
+            background: 'rgba(22,163,74,0.07)', border: '1px solid rgba(22,163,74,0.18)',
+            borderRadius: 10, overflow: 'hidden', display: 'flex', alignItems: 'center',
+          }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '9px 14px', borderRight: '1px solid rgba(22,163,74,0.18)',
+              flexShrink: 0,
+            }}>
+              <Radio size={12} style={{ color: D.greenLight }} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: D.greenLight, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Live</span>
             </div>
+            <Marquee pauseOnHover gradient={false} speed={40} style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 32, padding: '9px 20px' }}>
+                <span style={{ color: D.text, fontWeight: 500, fontSize: 13 }}>{dashboardData.latestNews.title}</span>
+                <span style={{ color: D.textMuted, fontSize: 13 }}>— {dashboardData.latestNews.description}</span>
+                <span style={{ color: D.textSubtle, fontSize: 12 }}>
+                  {new Date(dashboardData.latestNews.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </span>
+              </div>
+            </Marquee>
+          </div>
+        ) : (
+          <div style={{
+            padding: '9px 16px', background: D.amberDim,
+            border: '1px solid rgba(251,191,36,0.2)', borderRadius: 10,
+          }}>
+            <p style={{ color: D.amber, fontSize: 13, fontWeight: 500 }}>No announcements at this time.</p>
           </div>
         )}
 
-        {/* Total Users - Only for Admin/Reseller */}
-        {(userRole === UserRole.ADMIN || userRole === UserRole.RESELLER) && (
-          <div className="p-4 sm:p-5 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl hover:shadow-2xl transition-all">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <div className="p-3 sm:p-4 bg-yellow-500/30 backdrop-blur-sm rounded-lg sm:rounded-xl flex-shrink-0">
-                <Users className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-yellow-600" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs sm:text-sm font-bold text-black uppercase opacity-70 truncate">
-                  Total Users
-                </p>
-                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-black mt-0.5 sm:mt-1">
-                  {dashboardData.totalUsers}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Total Campaigns */}
-        <div className="p-4 sm:p-5 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl hover:shadow-2xl transition-all">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="p-3 sm:p-4 bg-purple-500/30 backdrop-blur-sm rounded-lg sm:rounded-xl flex-shrink-0">
-              <TrendingUp className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-purple-600" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs sm:text-sm font-bold text-black uppercase opacity-70 truncate">
-                Total Campaigns
-              </p>
-              <p className="text-xl sm:text-2xl md:text-3xl font-bold text-black mt-0.5 sm:mt-1">
-                {dashboardData.totalCampaigns}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content Grid - Chart + Table */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-        {/* Chart Section - Bar Chart (Histogram) */}
-        <div className="lg:col-span-2 p-4 sm:p-5 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-          {/* Chart Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
-            <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-black">
-              📊 Weekly Campaign Activity (Last 2 Months)
-            </h3>
-
-            {/* Zoom Controls */}
-            <div className="flex items-center gap-2 justify-center xs:justify-start">
-              <button
-                onClick={() => setZoomLevel((prev) => Math.min(prev + 0.2, 2))}
-                className="p-2 bg-white/60 backdrop-blur-sm rounded-lg border border-white/80 hover:bg-white/80 active:scale-95 transition-all"
-                title="Zoom In"
-              >
-                <ZoomIn className="w-3 h-3 sm:w-4 sm:h-4 text-black" />
-              </button>
-              <button
-                onClick={() =>
-                  setZoomLevel((prev) => Math.max(prev - 0.2, 0.5))
-                }
-                className="p-2 bg-white/60 backdrop-blur-sm rounded-lg border border-white/80 hover:bg-white/80 active:scale-95 transition-all"
-                title="Zoom Out"
-              >
-                <ZoomOut className="w-3 h-3 sm:w-4 sm:h-4 text-black" />
-              </button>
-              <button
-                onClick={() => setZoomLevel(1)}
-                className="p-2 bg-white/60 backdrop-blur-sm rounded-lg border border-white/80 hover:bg-white/80 active:scale-95 transition-all"
-                title="Reset"
-              >
-                <Maximize2 className="w-3 h-3 sm:w-4 sm:h-4 text-black" />
-              </button>
-            </div>
-          </div>
-
-          {/* Responsive Bar Chart - Histogram */}
-          <div className="w-full overflow-x-auto -mx-2 sm:mx-0">
+        {/* ── Stat cards ── */}
+        <div className="stat-grid" style={{ display: 'grid', gap: 14 }}>
+          {statCards.map(c => (
             <div
-              className="min-w-[300px]"
+              key={c.label}
+              className="stat-card"
               style={{
-                transform:
-                  window.innerWidth >= 640 ? `scale(${zoomLevel})` : "scale(1)",
-                transformOrigin: "top left",
+                background: D.surface, border: `1px solid ${D.border}`,
+                borderRadius: 12, overflow: 'hidden',
+                transition: 'background 0.15s',
               }}
             >
+              {/* accent top bar */}
+              <div style={{ height: 3, background: c.accent, borderRadius: '12px 12px 0 0' }} />
+              <div style={{ padding: '18px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <p style={{ fontSize: 11, color: D.textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>
+                    {c.label}
+                  </p>
+                  <p style={{ fontSize: 26, fontWeight: 700, color: D.text, lineHeight: 1 }}>{c.value}</p>
+                </div>
+                <div style={{
+                  width: 46, height: 46, borderRadius: 12,
+                  background: c.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                }}>
+                  <c.icon size={20} color={c.iconColor} />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Chart + Table ── */}
+        <div className="main-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
+
+          {/* Bar chart */}
+          <Card>
+            <div style={{ padding: '20px 24px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+              <div>
+                <p style={{ fontSize: 15, fontWeight: 600, color: D.text, margin: 0 }}>Weekly Activity</p>
+                <p style={{ fontSize: 12, color: D.textMuted, marginTop: 3 }}>Campaign & message volume · last 2 months</p>
+              </div>
+              <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: 3, background: D.blue }} />
+                  <span style={{ fontSize: 11, color: D.textMuted }}>Campaigns</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: 3, background: D.green }} />
+                  <span style={{ fontSize: 11, color: D.textMuted }}>Messages</span>
+                </div>
+              </div>
+            </div>
+            <div style={{ padding: '16px 8px 8px', overflowX: 'auto' }}>
               <ResponsiveContainer width="100%" height={chartHeight}>
                 <BarChart
-                  data={filteredData}
-                  margin={{
-                    top: 5,
-                    right: window.innerWidth < 640 ? 10 : 30,
-                    left: window.innerWidth < 640 ? -10 : 20,
-                    bottom: window.innerWidth < 640 ? 60 : 5,
-                  }}
+                  data={dashboardData.weeklyStats}
+                  margin={{ top: 4, right: 16, left: -12, bottom: window.innerWidth < 640 ? 50 : 4 }}
+                  barCategoryGap="30%"
                 >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="rgba(0,0,0,0.1)"
-                  />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
                   <XAxis
                     dataKey="weekRange"
-                    stroke="#000"
-                    style={{
-                      fontSize: window.innerWidth < 640 ? "9px" : "12px",
-                      fontWeight: "600",
-                    }}
-                    angle={window.innerWidth < 640 ? -45 : 0}
-                    textAnchor={window.innerWidth < 640 ? "end" : "middle"}
-                    height={window.innerWidth < 640 ? 80 : 30}
+                    stroke="transparent"
+                    tick={{ fill: D.textSubtle, fontSize: window.innerWidth < 640 ? 9 : 11 }}
+                    angle={window.innerWidth < 640 ? -40 : 0}
+                    textAnchor={window.innerWidth < 640 ? 'end' : 'middle'}
+                    height={window.innerWidth < 640 ? 60 : 28}
                   />
-                  <YAxis
-                    stroke="#000"
-                    style={{
-                      fontSize: window.innerWidth < 640 ? "10px" : "12px",
-                      fontWeight: "600",
-                    }}
-                  />
-                  <Tooltip
-                    content={<CustomTooltip />}
-                    cursor={{ fill: "rgba(34, 197, 94, 0.1)" }}
-                  />
-                  <Legend
-                    wrapperStyle={{
-                      fontSize: window.innerWidth < 640 ? "11px" : "12px",
-                      paddingTop: "15px",
-                    }}
-                  />
-                  <Bar
-                    dataKey="totalCampaigns"
-                    fill="#3b82f6"
-                    radius={[8, 8, 0, 0]}
-                    name="Total Campaigns"
-                  />
-                  <Bar
-                    dataKey="totalMessages"
-                    fill="#22c55e"
-                    radius={[8, 8, 0, 0]}
-                    name="Total Messages"
-                  />
+                  <YAxis stroke="transparent" tick={{ fill: D.textSubtle, fontSize: 11 }} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+                  <Bar dataKey="totalCampaigns" fill={D.blue}  radius={[4,4,0,0]} name="Campaigns" />
+                  <Bar dataKey="totalMessages"  fill={D.green} radius={[4,4,0,0]} name="Messages" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          </div>
-        </div>
+          </Card>
 
-        {/* Last 5 Campaign Status Table - Mobile Card Layout */}
-        <div className="p-4 sm:p-5 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-          <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-black mb-3 sm:mb-4">
-            Last 5 Campaign Status
-          </h3>
+          {/* Recent campaigns */}
+          <Card>
+            <div style={{ padding: '20px 24px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <p style={{ fontSize: 15, fontWeight: 600, color: D.text, margin: 0 }}>Recent Campaigns</p>
+                <p style={{ fontSize: 12, color: D.textMuted, marginTop: 3 }}>Top 5 by activity</p>
+              </div>
+              <MessageSquare size={16} style={{ color: D.textSubtle }} />
+            </div>
 
-          {/* Desktop Table View */}
-          <div className="hidden sm:block overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b-2 border-white/60">
-                  <th className="text-left py-2 sm:py-3 px-1 sm:px-2 text-xs sm:text-sm font-bold text-black uppercase">
-                    SN
-                  </th>
-                  <th className="text-left py-2 sm:py-3 px-1 sm:px-2 text-xs sm:text-sm font-bold text-black uppercase">
-                    Campaign
-                  </th>
-                  <th className="text-left py-2 sm:py-3 px-1 sm:px-2 text-xs sm:text-sm font-bold text-black uppercase">
-                    Messages
-                  </th>
-                  <th className="text-left py-2 sm:py-3 px-1 sm:px-2 text-xs sm:text-sm font-bold text-black uppercase">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {dashboardData.topFiveCampaigns.map((campaign, index) => (
-                  <tr
-                    key={campaign._id}
-                    className="border-b border-white/30 hover:bg-white/20 transition-all"
-                  >
-                    <td className="py-2 sm:py-3 px-1 sm:px-2 text-black font-semibold text-xs sm:text-sm">
-                      {index + 1}
-                    </td>
-                    <td className="py-2 sm:py-3 px-1 sm:px-2 text-black font-semibold text-xs sm:text-sm truncate max-w-[80px] sm:max-w-[120px]">
-                      {campaign.campaignName}
-                    </td>
-                    <td className="py-2 sm:py-3 px-1 sm:px-2 text-black font-semibold text-xs sm:text-sm text-center">
-                      {campaign.numberCount}
-                    </td>
-                    <td className="py-2 sm:py-3 px-1 sm:px-2">
-                      <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-green-500 text-white text-xs font-bold rounded-full">
-                        {campaign.status || "None"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-                {dashboardData.topFiveCampaigns.length === 0 && (
+            {/* Divider */}
+            <div style={{ height: 1, background: D.border, margin: '0 24px' }} />
+
+            {/* Desktop table */}
+            <div className="hidden sm:block" style={{ overflowX: 'auto', padding: '8px 0' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
                   <tr>
-                    <td
-                      colSpan={4}
-                      className="py-6 text-center text-black opacity-70 text-sm"
-                    >
-                      No campaigns yet
-                    </td>
+                    {['#', 'Campaign', 'Msgs', 'Status'].map(h => (
+                      <th key={h} style={{
+                        padding: '8px 16px', textAlign: 'left',
+                        fontSize: 10, color: D.textSubtle, fontWeight: 700,
+                        textTransform: 'uppercase', letterSpacing: '0.08em',
+                      }}>
+                        {h}
+                      </th>
+                    ))}
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {dashboardData.topFiveCampaigns.map((c, i) => {
+                    const sc = statusColor(c.status);
+                    return (
+                      <tr key={c._id} className="campaign-row" style={{ cursor: 'default' }}>
+                        <td style={{ padding: '10px 16px', fontSize: 12, color: D.textSubtle }}>{i + 1}</td>
+                        <td style={{ padding: '10px 16px', fontSize: 13, color: D.text, fontWeight: 500, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {c.campaignName}
+                        </td>
+                        <td style={{ padding: '10px 16px', fontSize: 13, color: D.textMuted }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <ArrowUpRight size={12} style={{ color: D.greenLight }} />
+                            {c.numberCount.toLocaleString()}
+                          </span>
+                        </td>
+                        <td style={{ padding: '10px 16px' }}>
+                          <Badge label={c.status || 'None'} color={sc.color} bg={sc.bg} />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {dashboardData.topFiveCampaigns.length === 0 && (
+                    <tr>
+                      <td colSpan={4} style={{ padding: '32px 16px', textAlign: 'center', color: D.textSubtle, fontSize: 13 }}>
+                        No campaigns yet
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-          {/* Mobile Compact List View */}
-          <div className="sm:hidden space-y-2">
-            {dashboardData.topFiveCampaigns.map((campaign, index) => (
-              <div
-                key={campaign._id}
-                className="p-2.5 bg-white/30 backdrop-blur-sm rounded-lg border border-white/50 hover:bg-white/40 transition-all"
-              >
-                {/* Top Row: Number + Status */}
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-black font-bold text-xs">
-                    #{index + 1}
-                  </span>
-                </div>
-
-                {/* Campaign Name */}
-                <p className="text-black font-bold text-sm mb-1.5 truncate">
-                  {campaign.campaignName}
-                </p>
-
-                {/* Messages Count */}
-                <div className="flex items-center justify-between">
-                  <span className="text-black text-xs font-medium opacity-70">
-                    Messages:
-                  </span>
-                  <span className="text-black text-xs font-bold">
-                    {campaign.numberCount}
-                  </span>
-                </div>
-              </div>
-            ))}
-            {dashboardData.topFiveCampaigns.length === 0 && (
-              <div className="py-6 text-center text-black opacity-70 text-sm">
-                No campaigns yet
-              </div>
-            )}
-          </div>
+            {/* Mobile cards */}
+            <div className="sm:hidden" style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 16px' }}>
+              {dashboardData.topFiveCampaigns.map((c, i) => {
+                const sc = statusColor(c.status);
+                return (
+                  <div key={c._id} style={{
+                    padding: '12px 14px', background: D.surface2,
+                    border: `1px solid ${D.border}`, borderRadius: 8,
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                      <span style={{ fontSize: 11, color: D.textSubtle, fontWeight: 600 }}>#{i + 1}</span>
+                      <Badge label={c.status || 'None'} color={sc.color} bg={sc.bg} />
+                    </div>
+                    <p style={{ fontSize: 13, color: D.text, fontWeight: 500, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {c.campaignName}
+                    </p>
+                    <p style={{ fontSize: 12, color: D.textMuted }}>
+                      {c.numberCount.toLocaleString()} messages
+                    </p>
+                  </div>
+                );
+              })}
+              {dashboardData.topFiveCampaigns.length === 0 && (
+                <p style={{ textAlign: 'center', color: D.textSubtle, fontSize: 13, padding: 20 }}>No campaigns yet</p>
+              )}
+            </div>
+          </Card>
         </div>
+
       </div>
-    </div>
+    </>
   );
 };
 

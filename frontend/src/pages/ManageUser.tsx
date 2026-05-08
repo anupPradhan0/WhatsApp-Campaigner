@@ -1,1471 +1,618 @@
-import { useState, useEffect, useCallback } from 'react';
-import type { ChangeEvent } from 'react';
-import { format } from 'date-fns';
-import { X, Plus, Eye, Edit2, DollarSign, Minus, Lock, Unlock, Trash2 } from 'lucide-react';
-import { getUserRole } from '../utils/Auth';
-import { UserRole } from '../constants/Roles';
-import { api } from '../api/client';
+import React, { useState, useEffect, useCallback } from "react";
+import type { ChangeEvent } from "react";
+import { format } from "date-fns";
+import { X, Plus, Eye, Edit2, DollarSign, Minus, Lock, Unlock, Trash2, CheckCircle2, AlertCircle, UserCircle2 } from "lucide-react";
+import { getUserRole } from "../utils/Auth";
+import { UserRole } from "../constants/Roles";
+import { api } from "../api/client";
 
+const D = {
+  bg:          '#0a0a0c',
+  surface:     '#111113',
+  surface2:    '#18181b',
+  border:      '#27272a',
+  border2:     '#3f3f46',
+  text:        '#f4f4f5',
+  textMuted:   '#71717a',
+  textSubtle:  '#52525b',
+  green:       '#16a34a',
+  greenLight:  '#4ade80',
+  greenDim:    'rgba(22,163,74,0.12)',
+  greenBorder: 'rgba(22,163,74,0.3)',
+  blue:        '#3b82f6',
+  blueDim:     'rgba(59,130,246,0.12)',
+  amber:       '#fbbf24',
+  amberDim:    'rgba(251,191,36,0.12)',
+  red:         '#f87171',
+  redDim:      'rgba(248,113,113,0.1)',
+  redBorder:   'rgba(248,113,113,0.3)',
+};
+
+/* ── shared helpers ── */
+const inp: React.CSSProperties = {
+  width: '100%', padding: '9px 12px',
+  background: D.surface2, border: `1px solid ${D.border}`,
+  borderRadius: 8, fontSize: 13, color: D.text,
+  outline: 'none', boxSizing: 'border-box',
+};
+
+const FLabel = ({ children }: { children: React.ReactNode }) => (
+  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: D.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }}>
+    {children}
+  </label>
+);
+
+const FInput = ({ label, ...p }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) => (
+  <div>
+    <FLabel>{label}</FLabel>
+    <input {...p} style={inp}
+      onFocus={e => (e.currentTarget.style.borderColor = D.green)}
+      onBlur={e  => (e.currentTarget.style.borderColor = D.border)} />
+  </div>
+);
+
+const FSelect = ({ label, children, ...p }: { label: string } & React.SelectHTMLAttributes<HTMLSelectElement>) => (
+  <div>
+    <FLabel>{label}</FLabel>
+    <select {...p} style={{ ...inp, cursor: 'pointer' }}>{children}</select>
+  </div>
+);
+
+const ModalOverlay = ({ children, onClose }: { children: React.ReactNode; onClose: () => void }) => (
+  <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}
+    onClick={onClose}>
+    <div onClick={e => e.stopPropagation()} style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 14, width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+      {children}
+    </div>
+  </div>
+);
+
+const ModalHeader = ({ title, onClose }: { title: string; onClose: () => void }) => (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px', borderBottom: `1px solid ${D.border}` }}>
+    <p style={{ fontSize: 16, fontWeight: 700, color: D.text }}>{title}</p>
+    <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex' }}>
+      <X size={18} style={{ color: D.textMuted }} />
+    </button>
+  </div>
+);
+
+const ModalBody = ({ children }: { children: React.ReactNode }) => (
+  <div style={{ padding: '20px' }}>{children}</div>
+);
+
+const ModalFooter = ({ children }: { children: React.ReactNode }) => (
+  <div style={{ display: 'flex', gap: 10, padding: '0 20px 20px' }}>{children}</div>
+);
+
+const PrimaryBtn = ({ children, danger, ...p }: { danger?: boolean } & React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+  <button {...p} style={{ flex: 1, padding: '9px 0', background: danger ? D.red : D.green, color: '#fff', fontWeight: 600, fontSize: 13, border: 'none', borderRadius: 8, cursor: p.disabled ? 'not-allowed' : 'pointer', opacity: p.disabled ? 0.6 : 1, transition: 'opacity 0.15s' }}>
+    {children}
+  </button>
+);
+
+const GhostBtn = ({ children, ...p }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+  <button {...p} style={{ flex: 1, padding: '9px 0', background: D.surface2, color: D.textMuted, fontWeight: 600, fontSize: 13, border: `1px solid ${D.border}`, borderRadius: 8, cursor: 'pointer' }}>
+    {children}
+  </button>
+);
+
+const InlineAlert = ({ msg, type }: { msg: string; type: 'error' | 'success' }) => (
+  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px', background: type === 'error' ? D.redDim : D.greenDim, border: `1px solid ${type === 'error' ? D.redBorder : D.greenBorder}`, borderRadius: 8, marginBottom: 14 }}>
+    {type === 'error' ? <AlertCircle size={14} style={{ color: D.red, flexShrink: 0, marginTop: 1 }} /> : <CheckCircle2 size={14} style={{ color: D.greenLight, flexShrink: 0, marginTop: 1 }} />}
+    <p style={{ fontSize: 12, color: D.text }}>{msg}</p>
+  </div>
+);
+
+const statusStyle = (s: string): React.CSSProperties => {
+  if (s === 'active')   return { color: D.greenLight, background: D.greenDim, border: `1px solid ${D.greenBorder}` };
+  if (s === 'inactive') return { color: D.red,        background: D.redDim,   border: `1px solid ${D.redBorder}` };
+  return { color: D.textMuted, background: 'rgba(255,255,255,0.05)', border: `1px solid ${D.border}` };
+};
+
+const StatusBadge = ({ status }: { status: string }) => (
+  <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.06em', ...statusStyle(status) }}>
+    {status}
+  </span>
+);
+
+const Avatar = ({ name, image, size = 36 }: { name: string; image?: string; size?: number }) => {
+  const [err, setErr] = useState(false);
+  if (image && !err) return <img src={image} alt={name} onError={() => setErr(true)} style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', border: `2px solid ${D.border2}`, flexShrink: 0 }} />;
+  return (
+    <div style={{ width: size, height: size, borderRadius: '50%', background: 'rgba(59,130,246,0.15)', border: `2px solid ${D.blueDim}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      <span style={{ fontSize: size * 0.38, fontWeight: 700, color: D.blue }}>{name.charAt(0).toUpperCase()}</span>
+    </div>
+  );
+};
+
+const ActionBtn = ({ icon: Icon, color, bg, title: t, onClick }: { icon: React.FC<{ size?: number }>; color: string; bg: string; title: string; onClick: () => void }) => (
+  <button onClick={onClick} title={t} style={{ width: 30, height: 30, borderRadius: 7, background: bg, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+    <Icon size={13} />
+  </button>
+);
+
+/* ── interfaces ── */
 interface User {
-  id: string;
-  companyName: string;
-  email: string;
-  number: string;
-  role: string;
-  resellerCount: number;
-  userCount: number;
-  totalCampaigns: number;
-  balance: number;
-  status: 'active' | 'inactive' | 'deleted';
-  createdAt: string;
-  image: string;
+  id: string; companyName: string; email: string; number: string; role: string;
+  resellerCount: number; userCount: number; totalCampaigns: number; balance: number;
+  status: 'active' | 'inactive' | 'deleted'; createdAt: string; image: string;
 }
+interface UsersData { totalUsers: number; users: User[]; }
 
-interface UsersData {
-  totalUsers: number;
-  users: User[];
-}
-
+/* ── page ── */
 const ManageUser = () => {
-  const [usersData, setUsersData] = useState<UsersData | null>(null);
+  const [data,    setData]    = useState<UsersData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error,   setError]   = useState('');
   const [success, setSuccess] = useState('');
-  
-  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  
-  // Modals
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showViewModal, setShowViewModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showAddCreditModal, setShowAddCreditModal] = useState(false);
-  const [showRemoveCreditModal, setShowRemoveCreditModal] = useState(false);
-  const [showFreezeModal, setShowFreezeModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  
-  // Form data
-  const [createFormData, setCreateFormData] = useState({
-    companyName: '',
-    email: '',
-    password: '',
-    number: '',
-    role: 'user',
-    balance: '',
-    image: null as File | null
-  });
-  
-  const [editFormData, setEditFormData] = useState({
-    companyName: '',
-    email: '',
-    number: '',
-    password: '',
-    confirmPassword: ''
-  });
-  
-  const [creditAmount, setCreditAmount] = useState('');
-  const [debitAmount, setDebitAmount] = useState('');
-  
-  // Selected user
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  
-  const userRole = getUserRole();
-  const isAdminOrReseller = userRole === UserRole.ADMIN || userRole === UserRole.RESELLER;
+  const [selected, setSelected] = useState<User | null>(null);
 
-  // Fetch users data
-  const fetchUsersData = useCallback(async () => {
+  const [modal, setModal] = useState<'create'|'view'|'edit'|'addCredit'|'removeCredit'|'freeze'|'delete'|null>(null);
+
+  const [createForm, setCreateForm] = useState({ companyName:'', email:'', password:'', number:'', role:'user', balance:'', image: null as File|null });
+  const [editForm,   setEditForm]   = useState({ companyName:'', email:'', number:'', password:'', confirmPassword:'' });
+  const [creditAmt,  setCreditAmt]  = useState('');
+  const [debitAmt,   setDebitAmt]   = useState('');
+
+  const userRole = getUserRole();
+  const isAdminOrUser = userRole === UserRole.ADMIN || userRole === UserRole.RESELLER;
+
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const { data: result } = await api.get<{
-        success: boolean;
-        message?: string;
-        data: UsersData;
-      }>('/api/dashboard/manage-user');
-
-      if (result.success) {
-        setUsersData(result.data);
-      } else {
-        setError(result.message || 'Failed to load users data');
-      }
-    } catch (err) {
-      setError('Network error. Please try again.');
-      console.error('Users fetch error:', err);
-    } finally {
-      setLoading(false);
-    }
+      const { data: r } = await api.get<{ success: boolean; message?: string; data: UsersData }>('/api/dashboard/manage-user');
+      if (r.success) setData(r.data); else setError(r.message || 'Failed to load');
+    } catch { setError('Network error. Please try again.'); }
+    finally { setLoading(false); }
   }, []);
 
-  useEffect(() => {
-    fetchUsersData();
-  }, [fetchUsersData]);
+  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { setCurrentPage(1); }, [itemsPerPage]);
 
-  // Pagination calculations
-  const totalPages = Math.ceil((usersData?.totalUsers || 0) / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentUsers = usersData?.users.slice(startIndex, endIndex) || [];
+  const totalPages  = Math.max(1, Math.ceil((data?.totalUsers || 0) / itemsPerPage));
+  const startIdx    = (currentPage - 1) * itemsPerPage;
+  const current     = data?.users.slice(startIdx, startIdx + itemsPerPage) || [];
 
-  // Reset to page 1 when items per page changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [itemsPerPage]);
+  const formatDate = (s: string) => { try { return format(new Date(s), 'dd MMM yyyy, hh:mm a'); } catch { return s; } };
 
-  // Format date
-  const formatDate = (dateString: string) => {
+  const openModal = (type: typeof modal, r?: User) => {
+    setError(''); setSuccess('');
+    if (r) setSelected(r);
+    if (type === 'edit' && r) setEditForm({ companyName: r.companyName, email: r.email, number: r.number, password: '', confirmPassword: '' });
+    if (type === 'addCredit') setCreditAmt('');
+    if (type === 'removeCredit') setDebitAmt('');
+    setModal(type);
+  };
+
+  const closeModal = () => { setModal(null); setSelected(null); setError(''); setSuccess(''); };
+
+  const toast = (msg: string) => { setSuccess(msg); setTimeout(() => setSuccess(''), 3000); };
+
+  const handleCreate = async () => {
+    if (!createForm.companyName || !createForm.email || !createForm.password || !createForm.number || !createForm.balance) { setError('All fields are required'); return; }
+    setActionLoading(true); setError('');
     try {
-      return format(new Date(dateString), 'dd-MMM-yyyy hh:mm a');
-    } catch {
-      return dateString;
-    }
+      const fd = new FormData();
+      Object.entries(createForm).forEach(([k, v]) => { if (v !== null) fd.append(k, v instanceof File ? v : String(v)); });
+      const { data: r } = await api.post<{ success: boolean; message?: string }>('/api/user/create', fd);
+      if (r.success) { closeModal(); setCreateForm({ companyName:'', email:'', password:'', number:'', role:'user', balance:'', image:null }); fetchData(); toast('User created successfully!'); }
+      else setError(r.message || 'Failed to create');
+    } catch { setError('Network error.'); }
+    finally { setActionLoading(false); }
   };
 
-  // Get status badge
-  const getStatusBadge = (status: string) => {
-    const badges = {
-      active: 'bg-green-500',
-      inactive: 'bg-red-500',
-      deleted: 'bg-gray-500'
-    };
-    return badges[status as keyof typeof badges] || 'bg-gray-500';
-  };
-
-  // Handle create user
-  const handleCreateUser = async () => {
-    if (!createFormData.companyName || !createFormData.email || !createFormData.password || 
-        !createFormData.number || !createFormData.balance) {
-      setError('All fields are required');
-      return;
-    }
-
-    setActionLoading(true);
-    setError('');
-
+  const handleEdit = async () => {
+    if (!selected) return;
+    const hasProfile = editForm.companyName || editForm.email || editForm.number;
+    const hasPass    = editForm.password || editForm.confirmPassword;
+    if (!hasProfile && !hasPass) { setError('Please provide at least one field'); return; }
+    if (hasPass && editForm.password !== editForm.confirmPassword) { setError('Passwords do not match'); return; }
+    setActionLoading(true); setError('');
     try {
-      const formData = new FormData();
-      formData.append('companyName', createFormData.companyName);
-      formData.append('email', createFormData.email);
-      formData.append('password', createFormData.password);
-      formData.append('number', createFormData.number);
-      formData.append('role', createFormData.role);
-      formData.append('balance', createFormData.balance);
-      if (createFormData.image) {
-        formData.append('image', createFormData.image);
+      if (hasProfile) {
+        const pd: Record<string, string> = {};
+        if (editForm.companyName) pd.companyName = editForm.companyName;
+        if (editForm.email)       pd.email       = editForm.email;
+        if (editForm.number)      pd.number      = editForm.number;
+        const { data: r } = await api.put<{ success: boolean; message?: string }>(`/api/user/update/${selected.id}`, pd);
+        if (!r.success) { setError(r.message || 'Failed to update'); setActionLoading(false); return; }
       }
-
-      const { data: result } = await api.post<{
-        success: boolean;
-        message?: string;
-      }>('/api/user/create', formData);
-
-      if (result.success) {
-        setSuccess(`${createFormData.role === 'reseller' ? 'Reseller' : 'User'} created successfully!`);
-        setShowCreateModal(false);
-        setCreateFormData({
-          companyName: '',
-          email: '',
-          password: '',
-          number: '',
-          role: 'user',
-          balance: '',
-          image: null
-        });
-        fetchUsersData();
-        setTimeout(() => setSuccess(''), 3000);
-      } else {
-        setError(result.message || 'Failed to create user');
+      if (hasPass) {
+        const { data: r } = await api.put<{ success: boolean; message?: string }>(`/api/user/change-password/${selected.id}`, { password: editForm.password, confirmPassword: editForm.confirmPassword });
+        if (!r.success) { setError(r.message || 'Failed to change password'); setActionLoading(false); return; }
       }
-    } catch {
-      setError('Network error. Please try again.');
-    } finally {
-      setActionLoading(false);
-    }
+      closeModal(); fetchData(); toast('Updated successfully!');
+    } catch { setError('Network error.'); }
+    finally { setActionLoading(false); }
   };
 
-  // Handle update user
-  const handleUpdateUser = async () => {
-    if (!selectedUser) return;
-
-    const hasProfileUpdate = editFormData.companyName || editFormData.email || editFormData.number;
-    const hasPasswordUpdate = editFormData.password || editFormData.confirmPassword;
-
-    if (!hasProfileUpdate && !hasPasswordUpdate) {
-      setError('Please provide at least one field to update');
-      return;
-    }
-
-    // Validate password if provided
-    if (hasPasswordUpdate) {
-      if (!editFormData.password || !editFormData.confirmPassword) {
-        setError('Please fill in both password fields');
-        return;
-      }
-
-      if (editFormData.password !== editFormData.confirmPassword) {
-        setError('Passwords do not match');
-        return;
-      }
-
-      if (editFormData.password.length < 3) {
-        setError('Password must be at least 5 characters long');
-        return;
-      }
-    }
-
-    setActionLoading(true);
-    setError('');
-
-    try {
-      let profileSuccess = false;
-      let passwordSuccess = false;
-
-      // Update profile if fields provided
-      if (hasProfileUpdate) {
-        const profileData: { companyName?: string; email?: string; number?: string } = {};
-        if (editFormData.companyName) profileData.companyName = editFormData.companyName;
-        if (editFormData.email) profileData.email = editFormData.email;
-        if (editFormData.number) profileData.number = editFormData.number;
-
-        const { data: profileResult } = await api.put<{
-          success: boolean;
-          message?: string;
-        }>(`/api/user/update/${selectedUser.id}`, profileData);
-
-        if (profileResult.success) {
-          profileSuccess = true;
-        } else {
-          setError(profileResult.message || 'Failed to update profile');
-          setActionLoading(false);
-          return;
-        }
-      }
-
-      // Update password if fields provided
-      if (hasPasswordUpdate) {
-        const { data: passwordResult } = await api.put<{
-          success: boolean;
-          message?: string;
-        }>(`/api/user/change-password/${selectedUser.id}`, {
-          password: editFormData.password,
-          confirmPassword: editFormData.confirmPassword
-        });
-
-        if (passwordResult.success) {
-          passwordSuccess = true;
-        } else {
-          setError(passwordResult.message || 'Failed to change password');
-          setActionLoading(false);
-          return;
-        }
-      }
-
-      // Set success message
-      if (profileSuccess && passwordSuccess) {
-        setSuccess('Profile and password updated successfully!');
-      } else if (profileSuccess) {
-        setSuccess('Profile updated successfully!');
-      } else if (passwordSuccess) {
-        setSuccess('Password changed successfully!');
-      }
-
-      setShowEditModal(false);
-      setSelectedUser(null);
-      setEditFormData({ companyName: '', email: '', number: '', password: '', confirmPassword: '' });
-      fetchUsersData();
-      setTimeout(() => setSuccess(''), 3000);
-
-    } catch {
-      setError('Network error. Please try again.');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Handle add credit
   const handleAddCredit = async () => {
-    if (!selectedUser || !creditAmount || parseFloat(creditAmount) <= 0) {
-      setError('Please enter a valid amount');
-      return;
-    }
-
-    setActionLoading(true);
-    setError('');
-
+    if (!selected || !creditAmt || parseFloat(creditAmt) <= 0) { setError('Enter a valid amount'); return; }
+    setActionLoading(true); setError('');
     try {
-      const { data: result } = await api.post<{
-        success: boolean;
-        message?: string;
-      }>('/api/transaction/credit', {
-        receiverId: selectedUser.id,
-        amount: parseFloat(creditAmount)
-      });
-
-      if (result.success) {
-        setSuccess(`₹${creditAmount} credited successfully!`);
-        setShowAddCreditModal(false);
-        setSelectedUser(null);
-        setCreditAmount('');
-        fetchUsersData();
-        setTimeout(() => setSuccess(''), 3000);
-      } else {
-        setError(result.message || 'Failed to add credit');
-      }
-    } catch {
-      setError('Network error. Please try again.');
-    } finally {
-      setActionLoading(false);
-    }
+      const { data: r } = await api.post<{ success: boolean; message?: string }>('/api/transaction/credit', { receiverId: selected.id, amount: parseFloat(creditAmt) });
+      if (r.success) { closeModal(); fetchData(); toast(`₹${creditAmt} credited!`); } else setError(r.message || 'Failed');
+    } catch { setError('Network error.'); }
+    finally { setActionLoading(false); }
   };
 
-  // Handle remove credit
   const handleRemoveCredit = async () => {
-    if (!selectedUser || !debitAmount || parseFloat(debitAmount) <= 0) {
-      setError('Please enter a valid amount');
-      return;
-    }
-
-    setActionLoading(true);
-    setError('');
-
+    if (!selected || !debitAmt || parseFloat(debitAmt) <= 0) { setError('Enter a valid amount'); return; }
+    setActionLoading(true); setError('');
     try {
-      const { data: result } = await api.post<{
-        success: boolean;
-        message?: string;
-      }>('/api/transaction/debit', {
-        userId: selectedUser.id,
-        amount: parseFloat(debitAmount)
-      });
-
-      if (result.success) {
-        setSuccess(`₹${debitAmount} debited successfully!`);
-        setShowRemoveCreditModal(false);
-        setSelectedUser(null);
-        setDebitAmount('');
-        fetchUsersData();
-        setTimeout(() => setSuccess(''), 3000);
-      } else {
-        setError(result.message || 'Failed to remove credit');
-      }
-    } catch {
-      setError('Network error. Please try again.');
-    } finally {
-      setActionLoading(false);
-    }
+      const { data: r } = await api.post<{ success: boolean; message?: string }>('/api/transaction/debit', { userId: selected.id, amount: parseFloat(debitAmt) });
+      if (r.success) { closeModal(); fetchData(); toast(`₹${debitAmt} debited!`); } else setError(r.message || 'Failed');
+    } catch { setError('Network error.'); }
+    finally { setActionLoading(false); }
   };
 
-  // Handle freeze/unfreeze
-  const handleFreezeUnfreeze = async () => {
-    if (!selectedUser) return;
-
-    setActionLoading(true);
-    setError('');
-
-    const endpoint = selectedUser.status === 'active' ? 'freeze' : 'unfreeze';
-
+  const handleFreeze = async () => {
+    if (!selected) return;
+    setActionLoading(true); setError('');
+    const ep = selected.status === 'active' ? 'freeze' : 'unfreeze';
     try {
-      const { data: result } = await api.put<{
-        success: boolean;
-        message?: string;
-      }>(`/api/user/${endpoint}/${selectedUser.id}`);
-
-      if (result.success) {
-        setSuccess(result.message ?? "");
-        setShowFreezeModal(false);
-        setSelectedUser(null);
-        fetchUsersData();
-        setTimeout(() => setSuccess(''), 3000);
-      } else {
-        setError(result.message || `Failed to ${endpoint} user`);
-      }
-    } catch {
-      setError('Network error. Please try again.');
-    } finally {
-      setActionLoading(false);
-    }
+      const { data: r } = await api.put<{ success: boolean; message?: string }>(`/api/user/${ep}/${selected.id}`);
+      if (r.success) { closeModal(); fetchData(); toast(r.message || 'Done'); } else setError(r.message || 'Failed');
+    } catch { setError('Network error.'); }
+    finally { setActionLoading(false); }
   };
 
-  // Handle delete
-  const handleDeleteUser = async () => {
-    if (!selectedUser) return;
-
-    setActionLoading(true);
-    setError('');
-
+  const handleDelete = async () => {
+    if (!selected) return;
+    setActionLoading(true); setError('');
     try {
-      const { data: result } = await api.delete<{
-        success: boolean;
-        message?: string;
-      }>(`/api/user/delete/${selectedUser.id}`);
-
-      if (result.success) {
-        setSuccess('User deleted successfully!');
-        setShowDeleteModal(false);
-        setSelectedUser(null);
-        fetchUsersData();
-        setTimeout(() => setSuccess(''), 3000);
-      } else {
-        setError(result.message || 'Failed to delete user');
-      }
-    } catch {
-      setError('Network error. Please try again.');
-    } finally {
-      setActionLoading(false);
-    }
+      const { data: r } = await api.delete<{ success: boolean; message?: string }>(`/api/user/delete/${selected.id}`);
+      if (r.success) { closeModal(); fetchData(); toast('User deleted.'); } else setError(r.message || 'Failed');
+    } catch { setError('Network error.'); }
+    finally { setActionLoading(false); }
   };
 
-  // Open modals
-  const openViewModal = (user: User) => {
-    setSelectedUser(user);
-    setShowViewModal(true);
-  };
+  if (loading) return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:400, flexDirection:'column', gap:12 }}>
+      <div style={{ width:36, height:36, borderRadius:'50%', border:`3px solid ${D.border}`, borderTopColor:D.green, animation:'spin 0.8s linear infinite' }} />
+      <p style={{ color:D.textMuted, fontSize:13 }}>Loading resellers…</p>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
 
-  const openEditModal = (user: User) => {
-    setSelectedUser(user);
-    setEditFormData({
-      companyName: user.companyName,
-      email: user.email,
-      number: user.number,
-      password: '',
-      confirmPassword: ''
-    });
-    setShowEditModal(true);
-  };
-
-  const openAddCreditModal = (user: User) => {
-    setSelectedUser(user);
-    setCreditAmount('');
-    setShowAddCreditModal(true);
-  };
-
-  const openRemoveCreditModal = (user: User) => {
-    setSelectedUser(user);
-    setDebitAmount('');
-    setShowRemoveCreditModal(true);
-  };
-
-  const openFreezeModal = (user: User) => {
-    setSelectedUser(user);
-    setShowFreezeModal(true);
-  };
-
-  const openDeleteModal = (user: User) => {
-    setSelectedUser(user);
-    setShowDeleteModal(true);
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="p-8 bg-white/40 backdrop-blur-lg rounded-2xl border border-white/60 shadow-xl">
-          <p className="text-xl font-semibold text-black">Loading Users...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAdminOrReseller) {
-    return (
-      <div className="p-6">
-        <div className="p-4 bg-red-100/60 backdrop-blur-md rounded-xl border border-red-300 shadow-lg">
-          <p className="text-red-700 font-semibold">Access Denied. Only Admin and Reseller can access this page.</p>
-        </div>
-      </div>
-    );
-  }
+  if (!isAdminOrUser) return (
+    <div style={{ padding:'12px 16px', background:D.redDim, border:`1px solid ${D.redBorder}`, borderRadius:10 }}>
+      <p style={{ color:D.red, fontSize:14 }}>Access denied. Admin or User role required.</p>
+    </div>
+  );
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      
-      {/* Page Header - Mobile Optimized */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 p-4 sm:p-5 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-black text-center">LIST OF ALL USERS</h2>
-        
-        {/* Add New User Button */}
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-blue-500/80 backdrop-blur-md text-white font-bold text-sm sm:text-base rounded-lg sm:rounded-xl border border-white/30 shadow-lg hover:bg-blue-600/80 transition-all active:scale-95"
-        >
-          <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-          ADD NEW USER
-        </button>
-      </div>
+    <>
+      <style>{`
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .row-hover:hover td{background:rgba(255,255,255,0.025)!important}
+        .action-btn:hover{filter:brightness(1.2)}
+        select option{background:#18181b;color:#f4f4f5}
+        input[type=file]::file-selector-button{background:rgba(22,163,74,0.15);border:1px solid rgba(22,163,74,0.3);color:#4ade80;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;margin-right:8px}
+      `}</style>
 
-      {/* Success Message */}
+      {/* Global success toast */}
       {success && (
-        <div className="p-3 sm:p-4 bg-green-500/30 backdrop-blur-md rounded-lg sm:rounded-xl border border-white/50 shadow-lg">
-          <p className="text-black font-semibold text-sm sm:text-base">{success}</p>
+        <div style={{ position:'fixed', top:20, right:20, zIndex:9999, background:D.greenDim, border:`1px solid ${D.greenBorder}`, borderRadius:10, padding:'10px 16px', display:'flex', alignItems:'center', gap:8, boxShadow:'0 8px 24px rgba(0,0,0,0.4)' }}>
+          <CheckCircle2 size={14} style={{ color:D.greenLight }} />
+          <p style={{ fontSize:13, color:D.text }}>{success}</p>
         </div>
       )}
 
-      {/* Error Message */}
-      {error && (
-        <div className="p-3 sm:p-4 bg-red-100/60 backdrop-blur-md rounded-lg sm:rounded-xl border border-red-300 shadow-lg">
-          <p className="text-red-700 font-semibold text-sm sm:text-base">{error}</p>
-        </div>
-      )}
+      <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
 
-      {/* Show Entries Selector */}
-      <div className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-        <span className="text-xs sm:text-sm font-bold text-black">SHOW</span>
-        <select
-          value={itemsPerPage}
-          onChange={(e) => setItemsPerPage(Number(e.target.value))}
-          className="px-2 sm:px-3 py-1.5 sm:py-2 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-sm text-black font-semibold focus:outline-none focus:border-green-500"
-        >
-          <option value={10}>10</option>
-          <option value={25}>25</option>
-          <option value={50}>50</option>
-        </select>
-        <span className="text-xs sm:text-sm font-bold text-black">ENTRIES</span>
-      </div>
-
-      {/* Mobile Card View */}
-      <div className="lg:hidden space-y-3">
-        {currentUsers.length === 0 ? (
-          <div className="p-6 bg-white/40 backdrop-blur-lg rounded-xl border border-white/60 shadow-xl text-center">
-            <p className="text-base font-semibold text-black opacity-70">No users available</p>
+        {/* Header */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:10 }}>
+          <div>
+            <h1 style={{ fontSize:22, fontWeight:700, color:D.text, margin:0 }}>Manage Resellers</h1>
+            <p style={{ fontSize:13, color:D.textMuted, marginTop:4 }}>{data?.totalUsers ?? 0} total resellers</p>
           </div>
-        ) : (
-          currentUsers.map((user) => (
-            <div
-              key={user.id}
-              className="p-3 bg-white/40 backdrop-blur-lg rounded-xl border border-white/60 shadow-lg"
-            >
-              {/* Header: Image + Name + Status */}
-              <div className="flex items-center gap-3 mb-3 pb-3 border-b border-white/30">
-                  {user.image && !user.image.includes('404') ? (
-                    <img
-                      src={user.image}
-                      alt={user.companyName}
-                      className="w-13 h-13 rounded-full object-cover border-2 border-blue-500"
-                      onError={(e) => {
-                        e.currentTarget.onerror = null;
-                        e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.companyName)}&background=3b82f6&color=fff&size=128`;
-                      }}
-                    />
-                  ) : (
-                    <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center border-2 border-blue-600">
-                      <span className="text-white font-bold text-sm">
-                        {user.companyName.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                  )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-black truncate">{user.companyName}</p>
-                  <p className="text-xs text-black opacity-60">{user.email}</p>
-                </div>
-                <span className={`px-2 py-0.5 text-white text-[10px] font-bold rounded-full ${getStatusBadge(user.status)}`}>
-                  {user.status.toUpperCase()}
-                </span>
-              </div>
+          <button onClick={() => openModal('create')} style={{ display:'flex', alignItems:'center', gap:7, padding:'9px 16px', background:D.green, color:'#fff', fontWeight:600, fontSize:13, border:'none', borderRadius:8, cursor:'pointer' }}>
+            <Plus size={15} /> Add User
+          </button>
+        </div>
 
-              {/* Details Grid */}
-              <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
-                <div>
-                  <span className="text-black opacity-60 font-semibold">Phone:</span>
-                  <p className="text-black font-bold">{user.number}</p>
-                </div>
-                <div className="text-right">
-                  <span className="text-black opacity-60 font-semibold">Balance:</span>
-                  <p className="text-green-600 font-bold text-base">₹{user.balance}</p>
-                </div>
-              </div>
+        {/* Toolbar */}
+        <div style={{ background:D.surface, border:`1px solid ${D.border}`, borderRadius:10, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' }}>
+          <span style={{ fontSize:11, color:D.textMuted, fontWeight:600, textTransform:'uppercase', letterSpacing:'0.07em' }}>Show</span>
+          <select value={itemsPerPage} onChange={e => setItemsPerPage(Number(e.target.value))}
+            style={{ background:D.surface2, border:`1px solid ${D.border}`, borderRadius:6, color:D.text, fontSize:12, padding:'4px 8px', outline:'none' }}>
+            {[10,25,50].map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+          <span style={{ fontSize:11, color:D.textMuted, fontWeight:600, textTransform:'uppercase', letterSpacing:'0.07em' }}>entries</span>
+          <span style={{ marginLeft:'auto', fontSize:12, color:D.textSubtle }}>
+            {startIdx + 1}–{Math.min(startIdx + itemsPerPage, data?.totalUsers || 0)} of {data?.totalUsers || 0}
+          </span>
+        </div>
 
-              {/* Action Buttons - 2 Rows on Mobile */}
-              <div className="grid grid-cols-3 gap-1.5">
-                <button
-                  onClick={() => openViewModal(user)}
-                  className="p-2 bg-cyan-500/60 backdrop-blur-sm rounded-lg hover:bg-cyan-600/60 transition-all active:scale-95"
-                  title="View"
-                >
-                  <Eye className="w-3.5 h-3.5 text-white mx-auto" />
-                </button>
-                <button
-                  onClick={() => openEditModal(user)}
-                  className="p-2 bg-blue-500/60 backdrop-blur-sm rounded-lg hover:bg-blue-600/60 transition-all active:scale-95"
-                  title="Edit"
-                >
-                  <Edit2 className="w-3.5 h-3.5 text-white mx-auto" />
-                </button>
-                <button
-                  onClick={() => openAddCreditModal(user)}
-                  className="p-2 bg-yellow-500/60 backdrop-blur-sm rounded-lg hover:bg-yellow-600/60 transition-all active:scale-95"
-                  title="Add"
-                >
-                  <DollarSign className="w-3.5 h-3.5 text-white mx-auto" />
-                </button>
-                <button
-                  onClick={() => openRemoveCreditModal(user)}
-                  className="p-2 bg-gray-700/60 backdrop-blur-sm rounded-lg hover:bg-gray-800/60 transition-all active:scale-95"
-                  title="Remove"
-                >
-                  <Minus className="w-3.5 h-3.5 text-white mx-auto" />
-                </button>
-                <button
-                  onClick={() => openFreezeModal(user)}
-                  className={`p-2 backdrop-blur-sm rounded-lg transition-all active:scale-95 ${
-                    user.status === 'active'
-                      ? 'bg-red-500/60 hover:bg-red-600/60'
-                      : 'bg-green-500/60 hover:bg-green-600/60'
-                  }`}
-                  title={user.status === 'active' ? 'Freeze' : 'Unfreeze'}
-                >
-                  {user.status === 'active' ? (
-                    <Lock className="w-3.5 h-3.5 text-white mx-auto" />
-                  ) : (
-                    <Unlock className="w-3.5 h-3.5 text-white mx-auto" />
-                  )}
-                </button>
-                <button
-                  onClick={() => openDeleteModal(user)}
-                  className="p-2 bg-red-600/60 backdrop-blur-sm rounded-lg hover:bg-red-700/60 transition-all active:scale-95"
-                  title="Delete"
-                >
-                  <Trash2 className="w-3.5 h-3.5 text-white mx-auto" />
-                </button>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Desktop Table View */}
-      <div className="hidden lg:block p-4 sm:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b-2 border-white/60">
-                <th className="text-left py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-bold text-black uppercase">Image</th>
-                <th className="text-left py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-bold text-black uppercase">Fullname</th>
-                <th className="text-left py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-bold text-black uppercase">Username</th>
-                <th className="text-left py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-bold text-black uppercase">Email ID</th>
-                <th className="text-left py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-bold text-black uppercase">Balance</th>
-                <th className="text-left py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-bold text-black uppercase">Status</th>
-                <th className="text-left py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-bold text-black uppercase">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentUsers.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-8 sm:py-12 text-center text-black opacity-70">
-                    <p className="text-base sm:text-lg font-semibold">No users available</p>
-                  </td>
+        {/* Desktop table */}
+        <div className="hidden lg:block" style={{ background:D.surface, border:`1px solid ${D.border}`, borderRadius:12, overflow:'hidden' }}>
+          <div style={{ overflowX:'auto' }}>
+            <table style={{ width:'100%', borderCollapse:'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom:`1px solid ${D.border}` }}>
+                  {['', 'Company', 'Phone', 'Email', 'Balance', 'Status', 'Actions'].map(h => (
+                    <th key={h} style={{ padding:'12px 16px', textAlign:'left', fontSize:10, color:D.textSubtle, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em', whiteSpace:'nowrap' }}>{h}</th>
+                  ))}
                 </tr>
-              ) : (
-                currentUsers.map((user) => (
-                  <tr 
-                    key={user.id} 
-                    className="border-b border-white/30 hover:bg-white/20 transition-all"
-                  >
-                    <td className="py-3 sm:py-4 px-3 sm:px-4">
-                      {user.image ? (
-                        <img
-                          src={user.image}
-                          alt={user.companyName}
-                          className="w-15 h-15 rounded-full object-cover border-2 border-blue-500"
-                          onError={(e) => {
-                            e.currentTarget.onerror = null;
-                            e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.companyName)}&background=3b82f6&color=fff&size=128`;
-                          }}
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center border-2 border-blue-600">
-                          <span className="text-white font-bold text-sm">
-                            {user.companyName.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                      )}
-                    </td>
-                    <td className="py-3 sm:py-4 px-3 sm:px-4 text-black text-sm font-semibold">
-                      {user.companyName}
-                    </td>
-                    <td className="py-3 sm:py-4 px-3 sm:px-4 text-black text-sm font-semibold">
-                      {user.number}
-                    </td>
-                    <td className="py-3 sm:py-4 px-3 sm:px-4 text-black text-sm font-semibold">
-                      {user.email}
-                    </td>
-                    <td className="py-3 sm:py-4 px-3 sm:px-4 text-black font-bold text-base sm:text-lg">
-                      ₹{user.balance}
-                    </td>
-                    <td className="py-3 sm:py-4 px-3 sm:px-4">
-                      <span className={`px-2 sm:px-3 py-0.5 sm:py-1 text-white text-xs font-bold rounded-full ${getStatusBadge(user.status)}`}>
-                        {user.status.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="py-3 sm:py-4 px-3 sm:px-4">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <button
-                          onClick={() => openViewModal(user)}
-                          className="p-2 bg-cyan-500/60 backdrop-blur-sm rounded-lg hover:bg-cyan-600/60 transition-all"
-                          title="View Details"
-                        >
-                          <Eye className="w-4 h-4 text-white" />
-                        </button>
-                        <button
-                          onClick={() => openEditModal(user)}
-                          className="p-2 bg-blue-500/60 backdrop-blur-sm rounded-lg hover:bg-blue-600/60 transition-all"
-                          title="Edit User"
-                        >
-                          <Edit2 className="w-4 h-4 text-white" />
-                        </button>
-                        <button
-                          onClick={() => openAddCreditModal(user)}
-                          className="p-2 bg-yellow-500/60 backdrop-blur-sm rounded-lg hover:bg-yellow-600/60 transition-all"
-                          title="Add Credit"
-                        >
-                          <DollarSign className="w-4 h-4 text-white" />
-                        </button>
-                        <button
-                          onClick={() => openRemoveCreditModal(user)}
-                          className="p-2 bg-gray-700/60 backdrop-blur-sm rounded-lg hover:bg-gray-800/60 transition-all"
-                          title="Remove Credit"
-                        >
-                          <Minus className="w-4 h-4 text-white" />
-                        </button>
-                        <button
-                          onClick={() => openFreezeModal(user)}
-                          className={`p-2 backdrop-blur-sm rounded-lg transition-all ${
-                            user.status === 'active'
-                              ? 'bg-red-500/60 hover:bg-red-600/60'
-                              : 'bg-green-500/60 hover:bg-green-600/60'
-                          }`}
-                          title={user.status === 'active' ? 'Freeze User' : 'Unfreeze User'}
-                        >
-                          {user.status === 'active' ? (
-                            <Lock className="w-4 h-4 text-white" />
-                          ) : (
-                            <Unlock className="w-4 h-4 text-white" />
-                          )}
-                        </button>
-                        <button
-                          onClick={() => openDeleteModal(user)}
-                          className="p-2 bg-red-600/60 backdrop-blur-sm rounded-lg hover:bg-red-700/60 transition-all"
-                          title="Delete User"
-                        >
-                          <Trash2 className="w-4 h-4 text-white" />
-                        </button>
+              </thead>
+              <tbody>
+                {current.length === 0 ? (
+                  <tr><td colSpan={7} style={{ padding:'40px 16px', textAlign:'center', color:D.textSubtle, fontSize:13 }}>No resellers found</td></tr>
+                ) : current.map(r => (
+                  <tr key={r.id} className="row-hover" style={{ borderBottom:`1px solid rgba(39,39,42,0.5)` }}>
+                    <td style={{ padding:'10px 16px' }}><Avatar name={r.companyName} image={r.image} size={34} /></td>
+                    <td style={{ padding:'10px 16px', fontSize:13, color:D.text, fontWeight:500 }}>{r.companyName}</td>
+                    <td style={{ padding:'10px 16px', fontSize:12, color:D.textMuted }}>{r.number}</td>
+                    <td style={{ padding:'10px 16px', fontSize:12, color:D.textMuted, maxWidth:160, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.email}</td>
+                    <td style={{ padding:'10px 16px', fontSize:14, fontWeight:700, color:D.greenLight }}>₹{r.balance.toLocaleString()}</td>
+                    <td style={{ padding:'10px 16px' }}><StatusBadge status={r.status} /></td>
+                    <td style={{ padding:'10px 16px' }}>
+                      <div style={{ display:'flex', gap:5 }}>
+                        <ActionBtn icon={Eye}        color={D.blue}    bg={D.blueDim}                            title="View"         onClick={() => openModal('view', r)} />
+                        <ActionBtn icon={Edit2}       color={D.amber}   bg={D.amberDim}                           title="Edit"         onClick={() => openModal('edit', r)} />
+                        <ActionBtn icon={DollarSign}  color={D.greenLight} bg={D.greenDim}                        title="Add Credit"   onClick={() => openModal('addCredit', r)} />
+                        <ActionBtn icon={Minus}       color={D.red}     bg={D.redDim}                             title="Remove Credit" onClick={() => openModal('removeCredit', r)} />
+                        <ActionBtn icon={r.status === 'active' ? Lock : Unlock} color={r.status==='active'?D.red:D.greenLight} bg={r.status==='active'?D.redDim:D.greenDim} title={r.status==='active'?'Freeze':'Unfreeze'} onClick={() => openModal('freeze', r)} />
+                        <ActionBtn icon={Trash2}      color={D.red}     bg={D.redDim}                             title="Delete"       onClick={() => openModal('delete', r)} />
                       </div>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
+
+        {/* Mobile cards */}
+        <div className="lg:hidden" style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          {current.length === 0 ? (
+            <div style={{ padding:32, textAlign:'center', background:D.surface, border:`1px solid ${D.border}`, borderRadius:12 }}>
+              <p style={{ color:D.textSubtle, fontSize:13 }}>No resellers found</p>
+            </div>
+          ) : current.map(r => (
+            <div key={r.id} style={{ background:D.surface, border:`1px solid ${D.border}`, borderRadius:10, padding:'12px 14px' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10, paddingBottom:10, borderBottom:`1px solid ${D.border}` }}>
+                <Avatar name={r.companyName} image={r.image} size={38} />
+                <div style={{ flex:1, minWidth:0 }}>
+                  <p style={{ fontSize:13, fontWeight:600, color:D.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.companyName}</p>
+                  <p style={{ fontSize:11, color:D.textMuted, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.email}</p>
+                </div>
+                <StatusBadge status={r.status} />
+              </div>
+              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:10 }}>
+                <div><p style={{ fontSize:10, color:D.textSubtle, marginBottom:2 }}>PHONE</p><p style={{ fontSize:12, color:D.textMuted }}>{r.number}</p></div>
+                <div style={{ textAlign:'right' }}><p style={{ fontSize:10, color:D.textSubtle, marginBottom:2 }}>BALANCE</p><p style={{ fontSize:16, fontWeight:700, color:D.greenLight }}>₹{r.balance.toLocaleString()}</p></div>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:6 }}>
+                <ActionBtn icon={Eye}       color={D.blue}    bg={D.blueDim}  title="View"          onClick={() => openModal('view', r)} />
+                <ActionBtn icon={Edit2}      color={D.amber}   bg={D.amberDim} title="Edit"          onClick={() => openModal('edit', r)} />
+                <ActionBtn icon={DollarSign} color={D.greenLight} bg={D.greenDim} title="Add Credit"  onClick={() => openModal('addCredit', r)} />
+                <ActionBtn icon={Minus}      color={D.red}     bg={D.redDim}   title="Remove Credit" onClick={() => openModal('removeCredit', r)} />
+                <ActionBtn icon={r.status==='active'?Lock:Unlock} color={r.status==='active'?D.red:D.greenLight} bg={r.status==='active'?D.redDim:D.greenDim} title={r.status==='active'?'Freeze':'Unfreeze'} onClick={() => openModal('freeze', r)} />
+                <ActionBtn icon={Trash2}     color={D.red}     bg={D.redDim}   title="Delete"        onClick={() => openModal('delete', r)} />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:D.surface, border:`1px solid ${D.border}`, borderRadius:10, padding:'12px 16px' }}>
+            <button onClick={() => setCurrentPage(p => Math.max(p-1,1))} disabled={currentPage===1}
+              style={{ padding:'5px 7px', background:D.surface2, border:`1px solid ${D.border}`, borderRadius:6, cursor:currentPage===1?'not-allowed':'pointer', opacity:currentPage===1?0.4:1, display:'flex' }}>
+              ‹
+            </button>
+            {Array.from({ length: Math.min(5,totalPages) }, (_,i) => {
+              let p = totalPages<=5 ? i+1 : currentPage<=3 ? i+1 : currentPage>=totalPages-2 ? totalPages-4+i : currentPage-2+i;
+              return <button key={p} onClick={() => setCurrentPage(p)} style={{ width:32, height:32, borderRadius:6, fontSize:12, fontWeight:600, border:`1px solid ${currentPage===p?D.green:D.border}`, background:currentPage===p?D.green:D.surface2, color:currentPage===p?'#fff':D.textMuted, cursor:'pointer' }}>{p}</button>;
+            })}
+            <button onClick={() => setCurrentPage(p => Math.min(p+1,totalPages))} disabled={currentPage===totalPages}
+              style={{ padding:'5px 7px', background:D.surface2, border:`1px solid ${D.border}`, borderRadius:6, cursor:currentPage===totalPages?'not-allowed':'pointer', opacity:currentPage===totalPages?0.4:1, display:'flex' }}>
+              ›
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Pagination */}
-      {usersData && usersData.totalUsers > 0 && (
-        <>
-          <div className="text-xs sm:text-sm text-black font-semibold p-3 sm:p-4 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-            Showing {startIndex + 1} to {Math.min(endIndex, usersData.totalUsers)} of {usersData.totalUsers} entries
+      {/* ── MODALS ── */}
+
+      {/* Create */}
+      {modal === 'create' && (
+        <ModalOverlay onClose={closeModal}>
+          <div style={{ maxWidth:520, margin:'0 auto' }}>
+            <ModalHeader title="Add New User" onClose={closeModal} />
+            <ModalBody>
+              {error   && <InlineAlert msg={error}   type="error" />}
+              {success && <InlineAlert msg={success} type="success" />}
+              <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+                <FInput label="Company Name *"   type="text"     placeholder="e.g. Acme Corp"           value={createForm.companyName} onChange={e => setCreateForm(f=>({...f, companyName:e.target.value}))} />
+                <FInput label="Email *"          type="email"    placeholder="admin@company.com"         value={createForm.email}       onChange={e => setCreateForm(f=>({...f, email:e.target.value}))} />
+                <FInput label="Password *"       type="password" placeholder="Enter password"            value={createForm.password}    onChange={e => setCreateForm(f=>({...f, password:e.target.value}))} />
+                <FInput label="Phone Number *"   type="tel"      placeholder="10-digit number" maxLength={10} value={createForm.number} onChange={e => setCreateForm(f=>({...f, number:e.target.value}))} />
+                <FSelect label="Role *" value={createForm.role} onChange={e => setCreateForm(f=>({...f, role:e.target.value}))}>
+                  <option value="user">User</option>
+                  <option value="user">User</option>
+                </FSelect>
+                <FInput label="Initial Balance *" type="number" placeholder="0" min="0" value={createForm.balance} onChange={e => setCreateForm(f=>({...f, balance:e.target.value}))} />
+                <div>
+                  <FLabel>Profile Image (optional)</FLabel>
+                  <input type="file" accept="image/*" style={{ ...inp, padding:'7px 10px', fontSize:12, cursor:'pointer' }}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) setCreateForm(x=>({...x, image:f})); }} />
+                  {createForm.image && <p style={{ fontSize:11, color:D.greenLight, marginTop:4 }}>✓ {createForm.image.name}</p>}
+                </div>
+              </div>
+            </ModalBody>
+            <ModalFooter>
+              <PrimaryBtn onClick={handleCreate} disabled={actionLoading}>{actionLoading ? 'Creating…' : 'Create User'}</PrimaryBtn>
+              <GhostBtn onClick={closeModal}>Cancel</GhostBtn>
+            </ModalFooter>
           </div>
-
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-1.5 sm:gap-2 p-3 sm:p-4 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl flex-wrap">
-              <button
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white/60 backdrop-blur-sm rounded-lg border border-white/80 font-semibold text-xs sm:text-sm text-black hover:bg-white/80 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                Previous
-              </button>
-
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum: number;
-                if (totalPages <= 5) {
-                  pageNum = i + 1;
-                } else if (currentPage <= 3) {
-                  pageNum = i + 1;
-                } else if (currentPage >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i;
-                } else {
-                  pageNum = currentPage - 2 + i;
-                }
-
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => setCurrentPage(pageNum)}
-                    className={`px-2.5 sm:px-4 py-1.5 sm:py-2 text-sm font-bold rounded-lg border-2 transition-all ${
-                      currentPage === pageNum
-                        ? 'bg-blue-500 text-white border-blue-600 shadow-lg'
-                        : 'bg-white/60 text-black border-white/80 hover:bg-white/80'
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
-
-              <button
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
-                className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white/60 backdrop-blur-sm rounded-lg border border-white/80 font-semibold text-xs sm:text-sm text-black hover:bg-white/80 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                Next
-              </button>
-            </div>
-          )}
-        </>
+        </ModalOverlay>
       )}
 
-      {/* Create User Modal - Mobile Optimized */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
-          <div className="bg-white/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border-2 border-blue-500 shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative">
-            
-            {/* Success Message - Toast Style */}
-            {success && (
-              <div className="absolute top-4 left-4 right-4 p-3 sm:p-4 bg-green-500/90 backdrop-blur-md rounded-lg sm:rounded-xl border border-green-600 shadow-2xl z-[100]">
-                <p className="text-white font-semibold text-sm sm:text-base text-center">
-                  {success}
+      {/* View */}
+      {modal === 'view' && selected && (
+        <ModalOverlay onClose={closeModal}>
+          <div style={{ maxWidth:520, margin:'0 auto' }}>
+            <ModalHeader title="User Details" onClose={closeModal} />
+            <ModalBody>
+              <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:20 }}>
+                <Avatar name={selected.companyName} image={selected.image} size={60} />
+                <div>
+                  <p style={{ fontSize:16, fontWeight:700, color:D.text }}>{selected.companyName}</p>
+                  <p style={{ fontSize:12, color:D.textMuted, marginTop:2 }}>{selected.email}</p>
+                  <div style={{ marginTop:6 }}><StatusBadge status={selected.status} /></div>
+                </div>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16 }}>
+                {[['User ID', selected.id], ['Phone', selected.number], ['Role', selected.role], ['Joined', formatDate(selected.createdAt)]].map(([l,v]) => (
+                  <div key={l} style={{ background:D.surface2, border:`1px solid ${D.border}`, borderRadius:8, padding:'10px 12px' }}>
+                    <p style={{ fontSize:10, color:D.textSubtle, fontWeight:600, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:4 }}>{l}</p>
+                    <p style={{ fontSize:12, color:D.text, fontWeight:500, wordBreak:'break-all' }}>{v}</p>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10 }}>
+                {[['Balance', `₹${selected.balance.toLocaleString()}`, D.greenLight], ['Resellers', selected.resellerCount, D.blue], ['Users', selected.userCount, D.amber], ['Campaigns', selected.totalCampaigns, '#a78bfa']].map(([l,v,c]) => (
+                  <div key={String(l)} style={{ background:D.surface2, border:`1px solid ${D.border}`, borderRadius:8, padding:'12px 8px', textAlign:'center' }}>
+                    <p style={{ fontSize:18, fontWeight:700, color:String(c) }}>{v}</p>
+                    <p style={{ fontSize:10, color:D.textSubtle, fontWeight:600, textTransform:'uppercase', marginTop:4 }}>{l}</p>
+                  </div>
+                ))}
+              </div>
+            </ModalBody>
+            <ModalFooter><GhostBtn onClick={closeModal} style={{ flex:1 }}>Close</GhostBtn></ModalFooter>
+          </div>
+        </ModalOverlay>
+      )}
+
+      {/* Edit */}
+      {modal === 'edit' && selected && (
+        <ModalOverlay onClose={closeModal}>
+          <div style={{ maxWidth:500, margin:'0 auto' }}>
+            <ModalHeader title={`Edit — ${selected.companyName}`} onClose={closeModal} />
+            <ModalBody>
+              {error && <InlineAlert msg={error} type="error" />}
+              <div style={{ marginBottom:16 }}>
+                <p style={{ fontSize:11, color:D.textMuted, fontWeight:600, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10 }}>Profile</p>
+                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                  <FInput label="Company Name" type="text" placeholder={selected.companyName} value={editForm.companyName} onChange={e => setEditForm(f=>({...f, companyName:e.target.value}))} />
+                  <FInput label="Email"        type="email" placeholder={selected.email}       value={editForm.email}       onChange={e => setEditForm(f=>({...f, email:e.target.value}))} />
+                  <FInput label="Phone"        type="tel"  placeholder={selected.number}  maxLength={10} value={editForm.number} onChange={e => setEditForm(f=>({...f, number:e.target.value}))} />
+                </div>
+              </div>
+              <div style={{ paddingTop:16, borderTop:`1px solid ${D.border}` }}>
+                <p style={{ fontSize:11, color:D.textMuted, fontWeight:600, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6 }}>Change Password <span style={{ fontWeight:400, textTransform:'none', fontSize:11, color:D.textSubtle }}>(leave blank to skip)</span></p>
+                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                  <FInput label="New Password"     type="password" placeholder="Min 5 characters" value={editForm.password}        onChange={e => setEditForm(f=>({...f, password:e.target.value}))} />
+                  <FInput label="Confirm Password" type="password" placeholder="Repeat password"  value={editForm.confirmPassword} onChange={e => setEditForm(f=>({...f, confirmPassword:e.target.value}))} />
+                </div>
+              </div>
+            </ModalBody>
+            <ModalFooter>
+              <PrimaryBtn onClick={handleEdit} disabled={actionLoading}>{actionLoading ? 'Saving…' : 'Save Changes'}</PrimaryBtn>
+              <GhostBtn onClick={closeModal}>Cancel</GhostBtn>
+            </ModalFooter>
+          </div>
+        </ModalOverlay>
+      )}
+
+      {/* Add Credit */}
+      {modal === 'addCredit' && selected && (
+        <ModalOverlay onClose={closeModal}>
+          <div style={{ maxWidth:400, margin:'0 auto' }}>
+            <ModalHeader title="Add Credit" onClose={closeModal} />
+            <ModalBody>
+              {error && <InlineAlert msg={error} type="error" />}
+              <div style={{ background:D.greenDim, border:`1px solid ${D.greenBorder}`, borderRadius:8, padding:'10px 12px', marginBottom:14 }}>
+                <p style={{ fontSize:12, color:D.textMuted }}>User: <span style={{ color:D.text, fontWeight:600 }}>{selected.companyName}</span></p>
+                <p style={{ fontSize:12, color:D.textMuted, marginTop:4 }}>Current Balance: <span style={{ color:D.greenLight, fontWeight:700, fontSize:15 }}>₹{selected.balance.toLocaleString()}</span></p>
+              </div>
+              <FInput label="Amount to Credit *" type="number" placeholder="Enter amount" min="0" value={creditAmt} onChange={e => setCreditAmt(e.target.value)} />
+            </ModalBody>
+            <ModalFooter>
+              <PrimaryBtn onClick={handleAddCredit} disabled={actionLoading}>{actionLoading ? 'Processing…' : 'Add Credit'}</PrimaryBtn>
+              <GhostBtn onClick={closeModal}>Cancel</GhostBtn>
+            </ModalFooter>
+          </div>
+        </ModalOverlay>
+      )}
+
+      {/* Remove Credit */}
+      {modal === 'removeCredit' && selected && (
+        <ModalOverlay onClose={closeModal}>
+          <div style={{ maxWidth:400, margin:'0 auto' }}>
+            <ModalHeader title="Remove Credit" onClose={closeModal} />
+            <ModalBody>
+              {error && <InlineAlert msg={error} type="error" />}
+              <div style={{ background:D.redDim, border:`1px solid ${D.redBorder}`, borderRadius:8, padding:'10px 12px', marginBottom:14 }}>
+                <p style={{ fontSize:12, color:D.textMuted }}>User: <span style={{ color:D.text, fontWeight:600 }}>{selected.companyName}</span></p>
+                <p style={{ fontSize:12, color:D.textMuted, marginTop:4 }}>Current Balance: <span style={{ color:D.greenLight, fontWeight:700, fontSize:15 }}>₹{selected.balance.toLocaleString()}</span></p>
+              </div>
+              <FInput label="Amount to Debit *" type="number" placeholder="Enter amount" min="0" value={debitAmt} onChange={e => setDebitAmt(e.target.value)} />
+            </ModalBody>
+            <ModalFooter>
+              <PrimaryBtn danger onClick={handleRemoveCredit} disabled={actionLoading}>{actionLoading ? 'Processing…' : 'Remove Credit'}</PrimaryBtn>
+              <GhostBtn onClick={closeModal}>Cancel</GhostBtn>
+            </ModalFooter>
+          </div>
+        </ModalOverlay>
+      )}
+
+      {/* Freeze */}
+      {modal === 'freeze' && selected && (
+        <ModalOverlay onClose={closeModal}>
+          <div style={{ maxWidth:400, margin:'0 auto' }}>
+            <ModalHeader title={selected.status === 'active' ? 'Freeze Account' : 'Unfreeze Account'} onClose={closeModal} />
+            <ModalBody>
+              {error && <InlineAlert msg={error} type="error" />}
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:12, padding:'16px 0' }}>
+                <div style={{ width:52, height:52, borderRadius:'50%', background:selected.status==='active'?D.redDim:D.greenDim, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  {selected.status==='active' ? <Lock size={22} style={{ color:D.red }} /> : <Unlock size={22} style={{ color:D.greenLight }} />}
+                </div>
+                <p style={{ fontSize:14, color:D.text, textAlign:'center', lineHeight:1.6 }}>
+                  Are you sure you want to <strong>{selected.status==='active'?'freeze':'unfreeze'}</strong> <strong style={{ color:D.text }}>{selected.companyName}</strong>?
                 </p>
               </div>
-            )}
+            </ModalBody>
+            <ModalFooter>
+              <PrimaryBtn danger={selected.status==='active'} onClick={handleFreeze} disabled={actionLoading}>
+                {actionLoading ? 'Processing…' : `Yes, ${selected.status==='active'?'Freeze':'Unfreeze'}`}
+              </PrimaryBtn>
+              <GhostBtn onClick={closeModal}>Cancel</GhostBtn>
+            </ModalFooter>
+          </div>
+        </ModalOverlay>
+      )}
 
-            {/* Error Message - Toast Style */}
-            {error && (
-              <div className="absolute top-4 left-4 right-4 p-3 sm:p-4 bg-red-500/90 backdrop-blur-md rounded-lg sm:rounded-xl border border-red-600 shadow-2xl z-[100]">
-                <p className="text-white font-semibold text-sm sm:text-base text-center">
-                  {error}
+      {/* Delete */}
+      {modal === 'delete' && selected && (
+        <ModalOverlay onClose={closeModal}>
+          <div style={{ maxWidth:400, margin:'0 auto' }}>
+            <ModalHeader title="Delete User" onClose={closeModal} />
+            <ModalBody>
+              {error && <InlineAlert msg={error} type="error" />}
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:12, padding:'16px 0' }}>
+                <div style={{ width:52, height:52, borderRadius:'50%', background:D.redDim, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <Trash2 size={22} style={{ color:D.red }} />
+                </div>
+                <p style={{ fontSize:14, color:D.text, textAlign:'center', lineHeight:1.6 }}>
+                  Delete <strong style={{ color:D.text }}>{selected.companyName}</strong>? This will soft-delete the account.
                 </p>
               </div>
-            )}
-
-            <div className="p-4 sm:p-5 md:p-6">
-              {/* Header */}
-              <div className="flex items-center justify-between mb-4 sm:mb-6">
-                <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-black">
-                  Add New User
-                </h3>
-                
-                <button
-                  onClick={() => {
-                    setShowCreateModal(false);
-                    setCreateFormData({
-                      companyName: '',
-                      email: '',
-                      password: '',
-                      number: '',
-                      role: 'user',
-                      balance: '',
-                      image: null
-                    });
-                    setError('');
-                    setSuccess('');
-                  }}
-                  className="p-1.5 sm:p-2 hover:bg-gray-200 rounded-lg transition-all flex-shrink-0"
-                >
-                  <X className="w-5 h-5 sm:w-6 sm:h-6 text-black" />
-                </button>
-              </div>
-
-              {/* Form Fields */}
-              <div className="space-y-3 sm:space-y-4">
-                {/* Company Name */}
-                <div>
-                  <label className="block text-xs sm:text-sm font-bold text-black mb-2">
-                    Company Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={createFormData.companyName}
-                    onChange={(e) => setCreateFormData({ ...createFormData, companyName: e.target.value })}
-                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 border-2 border-gray-300 rounded-lg sm:rounded-xl text-sm sm:text-base text-black focus:outline-none focus:border-blue-500 transition-colors"
-                    placeholder="Enter company name"
-                  />
-                </div>
-
-                {/* Email */}
-                <div>
-                  <label className="block text-xs sm:text-sm font-bold text-black mb-2">
-                    Email *
-                  </label>
-                  <input
-                    type="email"
-                    value={createFormData.email}
-                    onChange={(e) => setCreateFormData({ ...createFormData, email: e.target.value })}
-                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 border-2 border-gray-300 rounded-lg sm:rounded-xl text-sm sm:text-base text-black focus:outline-none focus:border-blue-500 transition-colors"
-                    placeholder="example@company.com"
-                  />
-                </div>
-
-                {/* Password */}
-                <div>
-                  <label className="block text-xs sm:text-sm font-bold text-black mb-2">
-                    Password *
-                  </label>
-                  <input
-                    type="password"
-                    value={createFormData.password}
-                    onChange={(e) => setCreateFormData({ ...createFormData, password: e.target.value })}
-                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 border-2 border-gray-300 rounded-lg sm:rounded-xl text-sm sm:text-base text-black focus:outline-none focus:border-blue-500 transition-colors"
-                    placeholder="Enter password"
-                  />
-                </div>
-
-                {/* Phone Number */}
-                <div>
-                  <label className="block text-xs sm:text-sm font-bold text-black mb-2">
-                    Phone Number *
-                  </label>
-                  <input
-                    type="tel"
-                    value={createFormData.number}
-                    onChange={(e) => setCreateFormData({ ...createFormData, number: e.target.value })}
-                    maxLength={10}
-                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 border-2 border-gray-300 rounded-lg sm:rounded-xl text-sm sm:text-base text-black focus:outline-none focus:border-blue-500 transition-colors"
-                    placeholder="Enter 10-digit number"
-                  />
-                </div>
-
-                {/* Role */}
-                <div>
-                  <label className="block text-xs sm:text-sm font-bold text-black mb-2">
-                    Role *
-                  </label>
-                  <select
-                    value={createFormData.role}
-                    onChange={(e) => setCreateFormData({ ...createFormData, role: e.target.value })}
-                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 border-2 border-gray-300 rounded-lg sm:rounded-xl text-sm sm:text-base text-black font-semibold focus:outline-none focus:border-blue-500 transition-colors cursor-pointer"
-                  >
-                    <option value="user">user</option>
-                    <option value="reseller">reseller</option>
-                  </select>
-                </div>
-
-                {/* Initial Balance */}
-                <div>
-                  <label className="block text-xs sm:text-sm font-bold text-black mb-2">
-                    Initial Balance *
-                  </label>
-                  <input
-                    type="number"
-                    value={createFormData.balance}
-                    onChange={(e) => setCreateFormData({ ...createFormData, balance: e.target.value })}
-                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 border-2 border-gray-300 rounded-lg sm:rounded-xl text-sm sm:text-base text-black focus:outline-none focus:border-blue-500 transition-colors"
-                    placeholder="Enter initial balance"
-                    min="0"
-                  />
-                </div>
-
-                {/* Profile Image */}
-                <div>
-                  <label className="block text-xs sm:text-sm font-bold text-black mb-2">
-                    Profile Image (Optional)
-                  </label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        setCreateFormData({ ...createFormData, image: file });
-                      }
-                    }}
-                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 border-2 border-gray-300 rounded-lg sm:rounded-xl text-xs sm:text-sm text-black file:mr-2 sm:file:mr-4 file:py-1.5 sm:file:py-2 file:px-3 sm:file:px-4 file:rounded-lg file:border-0 file:bg-blue-500 file:text-white file:text-xs sm:file:text-sm file:font-semibold file:cursor-pointer hover:file:bg-blue-600 focus:outline-none focus:border-blue-500 transition-colors cursor-pointer"
-                  />
-                  {createFormData.image && (
-                    <p className="mt-2 text-xs sm:text-sm text-green-600 font-medium">
-                      ✓ {createFormData.image.name}
-                    </p>
-                  )}
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
-                  <button
-                    onClick={handleCreateUser}
-                    disabled={actionLoading}
-                    className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-blue-500 text-white text-sm sm:text-base font-bold rounded-lg sm:rounded-xl hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
-                  >
-                    {actionLoading ? 'Creating...' : 'Create User'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowCreateModal(false);
-                      setCreateFormData({
-                        companyName: '',
-                        email: '',
-                        password: '',
-                        number: '',
-                        role: 'user',
-                        balance: '',
-                        image: null
-                      });
-                      setError('');
-                      setSuccess('');
-                    }}
-                    disabled={actionLoading}
-                    className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-gray-300 text-black text-sm sm:text-base font-bold rounded-lg sm:rounded-xl hover:bg-gray-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
+            </ModalBody>
+            <ModalFooter>
+              <PrimaryBtn danger onClick={handleDelete} disabled={actionLoading}>{actionLoading ? 'Deleting…' : 'Yes, Delete'}</PrimaryBtn>
+              <GhostBtn onClick={closeModal}>Cancel</GhostBtn>
+            </ModalFooter>
           </div>
-        </div>
+        </ModalOverlay>
       )}
-
-
-      {/* View Details Modal - Mobile Optimized */}
-      {showViewModal && selectedUser && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
-          <div className="bg-white/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border-2 border-green-500 shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-5 md:p-6">
-              <div className="flex items-center justify-between mb-4 sm:mb-6">
-                <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-black">User Details</h3>
-                <button
-                  onClick={() => {
-                    setShowViewModal(false);
-                    setSelectedUser(null);
-                  }}
-                  className="p-1.5 sm:p-2 hover:bg-gray-200 rounded-lg transition-all flex-shrink-0"
-                >
-                  <X className="w-5 h-5 sm:w-6 sm:h-6 text-black" />
-                </button>
-              </div>
-
-              <div className="space-y-4 sm:space-y-5">
-                {/* Profile Image Section */}
-                {selectedUser.image && (
-                  <div className="p-4 sm:p-5 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl sm:rounded-2xl border sm:border-2 border-blue-400 shadow-lg">
-                    <h4 className="text-base sm:text-lg font-bold text-blue-800 mb-3 flex items-center gap-2">
-                      <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-blue-600 animate-pulse"></div>
-                      Profile Image
-                    </h4>
-                    <div className="flex justify-center">
-                      <div className="relative">
-                        <img 
-                          src={selectedUser.image} 
-                          alt={selectedUser.companyName}
-                          className="w-32 h-32 sm:w-40 sm:h-40 object-cover rounded-full border-4 border-blue-500 shadow-xl"
-                          onError={(e) => {
-                            e.currentTarget.onerror = null;
-                            e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedUser.companyName)}&background=3b82f6&color=fff&size=256`;
-                          }}
-                        />
-                        <div className="absolute -bottom-2 -right-2 px-2 sm:px-3 py-0.5 sm:py-1 bg-green-500 text-white text-[10px] sm:text-xs font-bold rounded-full border-2 border-white">
-                          {selectedUser.role.toUpperCase()}
-                        </div>
-                      </div>
-                    </div>
-                    <p className="text-[10px] sm:text-xs text-gray-600 mt-2 sm:mt-3 text-center break-all">
-                      <span className="font-bold">Image URL:</span> {selectedUser.image}
-                    </p>
-                  </div>
-                )}
-
-                {/* Basic Information */}
-                <div className="p-4 sm:p-5 bg-gradient-to-br from-green-50 to-green-100 rounded-xl sm:rounded-2xl border sm:border-2 border-green-400 shadow-lg">
-                  <h4 className="text-base sm:text-lg font-bold text-green-800 mb-3 sm:mb-4 flex items-center gap-2">
-                    <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-green-600 animate-pulse"></div>
-                    Basic Information
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                    <div className="col-span-1 sm:col-span-2">
-                      <span className="text-[10px] sm:text-xs font-bold text-green-700 uppercase">User ID</span>
-                      <p className="text-black font-mono text-xs sm:text-sm break-all mt-1 bg-white px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg">{selectedUser.id}</p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] sm:text-xs font-bold text-green-700 uppercase">Company Name</span>
-                      <p className="text-black font-bold text-sm sm:text-base md:text-lg mt-1">{selectedUser.companyName}</p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] sm:text-xs font-bold text-green-700 uppercase">Email</span>
-                      <p className="text-black font-semibold text-xs sm:text-sm break-all mt-1">{selectedUser.email}</p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] sm:text-xs font-bold text-green-700 uppercase">Phone Number</span>
-                      <p className="text-black font-semibold text-xs sm:text-sm mt-1">+91 {selectedUser.number}</p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] sm:text-xs font-bold text-green-700 uppercase">Status</span>
-                      <p className="mt-1">
-                        <span className={`px-2 sm:px-3 py-0.5 sm:py-1 text-white text-[10px] sm:text-xs font-bold rounded-full ${getStatusBadge(selectedUser.status)}`}>
-                          {selectedUser.status.toUpperCase()}
-                        </span>
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] sm:text-xs font-bold text-green-700 uppercase">Member Since</span>
-                      <p className="text-black font-semibold text-xs sm:text-sm mt-1">{formatDate(selectedUser.createdAt)}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Account Statistics */}
-                <div className="p-4 sm:p-5 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl sm:rounded-2xl border sm:border-2 border-purple-400 shadow-lg">
-                  <h4 className="text-base sm:text-lg font-bold text-purple-800 mb-3 sm:mb-4 flex items-center gap-2">
-                    <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-purple-600 animate-pulse"></div>
-                    Account Statistics
-                  </h4>
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                    <div className="text-center p-3 sm:p-4 bg-white rounded-lg sm:rounded-xl shadow-md border sm:border-2 border-green-200 hover:scale-105 transition-transform">
-                      <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-green-600">₹{selectedUser.balance}</p>
-                      <p className="text-[10px] sm:text-xs text-gray-700 font-bold mt-1 sm:mt-2 uppercase">Balance</p>
-                    </div>
-                    <div className="text-center p-3 sm:p-4 bg-white rounded-lg sm:rounded-xl shadow-md border sm:border-2 border-blue-200 hover:scale-105 transition-transform">
-                      <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-blue-600">{selectedUser.resellerCount}</p>
-                      <p className="text-[10px] sm:text-xs text-gray-700 font-bold mt-1 sm:mt-2 uppercase">Resellers</p>
-                    </div>
-                    <div className="text-center p-3 sm:p-4 bg-white rounded-lg sm:rounded-xl shadow-md border sm:border-2 border-yellow-200 hover:scale-105 transition-transform">
-                      <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-yellow-600">{selectedUser.userCount}</p>
-                      <p className="text-[10px] sm:text-xs text-gray-700 font-bold mt-1 sm:mt-2 uppercase">Users</p>
-                    </div>
-                    <div className="text-center p-3 sm:p-4 bg-white rounded-lg sm:rounded-xl shadow-md border sm:border-2 border-purple-200 hover:scale-105 transition-transform">
-                      <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-purple-600">{selectedUser.totalCampaigns}</p>
-                      <p className="text-[10px] sm:text-xs text-gray-700 font-bold mt-1 sm:mt-2 uppercase">Campaigns</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Close Button */}
-              <div className="mt-4 sm:mt-6">
-                <button
-                  onClick={() => {
-                    setShowViewModal(false);
-                    setSelectedUser(null);
-                  }}
-                  className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-green-500 to-green-600 text-white font-bold text-sm sm:text-base md:text-lg rounded-lg sm:rounded-xl hover:from-green-600 hover:to-green-700 transition-all shadow-lg active:scale-95"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit User Modal - Mobile Optimized */}
-      {showEditModal && selectedUser && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
-          <div className="bg-white/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border-2 border-blue-500 shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-5 md:p-6">
-              <div className="flex items-center justify-between mb-4 sm:mb-6">
-                <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-black">Edit User</h3>
-                <button
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setSelectedUser(null);
-                    setEditFormData({ companyName: '', email: '', number: '', password: '', confirmPassword: '' });
-                    setError('');
-                  }}
-                  className="p-1.5 sm:p-2 hover:bg-gray-200 rounded-lg transition-all flex-shrink-0"
-                >
-                  <X className="w-5 h-5 sm:w-6 sm:h-6 text-black" />
-                </button>
-              </div>
-
-              {error && (
-                <div className="mb-3 sm:mb-4 p-2.5 sm:p-3 bg-red-100 rounded-lg border border-red-300">
-                  <p className="text-red-700 font-semibold text-xs sm:text-sm">{error}</p>
-                </div>
-              )}
-
-              <div className="space-y-3 sm:space-y-4">
-                <div className="p-3 sm:p-4 bg-gray-50 rounded-lg sm:rounded-xl">
-                  <h4 className="text-xs sm:text-sm font-bold text-gray-700 mb-2 sm:mb-3 uppercase">Profile Information</h4>
-                  
-                  <div className="space-y-2 sm:space-y-3">
-                    <div>
-                      <label className="block text-xs sm:text-sm font-bold text-black mb-2">Company Name</label>
-                      <input
-                        type="text"
-                        value={editFormData.companyName}
-                        onChange={(e) => setEditFormData({ ...editFormData, companyName: e.target.value })}
-                        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 border-2 border-gray-300 rounded-lg sm:rounded-xl text-sm sm:text-base text-black focus:outline-none focus:border-blue-500"
-                        placeholder="Enter company name"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs sm:text-sm font-bold text-black mb-2">Email</label>
-                      <input
-                        type="email"
-                        value={editFormData.email}
-                        onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
-                        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 border-2 border-gray-300 rounded-lg sm:rounded-xl text-sm sm:text-base text-black focus:outline-none focus:border-blue-500"
-                        placeholder="example@company.com"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs sm:text-sm font-bold text-black mb-2">Phone Number</label>
-                      <input
-                        type="tel"
-                        value={editFormData.number}
-                        onChange={(e) => setEditFormData({ ...editFormData, number: e.target.value })}
-                        maxLength={10}
-                        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 border-2 border-gray-300 rounded-lg sm:rounded-xl text-sm sm:text-base text-black focus:outline-none focus:border-blue-500"
-                        placeholder="Enter 10-digit number"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-3 sm:p-4 bg-blue-50 rounded-lg sm:rounded-xl border sm:border-2 border-blue-300">
-                  <h4 className="text-xs sm:text-sm font-bold text-blue-700 mb-2 uppercase">Change Password</h4>
-                  <p className="text-[10px] sm:text-xs text-gray-600 mb-2 sm:mb-3">Leave blank if you don't want to change password</p>
-                  
-                  <div className="space-y-2 sm:space-y-3">
-                    <div>
-                      <label className="block text-xs sm:text-sm font-bold text-black mb-2">New Password</label>
-                      <input
-                        type="password"
-                        value={editFormData.password}
-                        onChange={(e) => setEditFormData({ ...editFormData, password: e.target.value })}
-                        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 border-2 border-gray-300 rounded-lg sm:rounded-xl text-sm sm:text-base text-black focus:outline-none focus:border-blue-500"
-                        placeholder="Enter new password (min 5 characters)"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs sm:text-sm font-bold text-black mb-2">Confirm New Password</label>
-                      <input
-                        type="password"
-                        value={editFormData.confirmPassword}
-                        onChange={(e) => setEditFormData({ ...editFormData, confirmPassword: e.target.value })}
-                        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 border-2 border-gray-300 rounded-lg sm:rounded-xl text-sm sm:text-base text-black focus:outline-none focus:border-blue-500"
-                        placeholder="Confirm new password"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <p className="text-xs sm:text-sm text-gray-600">* Leave fields empty that you don't want to update</p>
-
-                <div className="flex gap-2 sm:gap-3 mt-4 sm:mt-6">
-                  <button
-                    onClick={handleUpdateUser}
-                    disabled={actionLoading}
-                    className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-blue-500 text-white text-sm sm:text-base font-bold rounded-lg sm:rounded-xl hover:bg-blue-600 transition-all disabled:opacity-50 active:scale-95"
-                  >
-                    {actionLoading ? 'Updating...' : 'Update User'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowEditModal(false);
-                      setSelectedUser(null);
-                      setEditFormData({ companyName: '', email: '', number: '', password: '', confirmPassword: '' });
-                      setError('');
-                    }}
-                    className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-gray-300 text-black text-sm sm:text-base font-bold rounded-lg sm:rounded-xl hover:bg-gray-400 transition-all active:scale-95"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Credit Modal - Mobile Optimized */}
-      {showAddCreditModal && selectedUser && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
-          <div className="bg-white/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border-2 border-yellow-500 shadow-2xl w-full max-w-md">
-            <div className="p-4 sm:p-5 md:p-6">
-              <div className="flex items-center justify-between mb-4 sm:mb-6">
-                <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-black">Add Credit</h3>
-                <button
-                  onClick={() => {
-                    setShowAddCreditModal(false);
-                    setSelectedUser(null);
-                    setCreditAmount('');
-                    setError('');
-                  }}
-                  className="p-1.5 sm:p-2 hover:bg-gray-200 rounded-lg transition-all flex-shrink-0"
-                >
-                  <X className="w-5 h-5 sm:w-6 sm:h-6 text-black" />
-                </button>
-              </div>
-
-              <div className="space-y-3 sm:space-y-4">
-                <div className="p-3 sm:p-4 bg-yellow-50 rounded-lg sm:rounded-xl">
-                  <p className="text-xs sm:text-sm font-bold text-gray-600">User: <span className="text-black">{selectedUser.companyName}</span></p>
-                  <p className="text-xs sm:text-sm font-bold text-gray-600 mt-2">Current Balance: <span className="text-green-600 text-base sm:text-lg">₹{selectedUser.balance}</span></p>
-                </div>
-
-                <div>
-                  <label className="block text-xs sm:text-sm font-bold text-black mb-2">Amount to Credit *</label>
-                  <input
-                    type="number"
-                    value={creditAmount}
-                    onChange={(e) => setCreditAmount(e.target.value)}
-                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 border-2 border-gray-300 rounded-lg sm:rounded-xl text-sm sm:text-base text-black focus:outline-none focus:border-yellow-500"
-                    placeholder="Enter amount"
-                    min="0"
-                  />
-                </div>
-
-                <div className="flex gap-2 sm:gap-3 mt-4 sm:mt-6">
-                  <button
-                    onClick={handleAddCredit}
-                    disabled={actionLoading}
-                    className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-yellow-500 text-white text-sm sm:text-base font-bold rounded-lg sm:rounded-xl hover:bg-yellow-600 transition-all disabled:opacity-50 active:scale-95"
-                  >
-                    {actionLoading ? 'Processing...' : 'Add Credit'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowAddCreditModal(false);
-                      setSelectedUser(null);
-                      setCreditAmount('');
-                      setError('');
-                    }}
-                    className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-gray-300 text-black text-sm sm:text-base font-bold rounded-lg sm:rounded-xl hover:bg-gray-400 transition-all active:scale-95"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Remove Credit Modal - Mobile Optimized */}
-      {showRemoveCreditModal && selectedUser && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
-          <div className="bg-white/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border-2 border-gray-700 shadow-2xl w-full max-w-md">
-            <div className="p-4 sm:p-5 md:p-6">
-              <div className="flex items-center justify-between mb-4 sm:mb-6">
-                <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-black">Remove Credit</h3>
-                <button
-                  onClick={() => {
-                    setShowRemoveCreditModal(false);
-                    setSelectedUser(null);
-                    setDebitAmount('');
-                    setError('');
-                  }}
-                  className="p-1.5 sm:p-2 hover:bg-gray-200 rounded-lg transition-all flex-shrink-0"
-                >
-                  <X className="w-5 h-5 sm:w-6 sm:h-6 text-black" />
-                </button>
-              </div>
-
-              <div className="space-y-3 sm:space-y-4">
-                <div className="p-3 sm:p-4 bg-red-50 rounded-lg sm:rounded-xl">
-                  <p className="text-xs sm:text-sm font-bold text-gray-600">User: <span className="text-black">{selectedUser.companyName}</span></p>
-                  <p className="text-xs sm:text-sm font-bold text-gray-600 mt-2">Current Balance: <span className="text-green-600 text-base sm:text-lg">₹{selectedUser.balance}</span></p>
-                </div>
-
-                <div>
-                  <label className="block text-xs sm:text-sm font-bold text-black mb-2">Amount to Debit *</label>
-                  <input
-                    type="number"
-                    value={debitAmount}
-                    onChange={(e) => setDebitAmount(e.target.value)}
-                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 border-2 border-gray-300 rounded-lg sm:rounded-xl text-sm sm:text-base text-black focus:outline-none focus:border-red-500"
-                    placeholder="Enter amount"
-                    min="0"
-                  />
-                </div>
-
-                <div className="flex gap-2 sm:gap-3 mt-4 sm:mt-6">
-                  <button
-                    onClick={handleRemoveCredit}
-                    disabled={actionLoading}
-                    className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-red-500 text-white text-sm sm:text-base font-bold rounded-lg sm:rounded-xl hover:bg-red-600 transition-all disabled:opacity-50 active:scale-95"
-                  >
-                    {actionLoading ? 'Processing...' : 'Remove Credit'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowRemoveCreditModal(false);
-                      setSelectedUser(null);
-                      setDebitAmount('');
-                      setError('');
-                    }}
-                    className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-gray-300 text-black text-sm sm:text-base font-bold rounded-lg sm:rounded-xl hover:bg-gray-400 transition-all active:scale-95"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Freeze/Unfreeze Modal - Mobile Optimized */}
-      {showFreezeModal && selectedUser && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
-          <div className="bg-white/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border-2 border-red-500 shadow-2xl w-full max-w-md">
-            <div className="p-4 sm:p-5 md:p-6">
-              <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-black mb-3 sm:mb-4">
-                {selectedUser.status === 'active' ? 'Freeze User' : 'Unfreeze User'}
-              </h3>
-              <p className="text-black text-sm sm:text-base mb-4 sm:mb-6">
-                Are you sure you want to {selectedUser.status === 'active' ? 'freeze' : 'unfreeze'}{' '}
-                <span className="font-bold">{selectedUser.companyName}</span>?
-              </p>
-              <div className="flex gap-2 sm:gap-3">
-                <button
-                  onClick={handleFreezeUnfreeze}
-                  disabled={actionLoading}
-                  className={`flex-1 px-4 sm:px-6 py-2.5 sm:py-3 text-white text-sm sm:text-base font-bold rounded-lg sm:rounded-xl transition-all disabled:opacity-50 active:scale-95 ${
-                    selectedUser.status === 'active'
-                      ? 'bg-red-500 hover:bg-red-600'
-                      : 'bg-green-500 hover:bg-green-600'
-                  }`}
-                >
-                  {actionLoading ? 'Processing...' : `Yes, ${selectedUser.status === 'active' ? 'Freeze' : 'Unfreeze'}`}
-                </button>
-                <button
-                  onClick={() => {
-                    setShowFreezeModal(false);
-                    setSelectedUser(null);
-                  }}
-                  className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-gray-300 text-black text-sm sm:text-base font-bold rounded-lg sm:rounded-xl hover:bg-gray-400 transition-all active:scale-95"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Modal - Mobile Optimized */}
-      {showDeleteModal && selectedUser && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
-          <div className="bg-white/90 backdrop-blur-xl rounded-xl sm:rounded-2xl border-2 border-red-500 shadow-2xl w-full max-w-md">
-            <div className="p-4 sm:p-5 md:p-6">
-              <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-black mb-3 sm:mb-4">Delete User</h3>
-              <p className="text-black text-sm sm:text-base mb-4 sm:mb-6">
-                Are you sure you want to delete <span className="font-bold">{selectedUser.companyName}</span>? 
-                This will soft delete the user.
-              </p>
-              <div className="flex gap-2 sm:gap-3">
-                <button
-                  onClick={handleDeleteUser}
-                  disabled={actionLoading}
-                  className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-red-500 text-white text-sm sm:text-base font-bold rounded-lg sm:rounded-xl hover:bg-red-600 transition-all disabled:opacity-50 active:scale-95"
-                >
-                  {actionLoading ? 'Deleting...' : 'Yes, Delete'}
-                </button>
-                <button
-                  onClick={() => {
-                    setShowDeleteModal(false);
-                    setSelectedUser(null);
-                  }}
-                  className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-gray-300 text-black text-sm sm:text-base font-bold rounded-lg sm:rounded-xl hover:bg-gray-400 transition-all active:scale-95"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    </>
   );
 };
 

@@ -1,7 +1,28 @@
-import { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ChevronLeft, ChevronRight, Calendar, Wallet, TrendingUp, TrendingDown, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { api } from '../api/client';
+
+/* ── design tokens ── */
+const D = {
+  bg:          '#0a0a0c',
+  surface:     '#111113',
+  surface2:    '#18181b',
+  border:      '#27272a',
+  border2:     '#3f3f46',
+  text:        '#f4f4f5',
+  textMuted:   '#71717a',
+  textSubtle:  '#52525b',
+  green:       '#16a34a',
+  greenLight:  '#4ade80',
+  greenDim:    'rgba(22,163,74,0.12)',
+  greenBorder: 'rgba(22,163,74,0.3)',
+  red:         '#f87171',
+  redDim:      'rgba(248,113,113,0.1)',
+  redBorder:   'rgba(248,113,113,0.25)',
+  amber:       '#fbbf24',
+  amberDim:    'rgba(251,191,36,0.1)',
+};
 
 interface Transaction {
   transactionId: string;
@@ -21,368 +42,312 @@ interface TransactionData {
   transactions: Transaction[];
 }
 
+const ITEMS_PER_PAGE = 10;
+
+const inputStyle: React.CSSProperties = {
+  background: D.surface2,
+  border: `1px solid ${D.border}`,
+  borderRadius: 7,
+  color: D.text,
+  fontSize: 13,
+  padding: '8px 12px',
+  outline: 'none',
+  colorScheme: 'dark',
+};
+
 const CreditReports = () => {
   const [transactionData, setTransactionData] = useState<TransactionData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  
-  const ITEMS_PER_PAGE = 10;
+  const [endDate,   setEndDate]   = useState('');
 
   const fetchTransactionData = useCallback(async () => {
     try {
       setLoading(true);
-      const { data: result } = await api.get<{
-        success: boolean;
-        message?: string;
-        data: TransactionData;
-      }>('/api/dashboard/transaction');
-
-      if (result.success) {
-        setTransactionData(result.data);
-      } else {
-        setError(result.message || 'Failed to load transaction data');
-      }
-    } catch (err) {
+      const { data: result } = await api.get<{ success: boolean; message?: string; data: TransactionData }>('/api/dashboard/transaction');
+      if (result.success) setTransactionData(result.data);
+      else setError(result.message || 'Failed to load transaction data');
+    } catch {
       setError('Network error. Please try again.');
-      console.error('Transaction fetch error:', err);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    fetchTransactionData();
-  }, [fetchTransactionData]);
+  useEffect(() => { fetchTransactionData(); }, [fetchTransactionData]);
+  useEffect(() => { setCurrentPage(1); }, [startDate, endDate]);
 
-  const getFilteredTransactions = () => {
+  const getFiltered = () => {
     if (!transactionData) return [];
-    
-    let filtered = transactionData.transactions;
-    
+    let list = transactionData.transactions;
     if (startDate && endDate) {
-      filtered = filtered.filter(transaction => {
-        const transactionDate = new Date(transaction.createdAt);
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        return transactionDate >= start && transactionDate <= end;
-      });
+      const s = new Date(startDate);
+      const e = new Date(endDate); e.setHours(23, 59, 59, 999);
+      list = list.filter(t => { const d = new Date(t.createdAt); return d >= s && d <= e; });
     }
-    
-    return filtered;
+    return list;
   };
 
-  const filteredTransactions = getFilteredTransactions();
-  const totalPages = Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
-  const currentTransactions = filteredTransactions.slice(startIndex, endIndex);
+  const filtered     = getFiltered();
+  const totalPages   = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+  const startIdx     = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginated    = filtered.slice(startIdx, startIdx + ITEMS_PER_PAGE);
 
-  const goToPage = (page: number) => {
-    setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  const goToPage = (p: number) => { setCurrentPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); };
 
-  const nextPage = () => {
-    if (currentPage < totalPages) {
-      goToPage(currentPage + 1);
-    }
-  };
+  const formatDate = (s: string) => { try { return format(new Date(s), 'dd MMM yyyy, hh:mm a'); } catch { return s; } };
 
-  const prevPage = () => {
-    if (currentPage > 1) {
-      goToPage(currentPage - 1);
-    }
-  };
+  /* ── derived stats ── */
+  const totalCredit = transactionData?.transactions.filter(t => t.type === 'credit').reduce((a, t) => a + t.amount, 0) ?? 0;
+  const totalDebit  = transactionData?.transactions.filter(t => t.type === 'debit' ).reduce((a, t) => a + t.amount, 0) ?? 0;
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [startDate, endDate]);
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400, flexDirection: 'column', gap: 12 }}>
+      <div style={{ width: 36, height: 36, borderRadius: '50%', border: `3px solid ${D.border}`, borderTopColor: D.green, animation: 'spin 0.8s linear infinite' }} />
+      <p style={{ color: D.textMuted, fontSize: 13 }}>Loading transactions…</p>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
 
-  const formatDate = (dateString: string) => {
-    try {
-      return format(new Date(dateString), 'dd-MMM-yyyy hh:mm a');
-    } catch {
-      return dateString;
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen p-4">
-        <div className="p-6 sm:p-8 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-          <p className="text-base sm:text-xl font-semibold text-black">Loading Transactions...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-3 sm:p-6">
-        <div className="p-3 sm:p-4 bg-red-100/60 backdrop-blur-md rounded-lg sm:rounded-xl border border-red-300 shadow-lg">
-          <p className="text-red-700 font-semibold text-sm sm:text-base">{error}</p>
-        </div>
-      </div>
-    );
-  }
+  if (error) return (
+    <div style={{ padding: '12px 16px', background: D.redDim, border: `1px solid ${D.redBorder}`, borderRadius: 10 }}>
+      <p style={{ color: D.red, fontSize: 14 }}>{error}</p>
+    </div>
+  );
 
   if (!transactionData) return null;
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      
-      {/* Page Header with Balance - Mobile Optimized */}
-      <div className="flex flex-row items-center justify-between gap-3 sm:gap-4 p-4 sm:p-5 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
+    <>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .txn-row:hover td { background: rgba(255,255,255,0.025) !important; }
+        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.5); cursor: pointer; }
+      `}</style>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+        {/* ── Page header ── */}
         <div>
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-black">Credit Reports</h2>
-          <p className="text-xs sm:text-sm text-black opacity-70 mt-1">Last 100 transactions</p>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: D.text, margin: 0 }}>Credit Reports</h1>
+          <p style={{ fontSize: 13, color: D.textMuted, marginTop: 4 }}>Last 100 transactions · your wallet history</p>
         </div>
-        
-        <div className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 bg-green-500/30 backdrop-blur-md rounded-lg sm:rounded-xl border border-white/50">
-          <ArrowUpCircle className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 flex-shrink-0" />
-          <div>
-            <p className="text-[10px] sm:text-xs font-bold text-black uppercase opacity-70">Current Balance</p>
-            <p className="text-lg sm:text-xl md:text-2xl font-bold text-green-600">₹{transactionData.currentBalance}</p>
-          </div>
-        </div>
-      </div>
 
-      {/* Filters Section - Mobile Optimized */}
-      <div className="p-3 sm:p-4 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-4">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-black flex-shrink-0" />
-            <span className="text-xs sm:text-sm font-bold text-black">Duration:</span>
-          </div>
-          
-          {/* Fixed Date Inputs with Labels */}
-          <div className="flex items-center gap-2 bg-white/60 backdrop-blur-sm px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl border sm:border-2 border-white/80">
-            <div className="flex flex-col">
-              <label className="text-[9px] text-black opacity-60 font-bold mb-0.5">From</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="bg-transparent text-black text-xs sm:text-sm font-semibold focus:outline-none w-full min-w-[100px]"
-              />
+        {/* ── Summary stat cards ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+          {[
+            {
+              label: 'Current Balance',
+              value: `₹${transactionData.currentBalance.toLocaleString()}`,
+              icon: Wallet,
+              accent: D.green, iconBg: D.greenDim, iconColor: D.greenLight,
+            },
+            {
+              label: 'Total Credits',
+              value: `+₹${totalCredit.toLocaleString()}`,
+              icon: TrendingUp,
+              accent: D.green, iconBg: D.greenDim, iconColor: D.greenLight,
+            },
+            {
+              label: 'Total Debits',
+              value: `-₹${totalDebit.toLocaleString()}`,
+              icon: TrendingDown,
+              accent: D.red, iconBg: D.redDim, iconColor: D.red,
+            },
+          ].map(c => (
+            <div key={c.label} style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 12, overflow: 'hidden' }}>
+              <div style={{ height: 3, background: c.accent }} />
+              <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <p style={{ fontSize: 11, color: D.textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>{c.label}</p>
+                  <p style={{ fontSize: 22, fontWeight: 700, color: D.text, lineHeight: 1 }}>{c.value}</p>
+                </div>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: c.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <c.icon size={18} color={c.iconColor} />
+                </div>
+              </div>
             </div>
-            <span className="text-black font-bold mt-3">-</span>
-            <div className="flex flex-col">
-              <label className="text-[9px] text-black opacity-60 font-bold mb-0.5">To</label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="bg-transparent text-black text-xs sm:text-sm font-semibold focus:outline-none w-full min-w-[100px]"
-              />
+          ))}
+        </div>
+
+        {/* ── Filters ── */}
+        <div style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 12, padding: '16px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Calendar size={14} style={{ color: D.textMuted }} />
+              <span style={{ fontSize: 12, fontWeight: 600, color: D.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Filter</span>
             </div>
-          </div>
 
-          <button
-            onClick={() => {
-              setStartDate('');
-              setEndDate('');
-            }}
-            className="px-3 sm:px-4 py-2 bg-green-500/60 backdrop-blur-md text-white text-sm font-semibold rounded-lg sm:rounded-xl border border-white/30 hover:bg-green-600/60 transition-all active:scale-95"
-          >
-            Reset
-          </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ fontSize: 10, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>From</span>
+                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={inputStyle} />
+              </div>
+              <span style={{ color: D.textSubtle, fontSize: 13, marginTop: 14 }}>→</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ fontSize: 10, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>To</span>
+                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={inputStyle} />
+              </div>
+            </div>
 
-          <div className="sm:ml-auto text-xs sm:text-sm text-black font-semibold">
-            Showing {startIndex + 1} to {Math.min(endIndex, filteredTransactions.length)} of {filteredTransactions.length}
+            {(startDate || endDate) && (
+              <button
+                onClick={() => { setStartDate(''); setEndDate(''); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', background: D.surface2, border: `1px solid ${D.border2}`, borderRadius: 7, cursor: 'pointer', color: D.textMuted, fontSize: 12, fontWeight: 500 }}
+              >
+                <X size={12} /> Clear
+              </button>
+            )}
+
+            <span style={{ marginLeft: 'auto', fontSize: 12, color: D.textSubtle }}>
+              {startIdx + 1}–{Math.min(startIdx + ITEMS_PER_PAGE, filtered.length)} of {filtered.length}
+            </span>
           </div>
         </div>
-      </div>
 
-
-      {/* Transaction Table - Desktop View */}
-      <div className="hidden md:block p-4 sm:p-5 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b-2 border-white/60">
-                <th className="text-left py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-bold text-black uppercase">ID</th>
-                <th className="text-left py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-bold text-black uppercase">User/Campaign</th>
-                <th className="text-left py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-bold text-black uppercase">Points</th>
-                <th className="text-left py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-bold text-black uppercase">TXN Type</th>
-                <th className="text-left py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-bold text-black uppercase">Created By</th>
-                <th className="text-left py-3 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-bold text-black uppercase">Created At</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentTransactions.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-8 sm:py-12 text-center text-black opacity-70">
-                    <p className="text-base sm:text-lg font-semibold">No transactions found</p>
-                    <p className="text-xs sm:text-sm mt-2">Try adjusting your date filters</p>
-                  </td>
+        {/* ── Desktop table ── */}
+        <div className="hidden md:block" style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${D.border}` }}>
+                  {['#', 'User / Campaign', 'Amount', 'Type', 'Created By', 'Date'].map(h => (
+                    <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: 10, color: D.textSubtle, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>
+                      {h}
+                    </th>
+                  ))}
                 </tr>
-              ) : (
-                currentTransactions.map((transaction, index) => (
-                  <tr 
-                    key={transaction.transactionId} 
-                    className="border-b border-white/30 hover:bg-white/20 transition-all"
-                  >
-                    <td className="py-3 sm:py-4 px-3 sm:px-4 text-black text-sm font-semibold">
-                      {startIndex + index + 1}
-                    </td>
-                    <td className="py-3 sm:py-4 px-3 sm:px-4 text-black text-sm font-semibold max-w-[150px] sm:max-w-[200px] truncate">
-                      {transaction.userOrCampaign}
-                    </td>
-                    <td className="py-3 sm:py-4 px-3 sm:px-4">
-                      <span className={`font-bold text-sm ${transaction.type === 'credit' ? 'text-green-600' : 'text-red-600'}`}>
-                        {transaction.type === 'credit' ? '+' : '-'} {transaction.amount}
-                      </span>
-                    </td>
-                    <td className="py-3 sm:py-4 px-3 sm:px-4">
-                      {transaction.type === 'credit' ? (
-                        <span className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full w-fit">
-                          <ArrowDownCircle className="w-3 h-3" />
-                          Credit
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 bg-yellow-500 text-white text-xs font-bold rounded-full w-fit">
-                          <ArrowUpCircle className="w-3 h-3" />
-                          Debit
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3 sm:py-4 px-3 sm:px-4 text-black text-sm font-semibold max-w-[150px] truncate">
-                      {transaction.createdBy}
-                    </td>
-                    <td className="py-3 sm:py-4 px-3 sm:px-4 text-black text-sm font-semibold whitespace-nowrap">
-                      {formatDate(transaction.createdAt)}
+              </thead>
+              <tbody>
+                {paginated.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ padding: '40px 16px', textAlign: 'center', color: D.textSubtle, fontSize: 13 }}>
+                      No transactions found. Try adjusting your date filters.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Transaction Cards - Mobile View */}
-      <div className="md:hidden space-y-2.5">
-        {currentTransactions.length === 0 ? (
-          <div className="p-6 bg-white/40 backdrop-blur-lg rounded-xl border border-white/60 shadow-xl text-center">
-            <p className="text-base font-semibold text-black opacity-70">No transactions found</p>
-            <p className="text-xs text-black opacity-60 mt-2">Try adjusting your date filters</p>
+                ) : paginated.map((t, i) => (
+                  <tr key={t.transactionId} className="txn-row" style={{ borderBottom: `1px solid rgba(39,39,42,0.5)`, cursor: 'default' }}>
+                    <td style={{ padding: '12px 16px', fontSize: 12, color: D.textSubtle }}>{startIdx + i + 1}</td>
+                    <td style={{ padding: '12px 16px', fontSize: 13, color: D.text, fontWeight: 500, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {t.userOrCampaign}
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: t.type === 'credit' ? D.greenLight : D.red }}>
+                        {t.type === 'credit' ? '+' : '-'}₹{t.amount.toLocaleString()}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 5,
+                        fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20,
+                        color:       t.type === 'credit' ? D.greenLight : D.amber,
+                        background:  t.type === 'credit' ? D.greenDim   : D.amberDim,
+                        border: `1px solid ${t.type === 'credit' ? D.greenBorder : 'rgba(251,191,36,0.25)'}`,
+                      }}>
+                        {t.type === 'credit'
+                          ? <TrendingUp  size={10} />
+                          : <TrendingDown size={10} />
+                        }
+                        {t.type === 'credit' ? 'Credit' : 'Debit'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px 16px', fontSize: 13, color: D.textMuted, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {t.createdBy}
+                    </td>
+                    <td style={{ padding: '12px 16px', fontSize: 12, color: D.textMuted, whiteSpace: 'nowrap' }}>
+                      {formatDate(t.createdAt)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ) : (
-          currentTransactions.map((transaction, index) => (
-            <div
-              key={transaction.transactionId}
-              className="p-2.5 bg-white/40 backdrop-blur-lg rounded-lg border border-white/60 shadow-lg"
-            >
-              {/* Top Row: ID + Type Badge + Amount */}
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-black opacity-70">#{startIndex + index + 1}</span>
-                  {transaction.type === 'credit' ? (
-                    <span className="flex items-center gap-1 px-1.5 py-0.5 bg-green-500 text-white text-[10px] font-bold rounded-full">
-                      <ArrowDownCircle className="w-2.5 h-2.5" />
-                      Credit
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1 px-1.5 py-0.5 bg-yellow-500 text-white text-[10px] font-bold rounded-full">
-                      <ArrowUpCircle className="w-2.5 h-2.5" />
-                      Debit
-                    </span>
-                  )}
+        </div>
+
+        {/* ── Mobile cards ── */}
+        <div className="md:hidden" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {paginated.length === 0 ? (
+            <div style={{ padding: 32, textAlign: 'center', background: D.surface, border: `1px solid ${D.border}`, borderRadius: 12 }}>
+              <p style={{ color: D.textSubtle, fontSize: 13 }}>No transactions found.</p>
+            </div>
+          ) : paginated.map((t, i) => (
+            <div key={t.transactionId} style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 10, padding: '12px 14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 11, color: D.textSubtle }}>#{startIdx + i + 1}</span>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 20,
+                    color:      t.type === 'credit' ? D.greenLight : D.amber,
+                    background: t.type === 'credit' ? D.greenDim   : D.amberDim,
+                  }}>
+                    {t.type === 'credit' ? <TrendingUp size={9} /> : <TrendingDown size={9} />}
+                    {t.type === 'credit' ? 'Credit' : 'Debit'}
+                  </span>
                 </div>
-                <p className={`text-sm font-bold ${transaction.type === 'credit' ? 'text-green-600' : 'text-red-600'}`}>
-                  {transaction.type === 'credit' ? '+' : '-'}₹{transaction.amount}
-                </p>
+                <span style={{ fontSize: 15, fontWeight: 700, color: t.type === 'credit' ? D.greenLight : D.red }}>
+                  {t.type === 'credit' ? '+' : '-'}₹{t.amount.toLocaleString()}
+                </span>
               </div>
-
-              {/* User/Campaign Name */}
-              <p className="text-xs font-bold text-black mb-1.5 truncate">{transaction.userOrCampaign}</p>
-
-              {/* Created By + Date in One Row */}
-              <div className="flex items-center justify-between text-[10px] pt-1.5 border-t border-white/30">
-                <div>
-                  <span className="text-black opacity-60">By: </span>
-                  <span className="text-black font-semibold">{transaction.createdBy}</span>
-                </div>
-                <span className="text-black opacity-60">{format(new Date(transaction.createdAt), 'dd MMM, hh:mm a')}</span>
+              <p style={{ fontSize: 13, color: D.text, fontWeight: 500, marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {t.userOrCampaign}
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 8, borderTop: `1px solid ${D.border}` }}>
+                <span style={{ fontSize: 11, color: D.textSubtle }}>By: <span style={{ color: D.textMuted }}>{t.createdBy}</span></span>
+                <span style={{ fontSize: 11, color: D.textSubtle }}>{format(new Date(t.createdAt), 'dd MMM, hh:mm a')}</span>
               </div>
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
 
+        {/* ── Pagination ── */}
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: D.surface, border: `1px solid ${D.border}`, borderRadius: 12, padding: '14px 20px' }}>
+            <button
+              onClick={() => goToPage(currentPage - 1)}
+              disabled={currentPage === 1}
+              style={{ padding: '6px 8px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 7, cursor: currentPage === 1 ? 'not-allowed' : 'pointer', opacity: currentPage === 1 ? 0.4 : 1, display: 'flex' }}
+            >
+              <ChevronLeft size={16} style={{ color: D.textMuted }} />
+            </button>
 
-      {/* Pagination - Mobile Optimized */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-1.5 sm:gap-2 p-3 sm:p-4 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-          
-          {/* Previous Button */}
-          <button
-            onClick={prevPage}
-            disabled={currentPage === 1}
-            className="p-1.5 sm:p-2 bg-white/60 backdrop-blur-sm rounded-lg border border-white/80 hover:bg-white/80 transition-all disabled:opacity-30 disabled:cursor-not-allowed active:scale-95"
-          >
-            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-black" />
-          </button>
-
-          {/* Page Numbers */}
-          <div className="flex items-center gap-1 sm:gap-2">
-            {Array.from({ length: Math.min(3, totalPages) }, (_, i) => {
-              let pageNum: number;
-              if (totalPages <= 3) {
-                pageNum = i + 1;
-              } else if (currentPage <= 2) {
-                pageNum = i + 1;
-              } else if (currentPage >= totalPages - 1) {
-                pageNum = totalPages - 2 + i;
-              } else {
-                pageNum = currentPage - 1 + i;
-              }
-
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let p: number;
+              if (totalPages <= 5)         p = i + 1;
+              else if (currentPage <= 3)   p = i + 1;
+              else if (currentPage >= totalPages - 2) p = totalPages - 4 + i;
+              else p = currentPage - 2 + i;
               return (
                 <button
-                  key={pageNum}
-                  onClick={() => goToPage(pageNum)}
-                  className={`px-2.5 sm:px-4 py-1.5 sm:py-2 text-sm font-bold rounded-lg border-2 transition-all active:scale-95 ${
-                    currentPage === pageNum
-                      ? 'bg-green-500 text-white border-green-600 shadow-lg'
-                      : 'bg-white/60 text-black border-white/80 hover:bg-white/80'
-                  }`}
+                  key={p}
+                  onClick={() => goToPage(p)}
+                  style={{
+                    width: 34, height: 34, borderRadius: 7, fontSize: 13, fontWeight: 600,
+                    border: `1px solid ${currentPage === p ? D.green : D.border}`,
+                    background: currentPage === p ? D.green : D.surface2,
+                    color: currentPage === p ? '#fff' : D.textMuted,
+                    cursor: 'pointer',
+                  }}
                 >
-                  {pageNum}
+                  {p}
                 </button>
               );
             })}
+
+            <button
+              onClick={() => goToPage(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              style={{ padding: '6px 8px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 7, cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', opacity: currentPage === totalPages ? 0.4 : 1, display: 'flex' }}
+            >
+              <ChevronRight size={16} style={{ color: D.textMuted }} />
+            </button>
           </div>
+        )}
 
-          {/* Next Button */}
-          <button
-            onClick={nextPage}
-            disabled={currentPage === totalPages}
-            className="p-1.5 sm:p-2 bg-white/60 backdrop-blur-sm rounded-lg border border-white/80 hover:bg-white/80 transition-all disabled:opacity-30 disabled:cursor-not-allowed active:scale-95"
-          >
-            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-black" />
-          </button>
-
-          {/* Last Page (Mobile: Hidden, Desktop: Visible) */}
-          {totalPages > 3 && currentPage < totalPages - 1 && (
-            <>
-              <span className="hidden sm:inline text-black font-bold">...</span>
-              <button
-                onClick={() => goToPage(totalPages)}
-                className="hidden sm:block px-3 sm:px-4 py-1.5 sm:py-2 text-sm font-bold bg-white/60 text-black border-2 border-white/80 rounded-lg hover:bg-white/80 transition-all"
-              >
-                {totalPages}
-              </button>
-            </>
-          )}
-        </div>
-      )}
-    </div>
+      </div>
+    </>
   );
 };
 

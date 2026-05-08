@@ -1,9 +1,32 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import ReactQuill from "react-quill-new";
 import type { FormEvent, ChangeEvent } from "react";
 import axios from "axios";
 import "react-quill-new/dist/quill.snow.css";
 import { api } from "../api/client";
+import {
+  Send, Phone, Link2, ImageIcon, Users,
+  X, CheckCircle2, AlertCircle, Hash, Upload,
+} from "lucide-react";
+
+/* ── design tokens ── */
+const D = {
+  bg:          '#0a0a0c',
+  surface:     '#111113',
+  surface2:    '#18181b',
+  border:      '#27272a',
+  border2:     '#3f3f46',
+  text:        '#f4f4f5',
+  textMuted:   '#71717a',
+  textSubtle:  '#52525b',
+  green:       '#16a34a',
+  greenLight:  '#4ade80',
+  greenDim:    'rgba(22,163,74,0.12)',
+  greenBorder: 'rgba(22,163,74,0.35)',
+  red:         '#f87171',
+  redDim:      'rgba(248,113,113,0.1)',
+  redBorder:   'rgba(248,113,113,0.3)',
+};
 
 interface FormData {
   campaignName: string;
@@ -18,6 +41,70 @@ interface FormData {
   numberCount: string;
 }
 
+/* ── small shared pieces ── */
+const SectionCard = ({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) => (
+  <div style={{
+    background: D.surface, border: `1px solid ${D.border}`,
+    borderRadius: 12, padding: '20px 24px', ...style,
+  }}>
+    {children}
+  </div>
+);
+
+const SectionTitle = ({ icon: Icon, children }: { icon: React.FC<{ size?: number; color?: string }>; children: React.ReactNode }) => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+    <div style={{ width: 28, height: 28, borderRadius: 7, background: D.greenDim, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      <Icon size={14} color={D.greenLight} />
+    </div>
+    <p style={{ fontSize: 13, fontWeight: 600, color: D.text, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{children}</p>
+  </div>
+);
+
+const inputStyle: React.CSSProperties = {
+  width: '100%', padding: '10px 14px',
+  background: D.surface2, border: `1px solid ${D.border}`,
+  borderRadius: 8, fontSize: 14, color: D.text,
+  outline: 'none', boxSizing: 'border-box',
+  transition: 'border-color 0.15s',
+};
+
+const FieldInput = ({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) => (
+  <div>
+    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: D.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
+      {label}
+    </label>
+    <input
+      {...props}
+      style={inputStyle}
+      onFocus={e => { e.currentTarget.style.borderColor = D.green; }}
+      onBlur={e =>  { e.currentTarget.style.borderColor = D.border; }}
+    />
+  </div>
+);
+
+/* ── toast ── */
+const Toast = ({ msg, type, onClose }: { msg: string; type: 'success' | 'error'; onClose: () => void }) => (
+  <div style={{
+    position: 'fixed', top: 20, right: 20, zIndex: 9999,
+    background: type === 'success' ? D.greenDim : D.redDim,
+    border: `1px solid ${type === 'success' ? D.greenBorder : D.redBorder}`,
+    borderRadius: 10, padding: '12px 16px',
+    display: 'flex', alignItems: 'flex-start', gap: 10,
+    maxWidth: 360, boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+    animation: 'slideInRight 0.25s ease',
+  }}>
+    {type === 'success'
+      ? <CheckCircle2 size={16} style={{ color: D.greenLight, flexShrink: 0, marginTop: 1 }} />
+      : <AlertCircle  size={16} style={{ color: D.red,        flexShrink: 0, marginTop: 1 }} />
+    }
+    <p style={{ fontSize: 13, color: D.text, flex: 1, lineHeight: 1.5 }}>{msg}</p>
+    <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}>
+      <X size={14} style={{ color: D.textMuted }} />
+    </button>
+  </div>
+);
+
+/* ── main component ── */
 const SendWhatsapp = () => {
   const [formData, setFormData] = useState<FormData>({
     campaignName: "",
@@ -26,695 +113,197 @@ const SendWhatsapp = () => {
     phoneButtonNumber: "",
     linkButtonText: "",
     linkButtonUrl: "",
-    mobileNumberEntryType: "manual",
+    mobileNumberEntryType: "Manual Entry",
     mobileNumbers: "",
     countryCode: "+91",
     numberCount: "",
   });
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [fileType, setFileType] = useState<"image" | "video" | "pdf" | null>(
-    null
-  );
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [fileUploadError, setFileUploadError] = useState("");
-  const [mobileNumberError, setMobileNumberError] = useState("");
-  const [phoneNumberError, setPhoneNumberError] = useState("");
+  const [fileType,     setFileType]     = useState<"image" | "video" | "pdf" | null>(null);
+  const [loading,      setLoading]      = useState(false);
+  const [success,      setSuccess]      = useState("");
+  const [toastError,   setToastError]   = useState("");
 
-  // Rich text editor configuration
-  const modules = {
-    toolbar: [
-      ["bold", "italic"],
-      [{ list: "ordered" }, { list: "bullet" }],
-      ["blockquote"],
-      ["link"],
-    ],
-  };
+  const modules  = { toolbar: [["bold", "italic"], [{ list: "ordered" }, { list: "bullet" }], ["blockquote"], ["link"]] };
+  const formats  = ["bold", "italic", "list", "blockquote", "link"];
 
-  const formats = ["bold", "italic", "list", "blockquote", "link"];
-
-  // Handle text input changes
-  const handleInputChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  // Handle rich text editor change
-  const handleMessageChange = (content: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      message: content,
-    }));
-  };
+  const handleMessageChange = (content: string) => setFormData(prev => ({ ...prev, message: content }));
 
-  // Handle file upload
-  const handleFileUpload = (
-    e: ChangeEvent<HTMLInputElement>,
-    type: "image" | "video" | "pdf"
-  ) => {
+  const handleFileUpload = (e: ChangeEvent<HTMLInputElement>, type: "image" | "video" | "pdf") => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Check file size (5MB limit)
-    const maxSize = 5 * 1024 * 1024; // 5MB
-    if (file.size > maxSize) {
-      setFileUploadError("File size exceeds 5MB limit");
-      return;
-    }
-
-    // Validate file type
-    const validTypes: Record<string, string[]> = {
+    if (file.size > 5 * 1024 * 1024) { setToastError("File size exceeds 5 MB limit"); return; }
+    const valid: Record<string, string[]> = {
       image: ["image/png", "image/jpeg", "image/jpg", "image/gif"],
       video: ["video/mp4"],
-      pdf: ["application/pdf"],
+      pdf:   ["application/pdf"],
     };
-
-    if (!validTypes[type].includes(file.type)) {
-      setFileUploadError(`Invalid ${type} file type`);
-      return;
-    }
-
+    if (!valid[type].includes(file.type)) { setToastError(`Invalid ${type} file type`); return; }
     setSelectedFile(file);
     setFileType(type);
-    setFileUploadError("");
   };
 
   const handleMobileNumberChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     const { value } = e.target;
-    const validPattern = /^[0-9+,\s\n\r]*$/;
-
-    if (!validPattern.test(value)) {
-      setMobileNumberError(
-        "Only numbers, +, commas, spaces, and line breaks are allowed"
-      );
-    } else {
-      setMobileNumberError("");
+    if (!/^[0-9+,\s\n\r]*$/.test(value)) {
+      setToastError("Only numbers, +, commas, spaces, and line breaks are allowed");
+      return;
     }
-
-    setFormData((prev) => ({
-      ...prev,
-      mobileNumbers: value,
-    }));
+    setFormData(prev => ({ ...prev, mobileNumbers: value }));
   };
 
-  const countMobileNumbers = (): number => {
-    if (!formData.mobileNumbers.trim()) return 0;
-
-    const numbers = formData.mobileNumbers
-      .split(/[\n,]/)
-      .map((num) => num.trim())
-      .filter((num) => num.length > 0);
-
-    return numbers.length;
-  };
-
-  // Handle phone number input with validation (only numbers and spaces)
   const handlePhoneNumberChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { value } = e.target;
-    const validPattern = /^[0-9\s+]*$/;
-
-    if (!validPattern.test(value)) {
-      setPhoneNumberError("Only numbers and spaces and plus sign are allowed");
-    } else {
-      setPhoneNumberError("");
-    }
-
-    setFormData((prev) => ({
-      ...prev,
-      phoneButtonNumber: value,
-    }));
+    if (!/^[0-9\s+]*$/.test(value)) { setToastError("Only numbers, spaces, and + are allowed"); return; }
+    setFormData(prev => ({ ...prev, phoneButtonNumber: value }));
   };
 
-  // Clear selected file
-  const clearFile = () => {
-    setSelectedFile(null);
-    setFileType(null);
+  const countMobileNumbers = () => {
+    if (!formData.mobileNumbers.trim()) return 0;
+    return formData.mobileNumbers.split(/[\n,]/).map(n => n.trim()).filter(Boolean).length;
   };
 
-  // Handle form submission
+  const clearFile = () => { setSelectedFile(null); setFileType(null); };
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setError("");
+    setToastError("");
     setSuccess("");
-    setLoading(true);
 
-    // Validation
-    if (
-      !formData.campaignName ||
-      !formData.message ||
-      !formData.mobileNumbers
-    ) {
-      setError("Campaign name, message, and mobile numbers are required");
-      setLoading(false);
+    if (!formData.campaignName || !formData.message || !formData.mobileNumbers) {
+      setToastError("Campaign name, message, and mobile numbers are required");
       return;
     }
 
+    setLoading(true);
     try {
-      // Create FormData for multipart/form-data
       const submitData = new FormData();
-
-      // Append form fields
       submitData.append("campaignName", formData.campaignName);
       submitData.append("message", formData.message);
-      submitData.append(
-        "mobileNumberEntryType",
-        formData.mobileNumberEntryType
-      );
+      submitData.append("mobileNumberEntryType", formData.mobileNumberEntryType);
       submitData.append("mobileNumbers", formData.mobileNumbers);
       submitData.append("countryCode", formData.countryCode);
-
-      // Append optional fields
       if (formData.phoneButtonText && formData.phoneButtonNumber) {
         submitData.append("phoneButtonText", formData.phoneButtonText);
         submitData.append("phoneButtonNumber", formData.phoneButtonNumber);
       }
-
       if (formData.linkButtonText && formData.linkButtonUrl) {
         submitData.append("linkButtonText", formData.linkButtonText);
         submitData.append("linkButtonUrl", formData.linkButtonUrl);
       }
+      if (selectedFile) submitData.append("image", selectedFile);
 
-      // Append file if selected
-      if (selectedFile) {
-        submitData.append("image", selectedFile);
-      }
-
-      const { data: result } = await api.post<{
-        success: boolean;
-        message?: string;
-        errors?: string[];
-      }>("/api/campaigns", submitData);
+      const { data: result } = await api.post<{ success: boolean; message?: string; errors?: string[] }>("/api/campaigns", submitData);
 
       if (result.success) {
         setSuccess("Campaign created successfully!");
-        // Reset form
-        setFormData({
-          campaignName: "",
-          message: "",
-          phoneButtonText: "",
-          phoneButtonNumber: "",
-          linkButtonText: "",
-          linkButtonUrl: "",
-          mobileNumberEntryType: "manual",
-          mobileNumbers: "",
-          countryCode: "+91",
-          numberCount: "",
-        });
+        setFormData({ campaignName: "", message: "", phoneButtonText: "", phoneButtonNumber: "", linkButtonText: "", linkButtonUrl: "", mobileNumberEntryType: "Manual Entry", mobileNumbers: "", countryCode: "+91", numberCount: "" });
         setSelectedFile(null);
         setFileType(null);
       } else {
-        // 👇 This part improved:
-        const backendError =
-          result.errors?.[0] || // show the first validation message
-          result.message || // else fallback to general message
-          "Failed to create campaign";
-
-        setError(backendError);
+        setToastError(result.errors?.[0] || result.message || "Failed to create campaign");
       }
     } catch (err: unknown) {
       if (axios.isAxiosError(err) && err.response?.data) {
         const d = err.response.data as { message?: string; errors?: string[] };
-        setError(
-          d.errors?.[0] || d.message || "Failed to create campaign"
-        );
+        setToastError(d.errors?.[0] || d.message || "Failed to create campaign");
       } else if (err instanceof Error) {
-        setError(err.message);
+        setToastError(err.message);
       } else {
-        setError("An unknown error occurred. Please try again.");
+        setToastError("An unknown error occurred. Please try again.");
       }
     } finally {
       setLoading(false);
     }
   };
 
+  const count = countMobileNumbers();
+
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Success Popup - Fixed Position */}
-      {success && (
-        <div className="fixed top-4 right-4 left-4 sm:left-auto sm:w-96 z-50 animate-slideIn">
-          <div className="p-3 sm:p-4 bg-green-500/90 backdrop-blur-md rounded-lg sm:rounded-xl border border-white/50 shadow-2xl">
-            <div className="flex items-start justify-between gap-3">
-              <p className="text-white font-semibold text-sm sm:text-base flex-1">
-                {success}
-              </p>
-              <button
-                onClick={() => setSuccess("")}
-                className="text-white hover:text-gray-200 transition-colors flex-shrink-0"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+    <>
+      <style>{`
+        @keyframes spin           { to { transform: rotate(360deg); } }
+        @keyframes slideInRight   { from { transform: translateX(110%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeIn         { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
 
-      {/* Error Popup - Fixed Position */}
-      {error && (
-        <div className="fixed top-4 right-4 left-4 sm:left-auto sm:w-96 z-50 animate-slideIn">
-          <div className="p-3 sm:p-4 bg-red-500/90 backdrop-blur-md rounded-lg sm:rounded-xl border border-red-300 shadow-2xl">
-            <div className="flex items-start justify-between gap-3">
-              <p className="text-white font-semibold text-sm sm:text-base flex-1">
-                {error}
-              </p>
-              <button
-                onClick={() => setError("")}
-                className="text-white hover:text-gray-200 transition-colors flex-shrink-0"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+        /* Quill dark theme overrides */
+        .ql-toolbar.ql-snow {
+          background: #18181b !important;
+          border: 1px solid #27272a !important;
+          border-bottom: none !important;
+          border-radius: 8px 8px 0 0 !important;
+        }
+        .ql-container.ql-snow {
+          background: #111113 !important;
+          border: 1px solid #27272a !important;
+          border-radius: 0 0 8px 8px !important;
+          font-size: 14px !important;
+          color: #f4f4f5 !important;
+        }
+        .ql-editor { min-height: 140px; color: #f4f4f5 !important; }
+        .ql-editor.ql-blank::before { color: #52525b !important; font-style: normal !important; }
+        .ql-snow .ql-stroke         { stroke: #71717a !important; }
+        .ql-snow .ql-fill           { fill:   #71717a !important; }
+        .ql-snow .ql-picker-label   { color:  #71717a !important; }
+        .ql-snow .ql-picker-options { background: #18181b !important; border-color: #27272a !important; }
+        .ql-snow .ql-active .ql-stroke { stroke: #4ade80 !important; }
+        .ql-snow .ql-active .ql-fill   { fill:   #4ade80 !important; }
+        .ql-toolbar.ql-snow .ql-formats button:hover .ql-stroke { stroke: #f4f4f5 !important; }
+        .ql-toolbar.ql-snow .ql-formats button:hover .ql-fill   { fill:   #f4f4f5 !important; }
 
-      {/* Page Header - Mobile Responsive */}
-      <div className="p-4 sm:p-5 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-black">
-          SEND NEW CAMPAIGN
-        </h2>
-      </div>
+        /* file input styling */
+        .file-input::file-selector-button {
+          background: rgba(22,163,74,0.15);
+          border: 1px solid rgba(22,163,74,0.3);
+          color: #4ade80;
+          padding: 6px 12px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          margin-right: 10px;
+          transition: background 0.15s;
+        }
+        .file-input::file-selector-button:hover { background: rgba(22,163,74,0.25); }
+        .file-input:disabled::file-selector-button { opacity: 0.4; cursor: not-allowed; }
 
-      {/* Main Form - Mobile Responsive */}
-      <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-        {/* Campaign Name */}
-        <div className="p-4 sm:p-5 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-          <label className="block text-xs sm:text-sm font-bold text-black mb-2 uppercase">
-            Campaign Name *
-          </label>
-          <input
-            type="text"
-            name="campaignName"
-            value={formData.campaignName}
-            onChange={handleInputChange}
-            placeholder="Enter campaign name"
-            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-sm sm:text-base text-black placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all"
-            disabled={loading}
-          />
-        </div>
+        textarea:focus, select:focus { outline: none; border-color: #16a34a !important; }
+        select option { background: #18181b; color: #f4f4f5; }
+      `}</style>
 
-        {/* Message - Rich Text Editor */}
-        <div className="p-4 sm:p-5 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-          <label className="block text-xs sm:text-sm font-bold text-black mb-2 uppercase">
-            Message *
-          </label>
-          <div className="bg-white/80 rounded-lg sm:rounded-xl overflow-hidden">
-            <ReactQuill
-              theme="snow"
-              value={formData.message}
-              onChange={handleMessageChange}
-              modules={modules}
-              formats={formats}
-              placeholder="Enter your message..."
-              className="text-black text-sm sm:text-base"
-            />
-          </div>
-        </div>
+      {/* Toasts */}
+      {toastError && <Toast msg={toastError} type="error"   onClose={() => setToastError("")} />}
 
-        {/* Phone Button - Mobile Stacked */}
-        <div className="p-4 sm:p-5 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-          <label className="block text-xs sm:text-sm font-bold text-black mb-3 sm:mb-4 uppercase">
-            Phone number on Button :
-          </label>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-            <input
-              type="text"
-              name="phoneButtonText"
-              value={formData.phoneButtonText}
-              onChange={handleInputChange}
-              placeholder="Call Now Write Button Text"
-              className="px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-sm sm:text-base text-black placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all"
-              disabled={loading}
-            />
-            <input
-              type="tel"
-              name="phoneButtonNumber"
-              value={formData.phoneButtonNumber}
-              onChange={handlePhoneNumberChange}
-              placeholder="Phone Number"
-              className="px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-sm sm:text-base text-black placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all"
-              disabled={loading}
-            />
-          </div>
-
-          {phoneNumberError && (
-            <div className="fixed top-4 right-4 left-4 sm:left-auto sm:w-96 z-50 animate-slideIn">
-              <div className="p-3 sm:p-4 bg-red-500/90 backdrop-blur-md rounded-lg sm:rounded-xl border border-red-300 shadow-2xl">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-white font-semibold text-sm sm:text-base flex-1">
-                    {phoneNumberError}
-                  </p>
-                  <button
-                    onClick={() => {
-                      setPhoneNumberError("");
-                    }}
-                    className="text-white hover:text-gray-200 transition-colors flex-shrink-0"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Link Button - Mobile Stacked */}
-        <div className="p-4 sm:p-5 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-          <label className="block text-xs sm:text-sm font-bold text-black mb-3 sm:mb-4 uppercase">
-            Link on Button :
-          </label>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-            <input
-              type="text"
-              name="linkButtonText"
-              value={formData.linkButtonText}
-              onChange={handleInputChange}
-              placeholder="Visit Website Button Text"
-              className="px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-sm sm:text-base text-black placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all"
-              disabled={loading}
-            />
-            <input
-              type="url"
-              name="linkButtonUrl"
-              value={formData.linkButtonUrl}
-              onChange={handleInputChange}
-              placeholder="URL"
-              className="px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-sm sm:text-base text-black placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all"
-              disabled={loading}
-            />
-          </div>
-        </div>
-
-        {/* File Uploads - Mobile Optimized */}
-        <div className="p-4 sm:p-5 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-          <label className="block text-xs sm:text-sm font-bold text-black mb-3 sm:mb-4 uppercase">
-            Upload Media (Select Only One){" "}
-            <span className="text-red-600 text-[10px] sm:text-xs">
-              (MAX 5MB)
-            </span>
-          </label>
-
-          {selectedFile && (
-            <div className="mb-3 sm:mb-4 p-2.5 sm:p-3 bg-green-500/20 backdrop-blur-sm rounded-lg sm:rounded-xl border border-green-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-              <span className="text-black font-semibold text-xs sm:text-sm break-all">
-                {selectedFile.name} (
-                {(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
-              </span>
-              <button
-                type="button"
-                onClick={clearFile}
-                className="w-full sm:w-auto px-3 sm:px-4 py-1.5 sm:py-2 bg-red-500/60 backdrop-blur-md text-white text-sm font-semibold rounded-lg hover:bg-red-600/60 transition-all active:scale-95"
-              >
-                Remove
-              </button>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-            {/* Image Upload */}
-            <div>
-              <label className="block text-[10px] sm:text-xs font-bold text-black mb-2">
-                IMAGE{" "}
-                <span className="text-red-600 block sm:inline">
-                  (JPG, PNG, GIF)
-                </span>
-              </label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleFileUpload(e, "image")}
-                disabled={
-                  loading || (selectedFile !== null && fileType !== "image")
-                }
-                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-xs sm:text-sm text-black file:mr-2 sm:file:mr-4 file:py-1.5 sm:file:py-2 file:px-3 sm:file:px-4 file:rounded-lg file:border-0 file:bg-green-500/60 file:text-white file:text-xs sm:file:text-sm file:font-semibold hover:file:bg-green-600/60 focus:outline-none disabled:opacity-50"
-              />
-            </div>
-
-            {/* Video Upload */}
-            <div>
-              <label className="block text-[10px] sm:text-xs font-bold text-black mb-2">
-                VIDEO
-              </label>
-              <input
-                type="file"
-                accept="video/*"
-                onChange={(e) => handleFileUpload(e, "video")}
-                // disabled={
-                //   loading || (selectedFile !== null && fileType !== "video")
-                // }
-                disabled={true}
-                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-xs sm:text-sm text-black file:mr-2 sm:file:mr-4 file:py-1.5 sm:file:py-2 file:px-3 sm:file:px-4 file:rounded-lg file:border-0 file:bg-green-500/60 file:text-white file:text-xs sm:file:text-sm file:font-semibold hover:file:bg-green-600/60 focus:outline-none disabled:opacity-50"
-              />
-            </div>
-
-            {/* PDF Upload */}
-            <div className="md:col-span-2">
-              <label className="block text-[10px] sm:text-xs font-bold text-black mb-2">
-                UPLOAD PDF
-              </label>
-              <input
-                type="file"
-                accept="application/pdf"
-                onChange={(e) => handleFileUpload(e, "pdf")}
-                // disabled={
-                //   loading || (selectedFile !== null && fileType !== "pdf")
-                // }
-                disabled={true}
-                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-xs sm:text-sm text-black file:mr-2 sm:file:mr-4 file:py-1.5 sm:file:py-2 file:px-3 sm:file:px-4 file:rounded-lg file:border-0 file:bg-green-500/60 file:text-white file:text-xs sm:file:text-sm file:font-semibold hover:file:bg-green-600/60 focus:outline-none disabled:opacity-50"
-              />
-            </div>
-          </div>
-
-          {/* File Upload Error - Shows as popup */}
-          {fileUploadError && (
-            <div className="fixed top-4 right-4 left-4 sm:left-auto sm:w-96 z-50 animate-slideIn">
-              <div className="p-3 sm:p-4 bg-red-500/90 backdrop-blur-md rounded-lg sm:rounded-xl border border-red-300 shadow-2xl">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-white font-semibold text-sm sm:text-base flex-1">
-                    {fileUploadError}
-                  </p>
-                  <button
-                    onClick={() => {
-                      setFileUploadError("");
-                    }}
-                    className="text-white hover:text-gray-200 transition-colors flex-shrink-0"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Mobile Number Entry Type */}
-        <div className="p-4 sm:p-5 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-          <label className="block text-xs sm:text-sm font-bold text-black mb-2 uppercase">
-            Mobile Number Enter Type *
-          </label>
-          <select
-            name="mobileNumberEntryType"
-            value={formData.mobileNumberEntryType}
-            onChange={handleInputChange}
-            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-sm sm:text-base text-black focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all"
-            disabled={loading}
-          >
-            <option value="Manual Entry">Manual Entry</option>
-            <option value="CSV Upload">CSV Upload</option>
-            <option value="Contact List">Contact List</option>
-          </select>
-        </div>
-
-        {/* Mobile Numbers - Responsive Textarea */}
-        <div className="p-4 sm:p-5 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-          <label className="block text-xs sm:text-sm font-bold text-black mb-2 uppercase">
-            Mobile Numbers *
-          </label>
-          <textarea
-            name="mobileNumbers"
-            value={formData.mobileNumbers}
-            onChange={handleMobileNumberChange}
-            placeholder="Enter mobile numbers (comma-separated)"
-            rows={4}
-            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-sm sm:text-base text-black placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all resize-none"
-            disabled={loading}
-          />
-          {mobileNumberError && (
-            <div className="fixed top-4 right-4 left-4 sm:left-auto sm:w-96 z-50 animate-slideIn">
-              <div className="p-3 sm:p-4 bg-red-500/90 backdrop-blur-md rounded-lg sm:rounded-xl border border-red-300 shadow-2xl">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-white font-semibold text-sm sm:text-base flex-1">
-                    {mobileNumberError}
-                  </p>
-                  <button
-                    onClick={() => {
-                      setMobileNumberError("");
-                    }}
-                    className="text-white hover:text-gray-200 transition-colors flex-shrink-0"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Number Count */}
-        <div className="p-4 sm:p-5 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-          <label className="block text-xs sm:text-sm font-bold text-black mb-2 uppercase">
-            Number Count
-          </label>
-          <div className="px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-sm sm:text-base text-black font-semibold">
-            {countMobileNumbers()}{" "}
-            {countMobileNumbers() === 1 ? "number" : "numbers"}
-          </div>
-        </div>
-
-        {/* Number Count */}
-        {/* <div className="p-4 sm:p-5 md:p-6 bg-white/40 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-white/60 shadow-xl">
-          <label className="block text-xs sm:text-sm font-bold text-black mb-2 uppercase">
-            Number Count *
-          </label>
-          <input
-            type="text"
-            name="numberCount"
-            value={formData.numberCount}
-            onChange={handleInputChange}
-            placeholder="Enter number count"
-            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-sm sm:text-base text-black placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all"
-            disabled={loading}
-          />
-        </div> */}
-
-        {/* Submit Button - Full Width on Mobile */}
-        <div className="flex justify-center">
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full sm:w-auto px-8 sm:px-12 py-3 sm:py-4 bg-green-500/80 backdrop-blur-md text-white font-bold text-base sm:text-lg rounded-lg sm:rounded-xl border border-white/30 shadow-lg hover:bg-green-600/80 hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
-          >
-            {loading ? "Submitting..." : "Submit"}
-          </button>
-        </div>
-      </form>
-
-      {/* Loading Screen - Clean Center Popup */}
+      {/* Loading overlay */}
       {loading && (
-        <div className="fixed inset-0 flex items-center justify-center z-50">
-          <div className="w-full max-w-sm sm:max-w-md p-6 sm:p-8 bg-white rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col items-center gap-6 sm:gap-8">
-            {/* Loading Spinner */}
-            <div className="relative w-16 h-16 sm:w-20 sm:h-20">
-              <div className="absolute inset-0 rounded-full border-4 border-gray-200"></div>
-              <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-blue-500 border-r-blue-500 animate-spin"></div>
-            </div>
-
-            {/* Loading Text */}
-            <div className="text-center">
-              <p className="text-lg sm:text-xl font-bold text-black">
-                Creating Campaign
-              </p>
-              <p className="text-sm sm:text-base text-gray-600 mt-2">
-                Please wait...
-              </p>
-            </div>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 16, padding: '32px 40px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+            <div style={{ width: 40, height: 40, borderRadius: '50%', border: `3px solid ${D.border}`, borderTopColor: D.green, animation: 'spin 0.8s linear infinite' }} />
+            <p style={{ color: D.textMuted, fontSize: 14, fontWeight: 500 }}>Creating campaign…</p>
           </div>
         </div>
       )}
 
-      {/* Success Modal - Clean Center Popup */}
+      {/* Success modal */}
       {success && !loading && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-          <div className="w-full max-w-sm sm:max-w-md p-6 sm:p-8 bg-white rounded-2xl sm:rounded-3xl shadow-2xl">
-            {/* Success Icon */}
-            <div className="flex justify-center mb-4 sm:mb-6">
-              <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-green-500/20 rounded-full flex items-center justify-center">
-                <svg
-                  className="w-8 h-8 sm:w-10 sm:h-10 text-green-500"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-              </div>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}
+          onClick={() => setSuccess("")}>
+          <div style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 16, padding: '36px 40px', maxWidth: 360, width: '100%', animation: 'fadeIn 0.2s ease', textAlign: 'center' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ width: 56, height: 56, borderRadius: '50%', background: D.greenDim, border: `1px solid ${D.greenBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+              <CheckCircle2 size={26} style={{ color: D.greenLight }} />
             </div>
-
-            {/* Success Title */}
-            <h3 className="text-xl sm:text-2xl font-bold text-black text-center mb-2">
-              Success!
-            </h3>
-
-            {/* Success Message */}
-            <p className="text-sm sm:text-base text-gray-600 text-center mb-6 sm:mb-8">
-              {success}
-            </p>
-
-            {/* Close Button */}
+            <p style={{ fontSize: 18, fontWeight: 700, color: D.text, marginBottom: 8 }}>Campaign Sent!</p>
+            <p style={{ fontSize: 13, color: D.textMuted, marginBottom: 28, lineHeight: 1.6 }}>{success}</p>
             <button
               onClick={() => setSuccess("")}
-              className="w-full px-6 py-3 bg-green-500 text-white font-bold text-base rounded-lg hover:bg-green-600 transition-all active:scale-95"
+              style={{ width: '100%', padding: '10px 0', background: D.green, color: '#fff', fontWeight: 600, fontSize: 14, border: 'none', borderRadius: 8, cursor: 'pointer' }}
             >
               Done
             </button>
@@ -722,40 +311,201 @@ const SendWhatsapp = () => {
         </div>
       )}
 
-      <style>{`
-              @keyframes slideIn {
-                from {
-                  transform: translateX(100%);
-                  opacity: 0;
-                }
-                to {
-                  transform: translateX(0);
-                  opacity: 1;
-                }
-              }
+      {/* Page header */}
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: D.text, margin: 0 }}>Send Campaign</h1>
+        <p style={{ fontSize: 13, color: D.textMuted, marginTop: 4 }}>Create and send a new WhatsApp campaign to your audience.</p>
+      </div>
 
-              .animate-slideIn {
-                animation: slideIn 0.3s ease-out forwards;
-              }
-      `}</style>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-      <style>{`
-              @keyframes slideIn {
-                from {
-                  transform: translateX(100%);
-                  opacity: 0;
-                }
-                to {
-                  transform: translateX(0);
-                  opacity: 1;
-                }
-              }
+        {/* Campaign name */}
+        <SectionCard>
+          <SectionTitle icon={Send}>Campaign Details</SectionTitle>
+          <FieldInput
+            label="Campaign Name *"
+            type="text"
+            name="campaignName"
+            value={formData.campaignName}
+            onChange={handleInputChange}
+            placeholder="e.g. Summer Sale 2026"
+            disabled={loading}
+          />
+        </SectionCard>
 
-              .animate-slideIn {
-                animation: slideIn 0.3s ease-out forwards;
-              }
-      `}</style>
-    </div>
+        {/* Message */}
+        <SectionCard>
+          <SectionTitle icon={Send}>Message *</SectionTitle>
+          <ReactQuill
+            theme="snow"
+            value={formData.message}
+            onChange={handleMessageChange}
+            modules={modules}
+            formats={formats}
+            placeholder="Type your message here…"
+          />
+        </SectionCard>
+
+        {/* Buttons section */}
+        <SectionCard>
+          <SectionTitle icon={Phone}>Action Buttons (Optional)</SectionTitle>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20 }}>
+            {/* Phone button */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <p style={{ fontSize: 11, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', margin: 0 }}>
+                <Phone size={10} style={{ display: 'inline', marginRight: 5 }} />Phone Button
+              </p>
+              <FieldInput label="Button Label" type="text" name="phoneButtonText" value={formData.phoneButtonText} onChange={handleInputChange} placeholder="e.g. Call Now" disabled={loading} />
+              <FieldInput label="Phone Number" type="tel" name="phoneButtonNumber" value={formData.phoneButtonNumber} onChange={handlePhoneNumberChange} placeholder="+91 98765 43210" disabled={loading} />
+            </div>
+            {/* Link button */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <p style={{ fontSize: 11, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', margin: 0 }}>
+                <Link2 size={10} style={{ display: 'inline', marginRight: 5 }} />Link Button
+              </p>
+              <FieldInput label="Button Label" type="text" name="linkButtonText" value={formData.linkButtonText} onChange={handleInputChange} placeholder="e.g. Visit Website" disabled={loading} />
+              <FieldInput label="URL" type="url" name="linkButtonUrl" value={formData.linkButtonUrl} onChange={handleInputChange} placeholder="https://example.com" disabled={loading} />
+            </div>
+          </div>
+        </SectionCard>
+
+        {/* Media upload */}
+        <SectionCard>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <SectionTitle icon={ImageIcon}>Media Attachment</SectionTitle>
+            <span style={{ fontSize: 11, color: D.textSubtle, background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 5, padding: '2px 8px' }}>Max 5 MB</span>
+          </div>
+
+          {selectedFile && (
+            <div style={{ marginBottom: 16, padding: '10px 14px', background: D.greenDim, border: `1px solid ${D.greenBorder}`, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                <Upload size={14} style={{ color: D.greenLight, flexShrink: 0 }} />
+                <span style={{ fontSize: 13, color: D.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {selectedFile.name}
+                </span>
+                <span style={{ fontSize: 11, color: D.textMuted, flexShrink: 0 }}>({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)</span>
+              </div>
+              <button type="button" onClick={clearFile} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, flexShrink: 0 }}>
+                <X size={14} style={{ color: D.red }} />
+              </button>
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+            {[
+              { type: 'image' as const, label: 'Image', hint: 'JPG, PNG, GIF', disabled: false, accept: 'image/*' },
+              { type: 'video' as const, label: 'Video', hint: 'MP4 — coming soon', disabled: true, accept: 'video/*' },
+              { type: 'pdf'   as const, label: 'PDF',   hint: 'Coming soon',     disabled: true, accept: 'application/pdf' },
+            ].map(({ type, label, hint, disabled, accept }) => (
+              <div key={type}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: disabled ? D.textSubtle : D.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
+                  {label}
+                  {disabled && <span style={{ marginLeft: 6, fontSize: 10, color: D.textSubtle, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>· soon</span>}
+                </label>
+                <input
+                  type="file"
+                  accept={accept}
+                  onChange={e => handleFileUpload(e, type)}
+                  disabled={disabled || loading || (selectedFile !== null && fileType !== type)}
+                  className="file-input"
+                  style={{
+                    ...inputStyle, padding: '8px 12px',
+                    fontSize: 12, cursor: disabled ? 'not-allowed' : 'pointer',
+                    opacity: disabled ? 0.45 : 1,
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+
+        {/* Recipients */}
+        <SectionCard>
+          <SectionTitle icon={Users}>Recipients</SectionTitle>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {/* Entry type */}
+            <div>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: D.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
+                Entry Type
+              </label>
+              <select
+                name="mobileNumberEntryType"
+                value={formData.mobileNumberEntryType}
+                onChange={handleInputChange}
+                disabled={loading}
+                style={{ ...inputStyle }}
+              >
+                <option value="Manual Entry">Manual Entry</option>
+                <option value="CSV Upload">CSV Upload</option>
+                <option value="Contact List">Contact List</option>
+              </select>
+            </div>
+
+            {/* Country code + numbers */}
+            <div>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: D.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
+                Mobile Numbers *
+              </label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="text"
+                  name="countryCode"
+                  value={formData.countryCode}
+                  onChange={handleInputChange}
+                  disabled={loading}
+                  style={{ ...inputStyle, width: 72, flexShrink: 0 }}
+                  onFocus={e => { e.currentTarget.style.borderColor = D.green; }}
+                  onBlur={e =>  { e.currentTarget.style.borderColor = D.border; }}
+                />
+                <textarea
+                  name="mobileNumbers"
+                  value={formData.mobileNumbers}
+                  onChange={handleMobileNumberChange}
+                  placeholder="Enter numbers separated by commas or new lines&#10;9876543210, 9876543211&#10;9876543212"
+                  rows={5}
+                  disabled={loading}
+                  style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.6, fontFamily: 'monospace', flex: 1 }}
+                  onFocus={e => { e.currentTarget.style.borderColor = D.green; }}
+                  onBlur={e =>  { e.currentTarget.style.borderColor = D.border; }}
+                />
+              </div>
+            </div>
+
+            {/* Number count badge */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: count > 0 ? D.greenDim : D.surface2, border: `1px solid ${count > 0 ? D.greenBorder : D.border}`, borderRadius: 7 }}>
+                <Hash size={13} style={{ color: count > 0 ? D.greenLight : D.textSubtle }} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: count > 0 ? D.greenLight : D.textSubtle }}>
+                  {count} {count === 1 ? 'number' : 'numbers'} detected
+                </span>
+              </div>
+            </div>
+          </div>
+        </SectionCard>
+
+        {/* Submit */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 4 }}>
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '11px 28px', background: D.green, color: '#fff',
+              fontWeight: 600, fontSize: 14, border: 'none', borderRadius: 9,
+              cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading ? 0.6 : 1,
+              transition: 'opacity 0.15s, background 0.15s',
+              boxShadow: '0 0 0 0 rgba(22,163,74,0)',
+            }}
+            onMouseEnter={e => { if (!loading) (e.currentTarget as HTMLButtonElement).style.background = '#15803d'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = D.green; }}
+          >
+            <Send size={15} />
+            {loading ? 'Sending…' : 'Send Campaign'}
+          </button>
+        </div>
+      </form>
+    </>
   );
 };
 
