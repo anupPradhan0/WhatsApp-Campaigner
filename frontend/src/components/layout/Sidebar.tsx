@@ -1,7 +1,28 @@
+import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { X, MessageSquare } from 'lucide-react';
+import {
+  X, MessageSquare,
+  LayoutDashboard, Send, Wallet,
+  Users, UserCheck,
+  BarChart3, Megaphone,
+  Newspaper, GitBranch, AlertCircle, Building2,
+} from 'lucide-react';
 import { menuConfig, type MenuSection } from '../../constants/Roles';
 import { getUserRole } from '../../utils/Auth';
+
+const ICONS: Record<string, React.FC<{ size?: number; color?: string; style?: React.CSSProperties }>> = {
+  '/home':             LayoutDashboard,
+  '/send-whatsapp':    Send,
+  '/credits':          Wallet,
+  '/manage-reseller':  Users,
+  '/manage-users':     UserCheck,
+  '/whatsapp-report':  BarChart3,
+  '/all-campaign':     Megaphone,
+  '/news':             Newspaper,
+  '/tree-view':        GitBranch,
+  '/complaints':       AlertCircle,
+  '/manage-business':  Building2,
+};
 
 interface SidebarProps {
   isOpen: boolean;
@@ -46,14 +67,14 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           overflow-y-auto lg:flex-shrink-0
         `}
       >
-        {/* Mobile close */}
+        {/* Close button — mobile only */}
         <button
           onClick={onClose}
-          className="lg:hidden absolute top-4 right-4 p-1.5 rounded-lg transition-colors"
+          className="lg:hidden absolute top-3 right-3 p-1.5 rounded-lg transition-colors"
           style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)' }}
           aria-label="Close menu"
         >
-          <X className="w-4 h-4" style={{ color: '#f87171' }} />
+          <X size={15} style={{ color: '#f87171' }} />
         </button>
 
         {/* Logo */}
@@ -93,7 +114,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                       <Link
                         to={item.path}
                         onClick={onClose}
-                        className="block px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150"
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150"
                         style={{
                           color: isActive ? '#4ade80' : '#a1a1aa',
                           background: isActive ? 'rgba(22,163,74,0.12)' : 'transparent',
@@ -112,7 +133,11 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                           }
                         }}
                       >
-                        {item.label}
+                        {(() => {
+                          const Icon = ICONS[item.path];
+                          return Icon ? <Icon size={16} /> : null;
+                        })()}
+                        <span>{item.label}</span>
                       </Link>
                     </li>
                   );
