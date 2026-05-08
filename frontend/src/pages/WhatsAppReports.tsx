@@ -215,7 +215,7 @@ export default function WhatsAppReports() {
       </div>
 
       {/* Details modal */}
-      {selected && userData && (
+      {selected && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }} onClick={() => setSelected(null)}>
           <div onClick={e => e.stopPropagation()} style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 14, width: '100%', maxWidth: 620, maxHeight: '90vh', overflowY: 'auto' }}>
             {/* header */}
@@ -230,6 +230,7 @@ export default function WhatsAppReports() {
             </div>
             <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
               {/* User info */}
+              {userData && (
               <div style={{ background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 10, padding: 14 }}>
                 <p style={{ fontSize: 11, fontWeight: 700, color: D.textSubtle, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>User Information</p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -238,6 +239,7 @@ export default function WhatsAppReports() {
                   ))}
                 </div>
               </div>
+              )}
               {/* Campaign info */}
               <div style={{ background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 10, padding: 14 }}>
                 <p style={{ fontSize: 11, fontWeight: 700, color: D.textSubtle, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Campaign Information</p>

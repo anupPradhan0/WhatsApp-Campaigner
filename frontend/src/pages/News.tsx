@@ -20,6 +20,32 @@ const selStyle: React.CSSProperties = { ...inp };
 const FieldFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { e.currentTarget.style.borderColor = D.green; };
 const FieldBlur  = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { e.currentTarget.style.borderColor = D.border; };
 
+// Defined outside component to prevent remount on every render
+const NewsStatusBadge = ({ s }: { s: 'ACTIVE' | 'INACTIVE' }) => (
+  <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.05em', color: s === 'ACTIVE' ? D.greenLight : D.red, background: s === 'ACTIVE' ? D.greenDim : D.redDim, border: `1px solid ${s === 'ACTIVE' ? D.greenBorder : D.redBorder}` }}>{s}</span>
+);
+
+interface NewsFormProps { formData: { title: string; description: string; status: 'ACTIVE' | 'INACTIVE' }; setFormData: React.Dispatch<React.SetStateAction<{ title: string; description: string; status: 'ACTIVE' | 'INACTIVE' }>>; onSave: () => void; label: string; actionLoading: boolean; onCancel: () => void; }
+const NewsForm = ({ formData, setFormData, onSave, label, actionLoading, onCancel }: NewsFormProps) => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div><label style={{ fontSize: 11, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Title *</label>
+      <input type="text" value={formData.title} onChange={e => setFormData(f => ({...f, title: e.target.value}))} placeholder="Enter news title" style={inp} onFocus={FieldFocus} onBlur={FieldBlur} />
+    </div>
+    <div><label style={{ fontSize: 11, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Description *</label>
+      <textarea value={formData.description} onChange={e => setFormData(f => ({...f, description: e.target.value}))} rows={5} placeholder="Enter news description" style={taStyle} onFocus={FieldFocus} onBlur={FieldBlur} />
+    </div>
+    <div><label style={{ fontSize: 11, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Status *</label>
+      <select value={formData.status} onChange={e => setFormData(f => ({...f, status: e.target.value as 'ACTIVE' | 'INACTIVE'}))} style={selStyle} onFocus={FieldFocus} onBlur={FieldBlur}>
+        <option value="ACTIVE">ACTIVE</option><option value="INACTIVE">INACTIVE</option>
+      </select>
+    </div>
+    <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+      <button onClick={onSave} disabled={actionLoading} style={{ flex: 1, padding: '9px 0', background: D.green, color: '#fff', fontWeight: 600, fontSize: 13, border: 'none', borderRadius: 8, cursor: 'pointer', opacity: actionLoading ? 0.6 : 1 }}>{actionLoading ? 'Saving…' : label}</button>
+      <button onClick={onCancel} style={{ flex: 1, padding: '9px 0', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, cursor: 'pointer', color: D.textMuted, fontSize: 13, fontWeight: 600 }}>Cancel</button>
+    </div>
+  </div>
+);
+
 const Paginator = ({ page, total, onChange }: { page: number; total: number; onChange: (p: number) => void }) => {
   if (total <= 1) return null;
   return (
@@ -92,30 +118,6 @@ export default function News() {
     try { const { data: r } = await api.delete(`/api/news/delete/${selected.id}`); if (r.success) { showAlert('success', 'News deleted!'); closeModal(); fetchData(); } else showAlert('error', r.message || 'Failed'); } catch { showAlert('error', 'Network error.'); } finally { setActionLoading(false); }
   };
 
-  const StatusBadge = ({ s }: { s: 'ACTIVE' | 'INACTIVE' }) => (
-    <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.05em', color: s === 'ACTIVE' ? D.greenLight : D.red, background: s === 'ACTIVE' ? D.greenDim : D.redDim, border: `1px solid ${s === 'ACTIVE' ? D.greenBorder : D.redBorder}` }}>{s}</span>
-  );
-
-  const NewsForm = ({ onSave, label }: { onSave: () => void; label: string }) => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div><label style={{ fontSize: 11, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Title *</label>
-        <input type="text" value={formData.title} onChange={e => setFormData(f => ({...f, title: e.target.value}))} placeholder="Enter news title" style={inp} onFocus={FieldFocus} onBlur={FieldBlur} />
-      </div>
-      <div><label style={{ fontSize: 11, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Description *</label>
-        <textarea value={formData.description} onChange={e => setFormData(f => ({...f, description: e.target.value}))} rows={5} placeholder="Enter news description" style={taStyle} onFocus={FieldFocus} onBlur={FieldBlur} />
-      </div>
-      <div><label style={{ fontSize: 11, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Status *</label>
-        <select value={formData.status} onChange={e => setFormData(f => ({...f, status: e.target.value as 'ACTIVE' | 'INACTIVE'}))} style={selStyle} onFocus={FieldFocus} onBlur={FieldBlur}>
-          <option value="ACTIVE">ACTIVE</option><option value="INACTIVE">INACTIVE</option>
-        </select>
-      </div>
-      <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-        <button onClick={onSave} disabled={actionLoading} style={{ flex: 1, padding: '9px 0', background: D.green, color: '#fff', fontWeight: 600, fontSize: 13, border: 'none', borderRadius: 8, cursor: 'pointer', opacity: actionLoading ? 0.6 : 1 }}>{actionLoading ? 'Saving…' : label}</button>
-        <button onClick={closeModal} style={{ flex: 1, padding: '9px 0', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, cursor: 'pointer', color: D.textMuted, fontSize: 13, fontWeight: 600 }}>Cancel</button>
-      </div>
-    </div>
-  );
-
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400, flexDirection: 'column', gap: 12 }}>
       <div style={{ width: 36, height: 36, borderRadius: '50%', border: `3px solid ${D.border}`, borderTopColor: D.green, animation: 'spin 0.8s linear infinite' }} />
@@ -180,7 +182,7 @@ export default function News() {
                       <p style={{ fontSize: 12, color: D.textMuted, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', margin: 0 }}>{n.description}</p>
                       <button onClick={() => openView(n)} style={{ fontSize: 11, color: D.greenLight, background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginTop: 2 }}>Read more</button>
                     </td>
-                    <td style={{ padding: '11px 14px' }}><StatusBadge s={n.status} /></td>
+                    <td style={{ padding: '11px 14px' }}><NewsStatusBadge s={n.status} /></td>
                     <td style={{ padding: '11px 14px', fontSize: 12, color: D.textMuted }}>{n.createdBy}</td>
                     {isAdmin && (
                       <td style={{ padding: '11px 14px' }}>
@@ -206,7 +208,7 @@ export default function News() {
             <div key={n.id} style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 10, padding: '12px 14px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                 <span style={{ fontSize: 11, color: D.textSubtle }}>#{idx + i + 1}</span>
-                <StatusBadge s={n.status} />
+                <NewsStatusBadge s={n.status} />
               </div>
               <p style={{ fontSize: 13, fontWeight: 600, color: D.text, marginBottom: 4 }}>{n.title}</p>
               <p style={{ fontSize: 12, color: D.textMuted, marginBottom: 8, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{n.description}</p>
@@ -235,7 +237,7 @@ export default function News() {
               <p style={{ fontSize: 15, fontWeight: 700, color: D.text }}>Create News</p>
               <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={18} style={{ color: D.textMuted }} /></button>
             </div>
-            <div style={{ padding: 20 }}><NewsForm onSave={handleCreate} label="Create News" /></div>
+            <div style={{ padding: 20 }}><NewsForm formData={formData} setFormData={setFormData} onSave={handleCreate} label="Create News" actionLoading={actionLoading} onCancel={closeModal} /></div>
           </div>
         </div>
       )}
@@ -248,7 +250,7 @@ export default function News() {
               <p style={{ fontSize: 15, fontWeight: 700, color: D.text }}>Edit News</p>
               <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={18} style={{ color: D.textMuted }} /></button>
             </div>
-            <div style={{ padding: 20 }}><NewsForm onSave={handleUpdate} label="Save Changes" /></div>
+            <div style={{ padding: 20 }}><NewsForm formData={formData} setFormData={setFormData} onSave={handleUpdate} label="Save Changes" actionLoading={actionLoading} onCancel={closeModal} /></div>
           </div>
         </div>
       )}
@@ -283,7 +285,7 @@ export default function News() {
                 {[['Status', null], ['By', selected.createdBy], ['Created', fmtDate(selected.createdAt)], ['Updated', fmtDate(selected.updatedAt)]].map(([l, v]) => (
                   <div key={String(l)}>
                     <p style={{ fontSize: 10, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{l}</p>
-                    {l === 'Status' ? <StatusBadge s={selected.status} /> : <p style={{ fontSize: 12, color: D.text }}>{v}</p>}
+                    {l === 'Status' ? <NewsStatusBadge s={selected.status} /> : <p style={{ fontSize: 12, color: D.text }}>{v}</p>}
                   </div>
                 ))}
               </div>

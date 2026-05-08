@@ -147,7 +147,7 @@ export default function Complaints() {
 
         {/* Status cards */}
         {data && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+          <div className="grid grid-cols-2 lg:grid-cols-4" style={{ gap: 12 }}>
             {[['Pending', data.statusBreakdown.pending, D.amber, D.amberDim], ['In Progress', data.statusBreakdown.inProgress, D.blue, D.blueDim], ['Resolved', data.statusBreakdown.resolved, D.greenLight, D.greenDim], ['Closed', data.statusBreakdown.closed, D.red, D.redDim]].map(([l, v, c, dim]) => (
               <div key={String(l)} style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 10, padding: '12px 14px', borderLeftWidth: 3, borderLeftColor: String(c), borderLeftStyle: 'solid' }}>
                 <p style={{ fontSize: 10, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{l}</p>
