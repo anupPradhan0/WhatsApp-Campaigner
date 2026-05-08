@@ -66,7 +66,6 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           width: W,
           minWidth: W,
           transition: 'width 0.25s ease, min-width 0.25s ease',
-          position: 'relative',
         }}
         className={`
           fixed lg:sticky top-0 left-0 z-50
