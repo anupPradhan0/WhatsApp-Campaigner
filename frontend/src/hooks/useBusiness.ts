@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { api } from '../api/client';
+import { QK } from '../lib/queryKeys';
 
 export interface BusinessData {
   companyName: string;
@@ -9,52 +11,105 @@ export interface BusinessData {
   image?: string;
 }
 
+async function fetchBusiness(): Promise<BusinessData> {
+  const { data: r } = await api.get('/api/dashboard/manage-business');
+  if (!r.success) throw new Error(r.message || 'Failed');
+  return {
+    companyName: r.data.companyName || '',
+    email: r.data.email || '',
+    number: String(r.data.number ?? ''),
+    image: r.data.image || '',
+  };
+}
+
+const getUserId = (): string | null => {
+  try { return JSON.parse(localStorage.getItem('user') || '{}')._id ?? null; }
+  catch { return null; }
+};
+
 export function useBusiness() {
-  const [originalData, setOriginalData] = useState<BusinessData>({ companyName: '', email: '', number: '' });
+  const qc = useQueryClient();
+
   const [formData, setFormData] = useState<BusinessData>({ companyName: '', email: '', number: '' });
   const [passwordData, setPasswordData] = useState({ newPassword: '', confirmPassword: '' });
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [fetchLoading, setFetchLoading] = useState(true);
-  const [success, setSuccess] = useState('');
-  const [error, setError] = useState('');
   const [previewUrl, setPreviewUrl] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
-  const getUserId = (): string | null => {
-    try { return JSON.parse(localStorage.getItem('user') || '{}')._id ?? null; }
-    catch { return null; }
-  };
+  // ─── Fetch ───────────────────────────────────────────────────────────────────
+  const { data: originalData, isLoading: fetchLoading } = useQuery({
+    queryKey: QK.business(),
+    queryFn: fetchBusiness,
+  });
 
-  const fetchData = useCallback(async () => {
-    try {
-      setFetchLoading(true);
-      const { data: r } = await api.get('/api/dashboard/manage-business');
-      if (r.success) {
-        const d = { companyName: r.data.companyName || '', email: r.data.email || '', number: String(r.data.number ?? ''), image: r.data.image || '' };
-        setOriginalData(d); setFormData(d);
-        if (r.data.image) setPreviewUrl(r.data.image);
-      } else setError(r.message || 'Failed');
-    } catch { setError('Network error.'); }
-    finally { setFetchLoading(false); }
-  }, []);
+  // Populate local form state once data arrives
+  useEffect(() => {
+    if (originalData) {
+      setFormData(originalData);
+      if (originalData.image) setPreviewUrl(originalData.image);
+    }
+  }, [originalData]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  // ─── Mutations ───────────────────────────────────────────────────────────────
+  const updateMut = useMutation({
+    mutationFn: async (payload: { profileFd?: FormData; pwd?: { newPassword: string; confirmPassword: string } }) => {
+      const changed: string[] = [];
+      if (payload.profileFd) {
+        const { data: r } = await api.put('/api/auth/update-profile', payload.profileFd);
+        if (!r.success) throw new Error(r.message || 'Profile update failed');
+        const u = JSON.parse(localStorage.getItem('user') || '{}');
+        localStorage.setItem('user', JSON.stringify({ ...u, companyName: r.user.companyName, email: r.user.email, number: String(r.user.number), image: r.user.image }));
+        const nd: BusinessData = { companyName: r.user.companyName, email: r.user.email, number: String(r.user.number), image: r.user.image };
+        setFormData(nd);
+        if (r.user.image) setPreviewUrl(r.user.image);
+        setSelectedImage(null);
+        qc.setQueryData(QK.business(), nd);
+        changed.push('profile');
+      }
+      if (payload.pwd) {
+        const { data: r } = await api.put('/api/user/change-own-password', payload.pwd);
+        if (!r.success) throw new Error(r.message || 'Password change failed');
+        setPasswordData({ newPassword: '', confirmPassword: '' });
+        changed.push('password');
+      }
+      return changed;
+    },
+    onSuccess: (changed) => {
+      const msg = changed.includes('profile') && changed.includes('password')
+        ? 'Profile and password updated!'
+        : changed.includes('password') ? 'Password changed successfully!'
+        : 'Profile updated!';
+      setSuccess(msg);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setTimeout(() => setSuccess(''), 5000);
+    },
+    onError: (e: unknown) => {
+      if (axios.isAxiosError(e)) setError(String((e.response?.data as { message?: string })?.message ?? 'Network error.'));
+      else setError(e instanceof Error ? e.message : 'Network error.');
+    },
+  });
 
+  // ─── Helpers ─────────────────────────────────────────────────────────────────
   const handleFile = (f: File | null) => {
     if (!f) return;
     if (f.size > 5 * 1024 * 1024) { setError('Max 5MB'); return; }
     if (!f.type.startsWith('image/')) { setError('Invalid image type'); return; }
-    setSelectedImage(f); setPreviewUrl(URL.createObjectURL(f)); setError('');
+    setSelectedImage(f);
+    setPreviewUrl(URL.createObjectURL(f));
+    setError('');
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setError(''); setSuccess('');
-    const userId = getUserId(); if (!userId) { setError('Session expired. Please login.'); return; }
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(''); setSuccess('');
+    if (!getUserId()) { setError('Session expired. Please login.'); return; }
 
+    const orig: BusinessData = originalData ?? { companyName: '', email: '', number: '' };
     const updates: Partial<BusinessData> = {};
-    if (formData.companyName !== originalData.companyName && formData.companyName.trim()) updates.companyName = formData.companyName;
-    if (formData.email !== originalData.email && formData.email.trim()) updates.email = formData.email;
-    if (formData.number !== originalData.number && formData.number.trim()) updates.number = formData.number;
+    if (formData.companyName !== orig.companyName && formData.companyName.trim()) updates.companyName = formData.companyName;
+    if (formData.email !== orig.email && formData.email.trim()) updates.email = formData.email;
+    if (formData.number !== orig.number && formData.number.trim()) updates.number = formData.number;
 
     const hasProfile = Object.keys(updates).length > 0 || !!selectedImage;
     const hasPwd = !!(passwordData.newPassword || passwordData.confirmPassword);
@@ -69,50 +124,29 @@ export function useBusiness() {
       if (passwordData.newPassword.length < 5) { setError('Password must be at least 5 characters'); return; }
     }
 
-    setLoading(true);
-    try {
-      let profileOk = false; let pwdOk = false;
-      const changed: string[] = [];
+    let profileFd: FormData | undefined;
+    if (hasProfile) {
+      profileFd = new FormData();
+      if (updates.companyName) profileFd.append('companyName', updates.companyName);
+      if (updates.email)       profileFd.append('email', updates.email);
+      if (updates.number)      profileFd.append('number', updates.number);
+      if (selectedImage)       profileFd.append('image', selectedImage);
+    }
 
-      if (hasProfile) {
-        const fd = new FormData();
-        if (updates.companyName) { fd.append('companyName', updates.companyName); changed.push('company name'); }
-        if (updates.email)       { fd.append('email', updates.email); changed.push('email'); }
-        if (updates.number)      { fd.append('number', updates.number); changed.push('phone number'); }
-        if (selectedImage)       { fd.append('image', selectedImage); changed.push('profile image'); }
-        const { data: r } = await api.put('/api/auth/update-profile', fd);
-        if (r.success) {
-          profileOk = true;
-          const u = JSON.parse(localStorage.getItem('user') || '{}');
-          localStorage.setItem('user', JSON.stringify({ ...u, companyName: r.user.companyName, email: r.user.email, number: String(r.user.number), image: r.user.image }));
-          const nd = { companyName: r.user.companyName, email: r.user.email, number: String(r.user.number), image: r.user.image };
-          setOriginalData(nd); setFormData(nd);
-          if (r.user.image) setPreviewUrl(r.user.image);
-          setSelectedImage(null);
-        } else { setError(r.message || 'Profile update failed'); setLoading(false); return; }
-      }
-
-      if (hasPwd) {
-        const { data: r } = await api.put('/api/user/change-own-password', { newPassword: passwordData.newPassword, confirmPassword: passwordData.confirmPassword });
-        if (r.success) { pwdOk = true; setPasswordData({ newPassword: '', confirmPassword: '' }); }
-        else { setError(r.message || 'Password change failed'); setLoading(false); return; }
-      }
-
-      if (profileOk && pwdOk) setSuccess(`${changed.join(', ')} and password updated!`);
-      else if (profileOk) setSuccess(`${changed.join(', ')} updated!`);
-      else if (pwdOk) setSuccess('Password changed successfully!');
-
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      setTimeout(() => setSuccess(''), 5000);
-    } catch (err) {
-      if (axios.isAxiosError(err)) setError(String((err.response?.data as { message?: string })?.message ?? 'Network error.'));
-      else setError('Network error.');
-    } finally { setLoading(false); }
+    updateMut.mutate({
+      profileFd,
+      pwd: hasPwd ? passwordData : undefined,
+    });
   };
 
   return {
-    formData, setFormData, passwordData, setPasswordData,
-    previewUrl, loading, fetchLoading, success, setSuccess, error, setError,
+    formData, setFormData,
+    passwordData, setPasswordData,
+    previewUrl,
+    loading: updateMut.isPending,
+    fetchLoading,
+    success, setSuccess,
+    error, setError,
     handleFile, handleSubmit,
   };
 }

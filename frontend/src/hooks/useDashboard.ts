@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
+import { QK } from '../lib/queryKeys';
 
 export interface DashboardData {
   companyName: string;
@@ -15,25 +16,22 @@ export interface DashboardData {
   latestNews: { title: string; description: string; status: string; createdAt: string } | null;
 }
 
+async function fetchDashboard(): Promise<DashboardData> {
+  const { data: r } = await api.get<{ success: boolean; message?: string; data: DashboardData }>('/api/dashboard/home');
+  if (!r.success) throw new Error(r.message || 'Failed to load dashboard data');
+  return r.data;
+}
+
 export function useDashboard() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: QK.dashboard(),
+    queryFn: fetchDashboard,
+  });
 
-  const fetch = useCallback(async () => {
-    try {
-      setLoading(true);
-      const { data: r } = await api.get<{ success: boolean; message?: string; data: DashboardData }>('/api/dashboard/home');
-      if (r.success) setData(r.data);
-      else setError(r.message || 'Failed to load dashboard data');
-    } catch {
-      setError('Network error. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetch(); }, [fetch]);
-
-  return { data, loading, error, refetch: fetch };
+  return {
+    data: data ?? null,
+    loading: isLoading,
+    error: error ? (error as Error).message : '',
+    refetch,
+  };
 }

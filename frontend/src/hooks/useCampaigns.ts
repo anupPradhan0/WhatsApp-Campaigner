@@ -1,5 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
+import { QK } from '../lib/queryKeys';
 
 export interface Campaign {
   campaignId: string;
@@ -26,45 +28,44 @@ export interface CampaignsData {
   campaigns: Campaign[];
 }
 
+interface FetchResult {
+  data: CampaignsData;
+  userData?: Campaign['userData'];
+}
+
+async function fetchCampaigns(endpoint: string): Promise<FetchResult> {
+  const { data: r } = await api.get<{ success: boolean; message?: string; data: CampaignsData; userData?: Campaign['userData'] }>(endpoint);
+  if (!r.success) throw new Error(r.message || 'Failed to load campaigns');
+  return { data: r.data, userData: r.userData };
+}
+
 export function useCampaigns(endpoint: string) {
-  const [data, setData] = useState<CampaignsData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [userData, setUserData] = useState<Campaign['userData'] | null>(null);
+  const [downloading, setDownloading] = useState<Set<string>>(new Set());
+  const [dlError, setDlError] = useState<string | null>(null);
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const { data: r } = await api.get<{ success: boolean; message?: string; data: CampaignsData; userData?: Campaign['userData'] }>(endpoint);
-      if (r.success) {
-        setData(r.data);
-        if (r.userData) setUserData(r.userData);
-      } else setError(r.message || 'Failed');
-    } catch {
-      setError('Network error.');
-    } finally {
-      setLoading(false);
-    }
-  }, [endpoint]);
+  const { data: result, isLoading, error, refetch } = useQuery({
+    queryKey: QK.campaigns(endpoint),
+    queryFn: () => fetchCampaigns(endpoint),
+  });
 
-  useEffect(() => { fetchData(); }, [fetchData]);
-
-  const downloadExcel = async (
-    id: string,
-    downloading: Set<string>,
-    setDownloading: React.Dispatch<React.SetStateAction<Set<string>>>,
-    setDlError: (e: string | null) => void,
-  ) => {
+  const downloadExcel = async (id: string) => {
     if (downloading.has(id)) return;
-    setDownloading(p => new Set(p).add(id)); setDlError(null);
+    setDownloading(p => new Set(p).add(id));
+    setDlError(null);
     try {
       const res = await api.get(`/api/dashboard/export-campaign/${id}`, { responseType: 'blob', validateStatus: () => true });
-      if (res.status >= 400) { const t = await (res.data as Blob).text(); throw new Error(JSON.parse(t)?.message || 'Failed'); }
+      if (res.status >= 400) {
+        const t = await (res.data as Blob).text();
+        throw new Error(JSON.parse(t)?.message || 'Failed');
+      }
       const cd = res.headers['content-disposition'] || '';
       const fn = cd.match(/filename="?(.+)"?/i)?.[1] || `Campaign_${id}.xlsx`;
       const url = URL.createObjectURL(res.data as Blob);
-      const a = document.createElement('a'); a.href = url; a.download = fn;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+      const a = document.createElement('a');
+      a.href = url; a.download = fn;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     } catch (e) {
       setDlError(e instanceof Error ? e.message : 'Failed');
       setTimeout(() => setDlError(null), 5000);
@@ -73,5 +74,14 @@ export function useCampaigns(endpoint: string) {
     }
   };
 
-  return { data, loading, error, userData, refetch: fetchData, downloadExcel };
+  return {
+    data: result?.data ?? null,
+    loading: isLoading,
+    error: error ? (error as Error).message : '',
+    userData: result?.userData ?? null,
+    refetch,
+    downloadExcel,
+    downloading,
+    dlError,
+  };
 }

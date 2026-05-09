@@ -1,4 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { queryClient } from '@/lib/queryClient';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster } from '@/components/ui/sonner';
 import Login from './pages/Login';
@@ -26,6 +29,7 @@ const wrapped = (Page: React.ComponentType) => (
 
 function App() {
   return (
+    <QueryClientProvider client={queryClient}>
     <TooltipProvider>
     <Toaster position="top-right" richColors theme="dark" />
     <BrowserRouter>
@@ -48,6 +52,8 @@ function App() {
       </Routes>
     </BrowserRouter>
     </TooltipProvider>
+    <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
   );
 }
 
