@@ -33,10 +33,15 @@ const CustomTooltip = ({ active, payload }: {
 const Dashboard = () => {
   const { data, loading, error } = useDashboard();
   const [chartHeight, setChartHeight] = useState(300);
+  const [isMobile, setIsMobile] = useState(false);
   const userRole = getUserRole();
 
   useEffect(() => {
-    const handle = () => setChartHeight(window.innerWidth < 640 ? 200 : window.innerWidth < 1024 ? 240 : 300);
+    const handle = () => {
+      const w = window.innerWidth;
+      setIsMobile(w < 640);
+      setChartHeight(w < 640 ? 200 : w < 1024 ? 240 : 300);
+    };
     window.addEventListener('resize', handle);
     handle();
     return () => window.removeEventListener('resize', handle);
@@ -190,9 +195,9 @@ const Dashboard = () => {
             </div>
             <div style={{ padding: '16px 8px 8px', overflowX: 'auto' }}>
               <ResponsiveContainer width="100%" height={chartHeight}>
-                <BarChart data={data.weeklyStats} margin={{ top: 4, right: 16, left: -12, bottom: window.innerWidth < 640 ? 50 : 4 }} barCategoryGap="30%">
+                  <BarChart data={data.weeklyStats} margin={{ top: 4, right: 16, left: -12, bottom: isMobile ? 50 : 4 }} barCategoryGap="30%">
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-                  <XAxis dataKey="weekRange" stroke="transparent" tick={{ fill: D.textSubtle, fontSize: window.innerWidth < 640 ? 9 : 11 }} angle={window.innerWidth < 640 ? -40 : 0} textAnchor={window.innerWidth < 640 ? 'end' : 'middle'} height={window.innerWidth < 640 ? 60 : 28} />
+                  <XAxis dataKey="weekRange" stroke="transparent" tick={{ fill: D.textSubtle, fontSize: isMobile ? 9 : 11 }} angle={isMobile ? -40 : 0} textAnchor={isMobile ? 'end' : 'middle'} height={isMobile ? 60 : 28} />
                   <YAxis stroke="transparent" tick={{ fill: D.textSubtle, fontSize: 11 }} />
                   <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
                   <Bar dataKey="totalCampaigns" fill={D.blue}  radius={[4, 4, 0, 0]} name="Campaigns" />

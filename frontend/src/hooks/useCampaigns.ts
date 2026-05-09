@@ -83,5 +83,6 @@ export function useCampaigns(endpoint: string) {
     downloadExcel,
     downloading,
     dlError,
+    clearDlError: () => setDlError(null),
   };
 }

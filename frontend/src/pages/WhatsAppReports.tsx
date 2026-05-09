@@ -3,7 +3,6 @@ import { format } from 'date-fns';
 import { X, Eye, Calendar, Plus, Download, Loader2, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useCampaigns, type Campaign } from '../hooks/useCampaigns';
-import { api } from '../api/client';
 import { D } from '../theme/tokens';
 import { Spinner } from '../components/ui/Spinner';
 import { StatusBadge } from '../components/ui/StatusBadge';
@@ -17,9 +16,7 @@ const dateInp: React.CSSProperties = { background: D.surface2, border: `1px soli
 
 export default function WhatsAppReports() {
   const navigate = useNavigate();
-  const { data, loading, error, userData } = useCampaigns('/api/dashboard/whatsapp-reports');
-  const [downloading, setDownloading] = useState<Set<string>>(new Set());
-  const [dlError, setDlError] = useState<string | null>(null);
+  const { data, loading, error, userData, downloadExcel, downloading, dlError, clearDlError } = useCampaigns('/api/dashboard/whatsapp-reports');
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
   const [startDate, setStartDate] = useState('');
@@ -38,21 +35,6 @@ export default function WhatsAppReports() {
   const idx = (page - 1) * perPage;
   const paginated = filtered.slice(idx, idx + perPage);
 
-  const downloadExcel = async (id: string) => {
-    if (downloading.has(id)) return;
-    setDownloading(p => new Set(p).add(id)); setDlError(null);
-    try {
-      const res = await api.get(`/api/dashboard/export-campaign/${id}`, { responseType: 'blob', validateStatus: () => true });
-      if (res.status >= 400) { const t = await (res.data as Blob).text(); throw new Error(JSON.parse(t)?.message || 'Failed'); }
-      const cd = res.headers['content-disposition'] || '';
-      const fn = cd.match(/filename="?(.+)"?/i)?.[1] || `Campaign_${id}.xlsx`;
-      const url = URL.createObjectURL(res.data as Blob);
-      const a = document.createElement('a'); a.href = url; a.download = fn;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-    } catch (e) { setDlError(e instanceof Error ? e.message : 'Failed'); setTimeout(() => setDlError(null), 5000); }
-    finally { setDownloading(p => { const n = new Set(p); n.delete(id); return n; }); }
-  };
-
   const downloadImage = async (url: string, name: string) => {
     try { const r = await fetch(url); const b = await r.blob(); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = `${name}_image.jpg`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); } catch { /* */ }
   };
@@ -67,7 +49,7 @@ export default function WhatsAppReports() {
         <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, background: D.redDim, border: `1px solid ${D.redBorder}`, borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, maxWidth: 340 }}>
           <AlertCircle size={14} style={{ color: D.red, flexShrink: 0 }} />
           <p style={{ fontSize: 12, color: D.text, flex: 1 }}>{dlError}</p>
-          <button onClick={() => setDlError(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}><X size={13} style={{ color: D.textMuted }} /></button>
+          <button onClick={clearDlError} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}><X size={13} style={{ color: D.textMuted }} /></button>
         </div>
       )}
 
