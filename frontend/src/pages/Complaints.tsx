@@ -1,32 +1,27 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
-import { X, Plus, Eye, Edit2, Trash2, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
+import { X, Plus, Eye, Edit2, Trash2 } from "lucide-react";
 import { getUserRole } from "../utils/Auth";
 import { UserRole } from "../constants/Roles";
 import { api } from "../api/client";
+import { D, inp, onFocusGreen, onBlurBorder } from '../theme/tokens';
+import { Paginator } from '../components/ui/Paginator';
+import { Spinner } from '../components/ui/Spinner';
+import { PageHeader } from '../components/ui/PageHeader';
+import { Toast } from '../components/ui/Alert';
 
-const D = {
-  surface: '#111113', surface2: '#18181b', border: '#27272a', border2: '#3f3f46',
-  text: '#f4f4f5', textMuted: '#71717a', textSubtle: '#52525b',
-  green: '#16a34a', greenLight: '#4ade80', greenDim: 'rgba(22,163,74,0.12)', greenBorder: 'rgba(22,163,74,0.3)',
-  blue: '#3b82f6', blueDim: 'rgba(59,130,246,0.12)',
-  amber: '#fbbf24', amberDim: 'rgba(251,191,36,0.1)',
-  red: '#f87171', redDim: 'rgba(248,113,113,0.1)', redBorder: 'rgba(248,113,113,0.3)',
-};
-
-const inp: React.CSSProperties = { width: '100%', padding: '9px 12px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, fontSize: 13, color: D.text, outline: 'none', boxSizing: 'border-box' };
-const taStyle: React.CSSProperties = { ...inp, resize: 'none' };
+const taStyle: React.CSSProperties = { ...inp, resize: 'none' as const };
 const selStyle: React.CSSProperties = { ...inp };
 
-const FieldFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { e.currentTarget.style.borderColor = D.green; };
-const FieldBlur  = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { e.currentTarget.style.borderColor = D.border; };
+const FieldFocus = onFocusGreen;
+const FieldBlur  = onBlurBorder;
 
 const statusMeta = (s: string): { color: string; dim: string } => {
   const m: Record<string, { color: string; dim: string }> = {
-    pending:     { color: D.amber,      dim: D.amberDim },
-    'in-progress': { color: D.blue,    dim: D.blueDim  },
-    resolved:    { color: D.greenLight, dim: D.greenDim },
-    closed:      { color: D.red,        dim: D.redDim   },
+    pending:       { color: D.amber,      dim: D.amberDim },
+    'in-progress': { color: D.blue,       dim: D.blueDim  },
+    resolved:      { color: D.greenLight, dim: D.greenDim },
+    closed:        { color: D.red,        dim: D.redDim   },
   };
   return m[s] ?? { color: D.textMuted, dim: 'rgba(255,255,255,0.04)' };
 };
@@ -34,20 +29,6 @@ const statusMeta = (s: string): { color: string; dim: string } => {
 const StatusBadge = ({ s }: { s: string }) => {
   const { color, dim } = statusMeta(s);
   return <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.06em', color, background: dim, border: `1px solid ${color}44` }}>{s.replace('-', ' ')}</span>;
-};
-
-const Paginator = ({ page, total, onChange }: { page: number; total: number; onChange: (p: number) => void }) => {
-  if (total <= 1) return null;
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: D.surface, border: `1px solid ${D.border}`, borderRadius: 10, padding: '12px 16px' }}>
-      <button onClick={() => onChange(page - 1)} disabled={page === 1} style={{ padding: '5px 7px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 6, cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1, display: 'flex' }}><ChevronLeft size={15} style={{ color: D.textMuted }} /></button>
-      {Array.from({ length: Math.min(5, total) }, (_, i) => {
-        const p = total <= 5 ? i + 1 : page <= 3 ? i + 1 : page >= total - 2 ? total - 4 + i : page - 2 + i;
-        return <button key={p} onClick={() => onChange(p)} style={{ width: 32, height: 32, borderRadius: 6, fontSize: 12, fontWeight: 600, border: `1px solid ${page === p ? D.green : D.border}`, background: page === p ? D.green : D.surface2, color: page === p ? '#fff' : D.textMuted, cursor: 'pointer' }}>{p}</button>;
-      })}
-      <button onClick={() => onChange(page + 1)} disabled={page === total} style={{ padding: '5px 7px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 6, cursor: page === total ? 'not-allowed' : 'pointer', opacity: page === total ? 0.4 : 1, display: 'flex' }}><ChevronRight size={15} style={{ color: D.textMuted }} /></button>
-    </div>
-  );
 };
 
 interface Complaint { complaintId: string; subject: string; description: string; status: 'pending' | 'in-progress' | 'resolved' | 'closed'; createdBy: string; createdAt: string; adminResponse: string | null; resolvedBy: string | null; resolvedAt: string | null; updatedAt: string; }
@@ -115,40 +96,23 @@ export default function Complaints() {
     try { const { data: r } = await api.delete(`/api/complaints/delete/${selected.complaintId}`); if (r.success) { showAlert('success', 'Complaint deleted!'); closeModal(); fetchData(); } else showAlert('error', r.message || 'Failed'); } catch { showAlert('error', 'Network error.'); } finally { setActionLoading(false); }
   };
 
-  if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400, flexDirection: 'column', gap: 12 }}>
-      <div style={{ width: 36, height: 36, borderRadius: '50%', border: `3px solid ${D.border}`, borderTopColor: D.green, animation: 'spin 0.8s linear infinite' }} />
-      <p style={{ color: D.textMuted, fontSize: 13 }}>Loading complaints…</p>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-    </div>
-  );
+  if (loading) return <Spinner label="Loading complaints…" />;
 
   return (
     <>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}} .row-h:hover td{background:rgba(255,255,255,0.025)!important} select option{background:#18181b;color:#f4f4f5}`}</style>
+      <style>{`.row-h:hover td{background:rgba(255,255,255,0.025)!important} select option{background:#18181b;color:#f4f4f5}`}</style>
 
-      {alert && (
-        <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, background: alert.type === 'success' ? D.greenDim : D.redDim, border: `1px solid ${alert.type === 'success' ? D.greenBorder : D.redBorder}`, borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, maxWidth: 340 }}>
-          <AlertCircle size={14} style={{ color: alert.type === 'success' ? D.greenLight : D.red }} />
-          <p style={{ fontSize: 12, color: D.text, flex: 1 }}>{alert.msg}</p>
-          <button onClick={() => setAlert(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}><X size={13} style={{ color: D.textMuted }} /></button>
-        </div>
-      )}
+      {alert && <Toast msg={alert.msg} type={alert.type} onClose={() => setAlert(null)} />}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-          <div>
-            <h1 style={{ fontSize: 22, fontWeight: 700, color: D.text, margin: 0 }}>Complaints</h1>
-            <p style={{ fontSize: 13, color: D.textMuted, marginTop: 4 }}>{total} total complaints</p>
-          </div>
-          <button onClick={openCreate} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', background: D.green, color: '#fff', fontWeight: 600, fontSize: 13, border: 'none', borderRadius: 8, cursor: 'pointer' }}><Plus size={15} /> Add Complaint</button>
-        </div>
+        <PageHeader title="Complaints" subtitle={`${total} total complaints`}
+          action={<button onClick={openCreate} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', background: D.green, color: '#fff', fontWeight: 600, fontSize: 13, border: 'none', borderRadius: 8, cursor: 'pointer' }}><Plus size={15} /> Add Complaint</button>}
+        />
 
         {/* Status cards */}
         {data && (
           <div className="grid grid-cols-2 lg:grid-cols-4" style={{ gap: 12 }}>
-            {[['Pending', data.statusBreakdown.pending, D.amber, D.amberDim], ['In Progress', data.statusBreakdown.inProgress, D.blue, D.blueDim], ['Resolved', data.statusBreakdown.resolved, D.greenLight, D.greenDim], ['Closed', data.statusBreakdown.closed, D.red, D.redDim]].map(([l, v, c, dim]) => (
+            {[['Pending', data.statusBreakdown.pending, D.amber], ['In Progress', data.statusBreakdown.inProgress, D.blue], ['Resolved', data.statusBreakdown.resolved, D.greenLight], ['Closed', data.statusBreakdown.closed, D.red]].map(([l, v, c]) => (
               <div key={String(l)} style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 10, padding: '12px 14px', borderLeftWidth: 3, borderLeftColor: String(c), borderLeftStyle: 'solid' }}>
                 <p style={{ fontSize: 10, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{l}</p>
                 <p style={{ fontSize: 24, fontWeight: 700, color: String(c), marginTop: 4 }}>{v}</p>

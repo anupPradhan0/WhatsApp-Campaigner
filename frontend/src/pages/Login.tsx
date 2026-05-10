@@ -124,12 +124,6 @@ function Input({
   );
 }
 
-function FieldError({ msg }: { msg?: string }) {
-  if (!msg) return null;
-  return (
-    <p style={{ fontSize: 12, color: '#dc2626', marginTop: 4, fontWeight: 500 }}>{msg}</p>
-  );
-}
 
 function PrimaryButton({
   type = 'button',

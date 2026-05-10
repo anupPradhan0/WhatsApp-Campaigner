@@ -1,28 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, Wallet, TrendingUp, TrendingDown, X } from 'lucide-react';
+import { Calendar, Wallet, TrendingUp, TrendingDown, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { api } from '../api/client';
-
-/* ── design tokens ── */
-const D = {
-  bg:          '#0a0a0c',
-  surface:     '#111113',
-  surface2:    '#18181b',
-  border:      '#27272a',
-  border2:     '#3f3f46',
-  text:        '#f4f4f5',
-  textMuted:   '#71717a',
-  textSubtle:  '#52525b',
-  green:       '#16a34a',
-  greenLight:  '#4ade80',
-  greenDim:    'rgba(22,163,74,0.12)',
-  greenBorder: 'rgba(22,163,74,0.3)',
-  red:         '#f87171',
-  redDim:      'rgba(248,113,113,0.1)',
-  redBorder:   'rgba(248,113,113,0.25)',
-  amber:       '#fbbf24',
-  amberDim:    'rgba(251,191,36,0.1)',
-};
+import { D } from '../theme/tokens';
+import { Paginator } from '../components/ui/Paginator';
+import { PageHeader } from '../components/ui/PageHeader';
+import { Spinner } from '../components/ui/Spinner';
 
 interface Transaction {
   transactionId: string;
@@ -48,11 +31,11 @@ const inputStyle: React.CSSProperties = {
   background: D.surface2,
   border: `1px solid ${D.border}`,
   borderRadius: 7,
-  color: D.text,
+  color: D.text as string,
   fontSize: 13,
   padding: '8px 12px',
   outline: 'none',
-  colorScheme: 'dark',
+  colorScheme: 'dark' as const,
 };
 
 const CreditReports = () => {
@@ -103,13 +86,7 @@ const CreditReports = () => {
   const totalCredit = transactionData?.transactions.filter(t => t.type === 'credit').reduce((a, t) => a + t.amount, 0) ?? 0;
   const totalDebit  = transactionData?.transactions.filter(t => t.type === 'debit' ).reduce((a, t) => a + t.amount, 0) ?? 0;
 
-  if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400, flexDirection: 'column', gap: 12 }}>
-      <div style={{ width: 36, height: 36, borderRadius: '50%', border: `3px solid ${D.border}`, borderTopColor: D.green, animation: 'spin 0.8s linear infinite' }} />
-      <p style={{ color: D.textMuted, fontSize: 13 }}>Loading transactions…</p>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
-  );
+  if (loading) return <Spinner label="Loading transactions…" />;
 
   if (error) return (
     <div style={{ padding: '12px 16px', background: D.redDim, border: `1px solid ${D.redBorder}`, borderRadius: 10 }}>
@@ -122,18 +99,12 @@ const CreditReports = () => {
   return (
     <>
       <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
         .txn-row:hover td { background: rgba(255,255,255,0.025) !important; }
         input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.5); cursor: pointer; }
       `}</style>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-
-        {/* ── Page header ── */}
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: D.text, margin: 0 }}>Credit Reports</h1>
-          <p style={{ fontSize: 13, color: D.textMuted, marginTop: 4 }}>Last 100 transactions · your wallet history</p>
-        </div>
+        <PageHeader title="Credit Reports" subtitle="Last 100 transactions · your wallet history" />
 
         {/* ── Summary stat cards ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
@@ -302,49 +273,7 @@ const CreditReports = () => {
           ))}
         </div>
 
-        {/* ── Pagination ── */}
-        {totalPages > 1 && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: D.surface, border: `1px solid ${D.border}`, borderRadius: 12, padding: '14px 20px' }}>
-            <button
-              onClick={() => goToPage(currentPage - 1)}
-              disabled={currentPage === 1}
-              style={{ padding: '6px 8px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 7, cursor: currentPage === 1 ? 'not-allowed' : 'pointer', opacity: currentPage === 1 ? 0.4 : 1, display: 'flex' }}
-            >
-              <ChevronLeft size={16} style={{ color: D.textMuted }} />
-            </button>
-
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              let p: number;
-              if (totalPages <= 5)         p = i + 1;
-              else if (currentPage <= 3)   p = i + 1;
-              else if (currentPage >= totalPages - 2) p = totalPages - 4 + i;
-              else p = currentPage - 2 + i;
-              return (
-                <button
-                  key={p}
-                  onClick={() => goToPage(p)}
-                  style={{
-                    width: 34, height: 34, borderRadius: 7, fontSize: 13, fontWeight: 600,
-                    border: `1px solid ${currentPage === p ? D.green : D.border}`,
-                    background: currentPage === p ? D.green : D.surface2,
-                    color: currentPage === p ? '#fff' : D.textMuted,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {p}
-                </button>
-              );
-            })}
-
-            <button
-              onClick={() => goToPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              style={{ padding: '6px 8px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 7, cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', opacity: currentPage === totalPages ? 0.4 : 1, display: 'flex' }}
-            >
-              <ChevronRight size={16} style={{ color: D.textMuted }} />
-            </button>
-          </div>
-        )}
+        <Paginator page={currentPage} total={totalPages} onChange={goToPage} />
 
       </div>
     </>

@@ -1,24 +1,20 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
-import { X, Plus, Edit2, Trash2, ChevronLeft, ChevronRight, Eye, AlertCircle } from "lucide-react";
+import { X, Plus, Edit2, Trash2, Eye } from "lucide-react";
 import { getUserRole } from "../utils/Auth";
 import { UserRole } from "../constants/Roles";
 import { api } from "../api/client";
+import { D, inp, onFocusGreen, onBlurBorder } from '../theme/tokens';
+import { Paginator } from '../components/ui/Paginator';
+import { Spinner } from '../components/ui/Spinner';
+import { PageHeader } from '../components/ui/PageHeader';
+import { Toast } from '../components/ui/Alert';
 
-const D = {
-  surface: '#111113', surface2: '#18181b', border: '#27272a', border2: '#3f3f46',
-  text: '#f4f4f5', textMuted: '#71717a', textSubtle: '#52525b',
-  green: '#16a34a', greenLight: '#4ade80', greenDim: 'rgba(22,163,74,0.12)', greenBorder: 'rgba(22,163,74,0.3)',
-  blue: '#3b82f6', blueDim: 'rgba(59,130,246,0.12)',
-  red: '#f87171', redDim: 'rgba(248,113,113,0.1)', redBorder: 'rgba(248,113,113,0.3)',
-};
-
-const inp: React.CSSProperties = { width: '100%', padding: '9px 12px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, fontSize: 13, color: D.text, outline: 'none', boxSizing: 'border-box' };
-const taStyle: React.CSSProperties = { ...inp, resize: 'none' };
+const taStyle: React.CSSProperties = { ...inp, resize: 'none' as const };
 const selStyle: React.CSSProperties = { ...inp };
 
-const FieldFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { e.currentTarget.style.borderColor = D.green; };
-const FieldBlur  = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { e.currentTarget.style.borderColor = D.border; };
+const FieldFocus = onFocusGreen;
+const FieldBlur  = onBlurBorder;
 
 // Defined outside component to prevent remount on every render
 const NewsStatusBadge = ({ s }: { s: 'ACTIVE' | 'INACTIVE' }) => (
@@ -46,19 +42,6 @@ const NewsForm = ({ formData, setFormData, onSave, label, actionLoading, onCance
   </div>
 );
 
-const Paginator = ({ page, total, onChange }: { page: number; total: number; onChange: (p: number) => void }) => {
-  if (total <= 1) return null;
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: D.surface, border: `1px solid ${D.border}`, borderRadius: 10, padding: '12px 16px' }}>
-      <button onClick={() => onChange(page - 1)} disabled={page === 1} style={{ padding: '5px 7px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 6, cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1, display: 'flex' }}><ChevronLeft size={15} style={{ color: D.textMuted }} /></button>
-      {Array.from({ length: Math.min(5, total) }, (_, i) => {
-        const p = total <= 5 ? i + 1 : page <= 3 ? i + 1 : page >= total - 2 ? total - 4 + i : page - 2 + i;
-        return <button key={p} onClick={() => onChange(p)} style={{ width: 32, height: 32, borderRadius: 6, fontSize: 12, fontWeight: 600, border: `1px solid ${page === p ? D.green : D.border}`, background: page === p ? D.green : D.surface2, color: page === p ? '#fff' : D.textMuted, cursor: 'pointer' }}>{p}</button>;
-      })}
-      <button onClick={() => onChange(page + 1)} disabled={page === total} style={{ padding: '5px 7px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 6, cursor: page === total ? 'not-allowed' : 'pointer', opacity: page === total ? 0.4 : 1, display: 'flex' }}><ChevronRight size={15} style={{ color: D.textMuted }} /></button>
-    </div>
-  );
-};
 
 interface NewsItem { id: string; title: string; description: string; status: 'ACTIVE' | 'INACTIVE'; createdBy: string; createdAt: string; updatedAt: string; }
 interface NewsData { totalNews: number; news: NewsItem[]; }
@@ -118,35 +101,18 @@ export default function News() {
     try { const { data: r } = await api.delete(`/api/news/delete/${selected.id}`); if (r.success) { showAlert('success', 'News deleted!'); closeModal(); fetchData(); } else showAlert('error', r.message || 'Failed'); } catch { showAlert('error', 'Network error.'); } finally { setActionLoading(false); }
   };
 
-  if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400, flexDirection: 'column', gap: 12 }}>
-      <div style={{ width: 36, height: 36, borderRadius: '50%', border: `3px solid ${D.border}`, borderTopColor: D.green, animation: 'spin 0.8s linear infinite' }} />
-      <p style={{ color: D.textMuted, fontSize: 13 }}>Loading news…</p>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-    </div>
-  );
+  if (loading) return <Spinner label="Loading news…" />;
 
   return (
     <>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}} .row-h:hover td{background:rgba(255,255,255,0.025)!important} select option{background:#18181b;color:#f4f4f5}`}</style>
+      <style>{`.row-h:hover td{background:rgba(255,255,255,0.025)!important} select option{background:#18181b;color:#f4f4f5}`}</style>
 
-      {alert && (
-        <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, background: alert.type === 'success' ? D.greenDim : D.redDim, border: `1px solid ${alert.type === 'success' ? D.greenBorder : D.redBorder}`, borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, maxWidth: 340 }}>
-          <AlertCircle size={14} style={{ color: alert.type === 'success' ? D.greenLight : D.red, flexShrink: 0 }} />
-          <p style={{ fontSize: 12, color: D.text, flex: 1 }}>{alert.msg}</p>
-          <button onClick={() => setAlert(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}><X size={13} style={{ color: D.textMuted }} /></button>
-        </div>
-      )}
+      {alert && <Toast msg={alert.msg} type={alert.type} onClose={() => setAlert(null)} />}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-          <div>
-            <h1 style={{ fontSize: 22, fontWeight: 700, color: D.text, margin: 0 }}>News</h1>
-            <p style={{ fontSize: 13, color: D.textMuted, marginTop: 4 }}>{total} news items</p>
-          </div>
-          {isAdmin && <button onClick={openCreate} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', background: D.green, color: '#fff', fontWeight: 600, fontSize: 13, border: 'none', borderRadius: 8, cursor: 'pointer' }}><Plus size={15} /> Create News</button>}
-        </div>
+        <PageHeader title="News" subtitle={`${total} news items`}
+          action={isAdmin ? <button onClick={openCreate} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', background: D.green, color: '#fff', fontWeight: 600, fontSize: 13, border: 'none', borderRadius: 8, cursor: 'pointer' }}><Plus size={15} /> Create News</button> : undefined}
+        />
 
         {/* Toolbar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: D.surface, border: `1px solid ${D.border}`, borderRadius: 10, padding: '10px 14px', flexWrap: 'wrap', justifyContent: 'space-between' }}>

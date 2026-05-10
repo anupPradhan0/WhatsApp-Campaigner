@@ -1,17 +1,14 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  Mail,
-  Phone,
-  User,
-  Shield,
-  HelpCircle,
-  MessageSquare,
-  ExternalLink,
-  AlertCircle,
-  CheckCircle,
-} from "lucide-react";
-import { api } from "../api/client";
+  Mail, Phone, User, Shield, HelpCircle, MessageSquare,
+  ExternalLink, CheckCircle2, Send,
+} from 'lucide-react';
+import { api } from '../api/client';
+import { D, inp, onFocusGreen, onBlurBorder } from '../theme/tokens';
+import { Spinner } from '../components/ui/Spinner';
+import { PageHeader } from '../components/ui/PageHeader';
+import { Toast } from '../components/ui/Alert';
 
 interface CreatorData {
   companyName: string;
@@ -22,610 +19,226 @@ interface CreatorData {
   image?: string;
 }
 
+const SectionCard = ({ children }: { children: React.ReactNode }) => (
+  <div style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 12, overflow: 'hidden' }}>
+    {children}
+  </div>
+);
+
+const SectionHead = ({ icon: Icon, title, accent = D.green }: { icon: React.FC<{ size?: number; color?: string }>; title: string; accent?: string }) => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 20px', borderBottom: `1px solid ${D.border}`, background: D.surface2 }}>
+    <div style={{ width: 30, height: 30, borderRadius: 8, background: `${accent}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      <Icon size={15} color={accent} />
+    </div>
+    <p style={{ fontSize: 13, fontWeight: 700, color: D.text }}>{title}</p>
+  </div>
+);
+
+const ContactLink = ({ href, icon: Icon, label, value, accent }: { href: string; icon: React.FC<{ size?: number; color?: string }>; label: string; value: string; accent: string }) => (
+  <a href={href} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 9, textDecoration: 'none', transition: 'border-color 0.15s' }}
+    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = accent; }}
+    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = D.border; }}>
+    <div style={{ width: 34, height: 34, borderRadius: 8, background: `${accent}1a`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      <Icon size={16} color={accent} />
+    </div>
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <p style={{ fontSize: 10, fontWeight: 700, color: D.textSubtle, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 }}>{label}</p>
+      <p style={{ fontSize: 13, fontWeight: 600, color: D.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</p>
+    </div>
+    <ExternalLink size={13} style={{ color: D.textSubtle, flexShrink: 0 }} />
+  </a>
+);
+
+const FLabel = ({ children }: { children: React.ReactNode }) => (
+  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: D.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>{children}</label>
+);
+
 const Support = () => {
   const navigate = useNavigate();
   const [creatorData, setCreatorData] = useState<CreatorData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
+  const [supportForm, setSupportForm] = useState({ name: '', email: '', number: '', subject: '', message: '' });
+  const [submitting, setSubmitting] = useState(false);
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
-  // Support Form States
-  const [supportForm, setSupportForm] = useState({
-    name: "",
-    email: "",
-    number: "",
-    subject: "",
-    message: "",
-  });
-  const [submittingForm, setSubmittingForm] = useState(false);
-  const [formSuccess, setFormSuccess] = useState("");
-  const [formError, setFormError] = useState("");
-
-  // Fetch creator/support data
   useEffect(() => {
-    const fetchSupportData = async () => {
+    (async () => {
       try {
-        setLoading(true);
-        const { data: result } = await api.get<{
-          success: boolean;
-          message?: string;
-          data: CreatorData;
-        }>("/api/dashboard/support");
-
-        if (result.success) {
-          setCreatorData(result.data);
-        } else {
-          setError(result.message || "Failed to load support information");
-        }
-      } catch (err) {
-        setError("Network error. Please try again.");
-        console.error("Support fetch error:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchSupportData();
+        const { data } = await api.get<{ success: boolean; message?: string; data: CreatorData }>('/api/dashboard/support');
+        if (data.success) setCreatorData(data.data);
+        else setError(data.message || 'Failed to load support information');
+      } catch { setError('Network error. Please try again.'); }
+      finally { setLoading(false); }
+    })();
   }, []);
 
-  // Handle Support Form Change
-  const handleSupportFormChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    setSupportForm({
-      ...supportForm,
-      [e.target.name]: e.target.value,
-    });
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setSupportForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  // Handle Support Form Submit
-  const handleSupportFormSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmittingForm(true);
-    setFormSuccess("");
-    setFormError("");
-
+    setSubmitting(true);
     try {
-      const { data: result } = await api.post<{
-        success: boolean;
-        message?: string;
-      }>("/api/support", supportForm);
-
-      if (result.success) {
-        setFormSuccess(
-          result.message ||
-            "Your message has been sent successfully! We will get back to you soon."
-        );
-        setSupportForm({
-          name: "",
-          email: "",
-          number: "",
-          subject: "",
-          message: "",
-        });
+      const { data } = await api.post<{ success: boolean; message?: string }>('/api/support', supportForm);
+      if (data.success) {
+        setToast({ type: 'success', msg: data.message || "Message sent! We'll get back to you soon." });
+        setSupportForm({ name: '', email: '', number: '', subject: '', message: '' });
       } else {
-        setFormError(
-          result.message || "Failed to send message. Please try again."
-        );
+        setToast({ type: 'error', msg: data.message || 'Failed to send message.' });
       }
-    } catch (err) {
-      setFormError(
-        "Network error. Please check your connection and try again."
-      );
-      console.error("Support form error:", err);
-    } finally {
-      setSubmittingForm(false);
-    }
+    } catch { setToast({ type: 'error', msg: 'Network error. Please try again.' }); }
+    finally { setSubmitting(false); }
   };
 
-  // Get status badge color
-  const getStatusBadge = (status: string) => {
-    const badges = {
-      active: "bg-green-500",
-      inactive: "bg-red-500",
-      deleted: "bg-gray-500",
-    };
-    return badges[status.toLowerCase() as keyof typeof badges] || "bg-gray-500";
-  };
+  if (loading) return <Spinner label="Loading support info…" />;
 
-  // Get role badge color
-  const getRoleBadge = (role: string) => {
-    const badges = {
-      admin: "bg-purple-500",
-      reseller: "bg-blue-500",
-      user: "bg-green-500",
-    };
-    return badges[role.toLowerCase() as keyof typeof badges] || "bg-gray-500";
-  };
-
-  // Navigate to complaints page
-  const goToComplaints = () => {
-    navigate("/complaints");
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen px-4">
-        <div className="p-6 sm:p-8 bg-white/40 backdrop-blur-lg rounded-2xl border border-white/60 shadow-xl max-w-md w-full">
-          <p className="text-lg sm:text-xl font-semibold text-black text-center">
-            Loading Support Information...
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const roleAccent: Record<string, string> = { admin: D.blue, reseller: D.greenLight, user: D.amber };
+  const statusColor = (s: string) => s === 'active' ? D.greenLight : D.red;
 
   return (
-    <div className="space-y-4 sm:space-y-6 px-4 sm:px-6 lg:px-0">
-      {/* Page Header */}
-      <div className="p-4 sm:p-6 bg-white/40 backdrop-blur-lg rounded-2xl border border-white/60 shadow-xl">
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="p-2 sm:p-3 bg-green-500 rounded-xl flex-shrink-0">
-            <HelpCircle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+    <>
+      {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <PageHeader title="Support & Help" subtitle="Get assistance from your creator or platform support" />
+
+        {error && (
+          <div style={{ padding: '10px 14px', background: D.redDim, border: `1px solid ${D.redBorder}`, borderRadius: 8 }}>
+            <p style={{ fontSize: 13, color: D.red }}>{error}</p>
           </div>
-          <div className="min-w-0 flex-1">
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-black truncate">
-              Support & Help
-            </h2>
-            <p className="text-xs sm:text-sm text-gray-600 mt-1">
-              Get assistance from your creator or platform support
-            </p>
-          </div>
-        </div>
-      </div>
+        )}
 
-      {/* Error Message */}
-      {error && (
-        <div className="p-3 sm:p-4 bg-red-100/60 backdrop-blur-md rounded-xl border border-red-300 shadow-lg">
-          <p className="text-sm sm:text-base text-red-700 font-semibold break-words">
-            {error}
-          </p>
-        </div>
-      )}
-
-      {/* Section 1: Creator/Reseller Contact */}
-      {creatorData && (
-        <div className="bg-white/60 backdrop-blur-lg rounded-2xl border border-white/80 shadow-xl p-4 sm:p-6 md:p-8">
-          <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
-            <div className="p-2 sm:p-3 bg-blue-500 rounded-xl flex-shrink-0">
-              <User className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-            </div>
-            <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-black">
-              Your Creator/Account Manager
-            </h3>
-          </div>
-
-          <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl sm:rounded-2xl border-2 border-blue-300 shadow-lg p-4 sm:p-6">
-            <div className="flex flex-col md:flex-row gap-4 sm:gap-6">
-              {/* Creator Image */}
-              <div className="flex-shrink-0 mx-auto md:mx-0">
-                {creatorData.image ? (
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-2xl overflow-hidden border-4 border-blue-500 shadow-xl">
-                    <img
-                      src={creatorData.image}
-                      alt={creatorData.companyName}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                        e.currentTarget.parentElement!.innerHTML = `
-                          <div class="w-full h-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-3xl sm:text-4xl font-bold">
-                            ${creatorData.companyName.charAt(0)}
-                          </div>
-                        `;
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center text-white text-4xl sm:text-5xl font-bold shadow-xl border-4 border-blue-500">
-                    {creatorData.companyName.charAt(0)}
-                  </div>
-                )}
-              </div>
-
-              {/* Creator Details */}
-              <div className="flex-1 space-y-3 sm:space-y-4 min-w-0">
-                {/* Name and Badges */}
-                <div className="text-center md:text-left">
-                  <h4 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2 break-words">
-                    {creatorData.companyName}
-                  </h4>
-                  <div className="flex flex-wrap gap-2 justify-center md:justify-start">
-                    <span
-                      className={`px-2.5 sm:px-3 py-1 ${getRoleBadge(
-                        creatorData.role
-                      )} text-white text-xs font-bold rounded-full uppercase shadow-sm`}
-                    >
+        {/* Creator contact */}
+        {creatorData && (
+          <SectionCard>
+            <SectionHead icon={User} title="Your Account Manager" accent={D.blue} />
+            <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ width: 56, height: 56, borderRadius: 12, background: creatorData.image ? 'transparent' : D.greenDim, border: `1px solid ${D.border}`, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {creatorData.image
+                    ? <img src={creatorData.image} alt={creatorData.companyName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <span style={{ fontSize: 22, fontWeight: 700, color: D.greenLight }}>{creatorData.companyName.charAt(0).toUpperCase()}</span>
+                  }
+                </div>
+                <div>
+                  <p style={{ fontSize: 15, fontWeight: 700, color: D.text }}>{creatorData.companyName}</p>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 5, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, textTransform: 'uppercase', color: roleAccent[creatorData.role] || D.textMuted, background: `${roleAccent[creatorData.role] || D.textMuted}22` }}>
                       {creatorData.role}
                     </span>
-                    <span
-                      className={`px-2.5 sm:px-3 py-1 ${getStatusBadge(
-                        creatorData.status
-                      )} text-white text-xs font-bold rounded-full uppercase shadow-sm`}
-                    >
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, textTransform: 'uppercase', color: statusColor(creatorData.status), background: `${statusColor(creatorData.status)}22` }}>
                       {creatorData.status}
                     </span>
                   </div>
                 </div>
-
-                {/* Contact Information */}
-                <div className="space-y-2 sm:space-y-3">
-                  {/* Email */}
-                  <a
-                    href={`mailto:${creatorData.email}`}
-                    className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 bg-white/80 rounded-xl hover:bg-white transition-all border-2 border-blue-200 shadow-sm group"
-                  >
-                    <div className="p-1.5 sm:p-2 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-all flex-shrink-0">
-                      <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-gray-500 font-bold uppercase">
-                        Email
-                      </p>
-                      <p className="text-xs sm:text-sm font-semibold text-gray-800 truncate">
-                        {creatorData.email}
-                      </p>
-                    </div>
-                    <ExternalLink className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 group-hover:text-blue-600 transition-all flex-shrink-0" />
-                  </a>
-
-                  {/* Phone */}
-                  <a
-                    href={`tel:${creatorData.number}`}
-                    className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 bg-white/80 rounded-xl hover:bg-white transition-all border-2 border-green-200 shadow-sm group"
-                  >
-                    <div className="p-1.5 sm:p-2 bg-green-100 rounded-lg group-hover:bg-green-200 transition-all flex-shrink-0">
-                      <Phone className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-gray-500 font-bold uppercase">
-                        Phone
-                      </p>
-                      <p className="text-xs sm:text-sm font-semibold text-gray-800">
-                        {creatorData.number}
-                      </p>
-                    </div>
-                    <ExternalLink className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 group-hover:text-green-600 transition-all flex-shrink-0" />
-                  </a>
-                </div>
-
-                {/* Instructions */}
-                <div className="bg-blue-100 border-l-4 border-blue-500 p-3 sm:p-4 rounded-lg">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs sm:text-sm font-bold text-blue-800 mb-1">
-                        Need Help?
-                      </p>
-                      <p className="text-xs text-gray-700 leading-relaxed break-words">
-                        Contact your {creatorData.role.toLowerCase()} for
-                        account-related queries, credits, campaign issues, or
-                        any assistance with the platform.
-                      </p>
-                    </div>
-                  </div>
-                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <ContactLink href={`mailto:${creatorData.email}`} icon={Mail} label="Email" value={creatorData.email} accent={D.blue} />
+                <ContactLink href={`tel:${creatorData.number}`} icon={Phone} label="Phone" value={creatorData.number} accent={D.greenLight} />
+              </div>
+              <div style={{ padding: '10px 14px', background: D.greenDim, border: `1px solid ${D.greenBorder}`, borderRadius: 8 }}>
+                <p style={{ fontSize: 12, color: D.textMuted, lineHeight: 1.6 }}>
+                  Contact your <strong style={{ color: D.text }}>{creatorData.role}</strong> for account, credits, or campaign queries.
+                </p>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </SectionCard>
+        )}
 
-      {/* Section 2: Platform Support */}
-      <div className="bg-white/60 backdrop-blur-lg rounded-2xl border border-white/80 shadow-xl p-4 sm:p-6 md:p-8">
-        <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
-          <div className="p-2 sm:p-3 bg-purple-500 rounded-xl flex-shrink-0">
-            <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-          </div>
-          <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-black">
-            Platform Support
-          </h3>
-        </div>
-
-        <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl sm:rounded-2xl border-2 border-purple-300 shadow-lg p-4 sm:p-6 space-y-4 sm:space-y-6">
-          {/* Support Contact Info */}
-          <div>
-            <h4 className="text-base sm:text-lg font-bold text-purple-800 mb-3 sm:mb-4 flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-              <span>Contact Platform Support</span>
-            </h4>
-
-            <div className="space-y-2 sm:space-y-3">
-              {/* Platform Email */}
-              <a
-                href="mailto:hello@prominds.digital"
-                className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 bg-white rounded-xl hover:bg-gray-50 transition-all border-2 border-purple-200 shadow-sm group"
-              >
-                <div className="p-2 sm:p-3 bg-purple-100 rounded-lg group-hover:bg-purple-200 transition-all flex-shrink-0">
-                  <Mail className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-gray-500 font-bold uppercase">
-                    Platform Email
-                  </p>
-                  <p className="text-sm sm:text-base font-bold text-gray-800 truncate">
-                    hello@prominds.digital
-                  </p>
-                  <p className="text-xs text-gray-600 mt-0.5 sm:mt-1">
-                    For technical and platform-related issues
-                  </p>
-                </div>
-                <ExternalLink className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 group-hover:text-purple-600 transition-all flex-shrink-0" />
-              </a>
-
-              {/* Platform Phone */}
-              <a
-                href="tel:+919876543210"
-                className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 bg-white rounded-xl hover:bg-gray-50 transition-all border-2 border-green-200 shadow-sm group"
-              >
-                <div className="p-2 sm:p-3 bg-green-100 rounded-lg group-hover:bg-green-200 transition-all flex-shrink-0">
-                  <Phone className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-gray-500 font-bold uppercase">
-                    Support Hotline
-                  </p>
-                  <p className="text-sm sm:text-base font-bold text-gray-800">
-                    +91 98765 43210
-                  </p>
-                  <p className="text-xs text-gray-600 mt-0.5 sm:mt-1">
-                    Available Mon-Sat, 9 AM - 6 PM
-                  </p>
-                </div>
-                <ExternalLink className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 group-hover:text-green-600 transition-all flex-shrink-0" />
-              </a>
-            </div>
-          </div>
-
-          {/* Divider */}
-          <div className="border-t-2 border-purple-200"></div>
-
-          {/* Submit Complaint Section */}
-          <div>
-            <h4 className="text-base sm:text-lg font-bold text-purple-800 mb-3 sm:mb-4 flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-              <span>Submit a Complaint</span>
-            </h4>
-
-            <div className="bg-white rounded-xl p-4 sm:p-5 border-2 border-purple-200 space-y-3 sm:space-y-4">
-              <div className="flex items-start gap-2 sm:gap-3">
-                <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-green-500 mt-1 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm sm:text-base font-bold text-gray-800 mb-1">
-                    File a Formal Complaint
-                  </p>
-                  <p className="text-xs sm:text-sm text-gray-600 leading-relaxed mb-3">
-                    For issues requiring formal documentation and tracking, you
-                    can submit a complaint through our complaints system. Your
-                    complaint will be reviewed by the admin team and you'll
-                    receive updates on its status.
-                  </p>
-                  <button
-                    onClick={goToComplaints}
-                    className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 sm:px-5 py-2.5 sm:py-3 bg-green-500/80 backdrop-blur-md text-white text-sm sm:text-base font-bold rounded-xl hover:bg-green-600/80 transition-all shadow-lg border border-white/30"
-                  >
-                    <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-                    <span>Go to Complaints Page</span>
+        {/* Platform support */}
+        <SectionCard>
+          <SectionHead icon={Shield} title="Platform Support" accent={D.purple} />
+          <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <ContactLink href="mailto:hello@prominds.digital" icon={Mail} label="Platform Email" value="hello@prominds.digital" accent={D.purple} />
+            <ContactLink href="tel:+919876543210" icon={Phone} label="Support Hotline · Mon–Sat 9AM–6PM" value="+91 98765 43210" accent={D.greenLight} />
+            <div style={{ borderTop: `1px solid ${D.border}`, paddingTop: 14 }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: D.textMuted, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.07em' }}>File a Formal Complaint</p>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 9 }}>
+                <CheckCircle2 size={15} style={{ color: D.greenLight, flexShrink: 0, marginTop: 1 }} />
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: D.text, marginBottom: 4 }}>Submit via Complaints System</p>
+                  <p style={{ fontSize: 12, color: D.textMuted, lineHeight: 1.6, marginBottom: 10 }}>For issues requiring formal tracking and admin response.</p>
+                  <button onClick={() => navigate('/complaints')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: D.green, color: '#fff', fontWeight: 600, fontSize: 13, border: 'none', borderRadius: 7, cursor: 'pointer' }}>
+                    <MessageSquare size={13} /> Go to Complaints
                   </button>
                 </div>
               </div>
             </div>
           </div>
+        </SectionCard>
 
-          {/* Instructions */}
-          <div className="bg-purple-100 border-l-4 border-purple-500 p-3 sm:p-4 rounded-lg">
-            <div className="flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 mt-0.5 flex-shrink-0" />
-              <div className="min-w-0 flex-1">
-                <p className="text-xs sm:text-sm font-bold text-purple-800 mb-1">
-                  When to Contact Platform Support?
-                </p>
-                <ul className="text-xs text-gray-700 leading-relaxed space-y-0.5 sm:space-y-1 ml-3 sm:ml-4 list-disc">
-                  <li>Technical issues with the platform</li>
-                  <li>Login or authentication problems</li>
-                  <li>Bug reports or feature requests</li>
-                  <li>
-                    Issues not resolved by your{" "}
-                    {creatorData?.role.toLowerCase()}
-                  </li>
-                </ul>
-              </div>
+        {/* Quick tips */}
+        <SectionCard>
+          <SectionHead icon={HelpCircle} title="Quick Help Tips" accent={D.amber} />
+          <div style={{ padding: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+              {[
+                { title: 'Account & Credits', desc: `Contact your ${creatorData?.role || 'creator'} for balance, credits, or account status issues.` },
+                { title: 'Technical Issues', desc: 'Reach out to platform support for bugs, errors, or technical problems.' },
+                { title: 'Campaign Help', desc: 'Check the Documentation page for guides on creating and managing campaigns.' },
+                { title: 'Formal Complaints', desc: 'Use the Complaints section for issues requiring formal tracking.' },
+              ].map(t => (
+                <div key={t.title} style={{ padding: '12px 14px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 9 }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: D.text, marginBottom: 5, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <CheckCircle2 size={12} style={{ color: D.greenLight }} /> {t.title}
+                  </p>
+                  <p style={{ fontSize: 12, color: D.textMuted, lineHeight: 1.6 }}>{t.desc}</p>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
+        </SectionCard>
+
+        {/* Support form */}
+        <SectionCard>
+          <SectionHead icon={Send} title="Send Support Request" />
+          <form onSubmit={handleSubmit} style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
+              <div>
+                <FLabel>Your Name *</FLabel>
+                <input type="text" name="name" value={supportForm.name} onChange={handleChange} placeholder="Full name" required disabled={submitting} style={inp} onFocus={onFocusGreen} onBlur={onBlurBorder} />
+              </div>
+              <div>
+                <FLabel>Email *</FLabel>
+                <input type="email" name="email" value={supportForm.email} onChange={handleChange} placeholder="you@example.com" required disabled={submitting} style={inp} onFocus={onFocusGreen} onBlur={onBlurBorder} />
+              </div>
+              <div>
+                <FLabel>Phone *</FLabel>
+                <input type="tel" name="number" value={supportForm.number} onChange={handleChange} placeholder="+91 98765 43210" required disabled={submitting} style={inp} onFocus={onFocusGreen} onBlur={onBlurBorder} />
+              </div>
+              <div>
+                <FLabel>Subject *</FLabel>
+                <input type="text" name="subject" value={supportForm.subject} onChange={handleChange} placeholder="Brief subject" required disabled={submitting} style={inp} onFocus={onFocusGreen} onBlur={onBlurBorder} />
+              </div>
+            </div>
+            <div>
+              <FLabel>Message *</FLabel>
+              <textarea name="message" value={supportForm.message} onChange={handleChange} placeholder="Describe your issue in detail…" rows={5} required disabled={submitting}
+                style={{ ...inp, resize: 'vertical' as const, lineHeight: 1.6 }}
+                onFocus={onFocusGreen} onBlur={onBlurBorder}
+              />
+            </div>
+            <div>
+              <button type="submit" disabled={submitting} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 24px', background: D.green, color: '#fff', fontWeight: 600, fontSize: 14, border: 'none', borderRadius: 8, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.6 : 1 }}>
+                {submitting ? (
+                  <><div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', animation: 'spin 0.7s linear infinite' }} /> Sending…</>
+                ) : (
+                  <><Send size={14} /> Send Request</>
+                )}
+              </button>
+            </div>
+          </form>
+        </SectionCard>
       </div>
 
-      {/* Quick Help Tips */}
-      <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-2xl border-2 border-yellow-300 shadow-xl p-4 sm:p-6">
-        <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-          <div className="p-1.5 sm:p-2 bg-yellow-500 rounded-lg flex-shrink-0">
-            <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-          </div>
-          <h3 className="text-base sm:text-lg md:text-xl font-bold text-yellow-800">
-            Quick Help Tips
-          </h3>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-          <div className="bg-white rounded-xl p-3 sm:p-4 border-2 border-yellow-200">
-            <p className="text-sm sm:text-base font-bold text-gray-800 mb-1.5 sm:mb-2 flex items-center gap-2">
-              <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-500 flex-shrink-0" />
-              <span>Account & Credits</span>
-            </p>
-            <p className="text-xs sm:text-sm text-gray-600">
-              Contact your {creatorData?.role.toLowerCase() || "creator"} for
-              balance, credits, or account status issues.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-xl p-3 sm:p-4 border-2 border-yellow-200">
-            <p className="text-sm sm:text-base font-bold text-gray-800 mb-1.5 sm:mb-2 flex items-center gap-2">
-              <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-500 flex-shrink-0" />
-              <span>Technical Issues</span>
-            </p>
-            <p className="text-xs sm:text-sm text-gray-600">
-              Reach out to platform support for bugs, errors, or technical
-              problems.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-xl p-3 sm:p-4 border-2 border-yellow-200">
-            <p className="text-sm sm:text-base font-bold text-gray-800 mb-1.5 sm:mb-2 flex items-center gap-2">
-              <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-500 flex-shrink-0" />
-              <span>Campaign Help</span>
-            </p>
-            <p className="text-xs sm:text-sm text-gray-600">
-              Check the Documentation page for guides on creating and managing
-              campaigns.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-xl p-3 sm:p-4 border-2 border-yellow-200">
-            <p className="text-sm sm:text-base font-bold text-gray-800 mb-1.5 sm:mb-2 flex items-center gap-2">
-              <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-500 flex-shrink-0" />
-              <span>Formal Complaints</span>
-            </p>
-            <p className="text-xs sm:text-sm text-gray-600">
-              Use the Complaints section (Others menu) for issues requiring
-              formal tracking.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* NEW SECTION: Contact Support Form */}
-      <div className="bg-white/60 backdrop-blur-lg rounded-2xl border border-white/80 shadow-xl p-4 sm:p-6 md:p-8">
-        <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
-          <div className="p-2 sm:p-3 bg-green-500 rounded-xl flex-shrink-0">
-            <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-          </div>
-          <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-black">
-            Send Support Request
-          </h3>
-        </div>
-
-        <form onSubmit={handleSupportFormSubmit} className="space-y-4">
-          {/* Name Field */}
-          <div>
-            <label className="block text-xs sm:text-sm font-bold text-black mb-2 uppercase">
-              Your Name *
-            </label>
-            <input
-              type="text"
-              name="name"
-              value={supportForm.name}
-              onChange={handleSupportFormChange}
-              placeholder="Enter your full name"
-              required
-              disabled={submittingForm}
-              className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-sm sm:text-base text-black placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all disabled:opacity-50"
-            />
-          </div>
-
-          {/* Email Field */}
-          <div>
-            <label className="block text-xs sm:text-sm font-bold text-black mb-2 uppercase">
-              Your Email *
-            </label>
-            <input
-              type="email"
-              name="email"
-              value={supportForm.email}
-              onChange={handleSupportFormChange}
-              placeholder="your.email@example.com"
-              required
-              disabled={submittingForm}
-              className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-sm sm:text-base text-black placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all disabled:opacity-50"
-            />
-          </div>
-
-          {/* Phone Field */}
-          <div>
-            <label className="block text-xs sm:text-sm font-bold text-black mb-2 uppercase">
-              Phone Number *
-            </label>
-            <input
-              type="tel"
-              name="number"
-              value={supportForm.number}
-              onChange={handleSupportFormChange}
-              placeholder="Enter your phone number"
-              required
-              disabled={submittingForm}
-              className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-sm sm:text-base text-black placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all disabled:opacity-50"
-            />
-          </div>
-
-          {/* Subject Field */}
-          <div>
-            <label className="block text-xs sm:text-sm font-bold text-black mb-2 uppercase">
-              Subject *
-            </label>
-            <input
-              type="text"
-              name="subject"
-              value={supportForm.subject}
-              onChange={handleSupportFormChange}
-              placeholder="Brief subject of your request"
-              required
-              disabled={submittingForm}
-              className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-sm sm:text-base text-black placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all disabled:opacity-50"
-            />
-          </div>
-
-          {/* Message Field */}
-          <div>
-            <label className="block text-xs sm:text-sm font-bold text-black mb-2 uppercase">
-              Message *
-            </label>
-            <textarea
-              name="message"
-              value={supportForm.message}
-              onChange={handleSupportFormChange}
-              placeholder="Describe your issue or question in detail..."
-              rows={5}
-              required
-              disabled={submittingForm}
-              className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/60 backdrop-blur-sm border-2 border-white/80 rounded-lg sm:rounded-xl text-sm sm:text-base text-black placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all resize-none disabled:opacity-50"
-            />
-          </div>
-
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={submittingForm}
-            className="w-full px-6 py-3 bg-green-500/80 backdrop-blur-md text-white font-bold text-base rounded-xl hover:bg-green-600/80 transition-all shadow-lg border border-white/30 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 flex items-center justify-center gap-2"
-          >
-            {submittingForm ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>Sending...</span>
-              </>
-            ) : (
-              <>
-                <MessageSquare className="w-5 h-5" />
-                <span>Send Support Request</span>
-              </>
-            )}
-          </button>
-        </form>
-
-        {/* Success/Error Messages */}
-        {formSuccess && (
-          <div className="mt-4 p-3 sm:p-4 bg-green-100 border-2 border-green-500 rounded-xl flex items-start gap-2">
-            <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-green-800 font-semibold">
-              {formSuccess}
-            </p>
-          </div>
-        )}
-
-        {formError && (
-          <div className="mt-4 p-3 sm:p-4 bg-red-100 border-2 border-red-500 rounded-xl flex items-start gap-2">
-            <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-red-800 font-semibold">{formError}</p>
-          </div>
-        )}
-      </div>
-    </div>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        select option { background: #18181b; color: #f4f4f5; }
+        ::placeholder { color: ${D.textSubtle}; }
+      `}</style>
+    </>
   );
 };
 

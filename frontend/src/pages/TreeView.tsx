@@ -3,15 +3,9 @@ import { ChevronRight, ChevronDown, User, Users, ShieldCheck, X } from "lucide-r
 import { getUserRole } from "../utils/Auth";
 import { UserRole } from "../constants/Roles";
 import { api } from "../api/client";
-
-const D = {
-  surface: '#111113', surface2: '#18181b', surface3: '#1c1c1f', border: '#27272a', border2: '#3f3f46',
-  text: '#f4f4f5', textMuted: '#71717a', textSubtle: '#52525b',
-  green: '#16a34a', greenLight: '#4ade80', greenDim: 'rgba(22,163,74,0.12)', greenBorder: 'rgba(22,163,74,0.3)',
-  blue: '#3b82f6', blueDim: 'rgba(59,130,246,0.12)',
-  amber: '#fbbf24', amberDim: 'rgba(251,191,36,0.1)',
-  red: '#f87171', redDim: 'rgba(248,113,113,0.1)', redBorder: 'rgba(248,113,113,0.3)',
-};
+import { D } from '../theme/tokens';
+import { Spinner } from '../components/ui/Spinner';
+import { PageHeader } from '../components/ui/PageHeader';
 
 interface TreeNode { id: string; companyName: string; email: string; number: string; role: string; balance: number; totalCampaigns: number; status: string; directResellers: number; directUsers: number; level: number; children: TreeNode[]; }
 interface TreeData { totalCount: number; tree: TreeNode; }
@@ -104,13 +98,7 @@ export default function TreeView() {
     );
   };
 
-  if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400, flexDirection: 'column', gap: 12 }}>
-      <div style={{ width: 36, height: 36, borderRadius: '50%', border: `3px solid ${D.border}`, borderTopColor: D.green, animation: 'spin 0.8s linear infinite' }} />
-      <p style={{ color: D.textMuted, fontSize: 13 }}>Loading network…</p>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-    </div>
-  );
+  if (loading) return <Spinner label="Loading network…" />;
 
   if (!isAdminOrReseller) return (
     <div style={{ padding: '10px 14px', background: D.redDim, border: `1px solid ${D.redBorder}`, borderRadius: 8 }}>
@@ -128,19 +116,15 @@ export default function TreeView() {
 
   return (
     <>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-          <div>
-            <h1 style={{ fontSize: 22, fontWeight: 700, color: D.text, margin: 0 }}>Network Tree</h1>
-            <p style={{ fontSize: 13, color: D.textMuted, marginTop: 4 }}>Your complete network hierarchy</p>
-          </div>
-          <div style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 10, padding: '10px 18px', textAlign: 'center' }}>
-            <p style={{ fontSize: 24, fontWeight: 700, color: D.text }}>{treeData.totalCount}</p>
-            <p style={{ fontSize: 10, color: D.textSubtle, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 2 }}>Total Members</p>
-          </div>
-        </div>
+        <PageHeader title="Network Tree" subtitle="Your complete network hierarchy"
+          action={
+            <div style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 10, padding: '10px 18px', textAlign: 'center' }}>
+              <p style={{ fontSize: 24, fontWeight: 700, color: D.text }}>{treeData.totalCount}</p>
+              <p style={{ fontSize: 10, color: D.textSubtle, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 2 }}>Total Members</p>
+            </div>
+          }
+        />
 
         {/* Legend */}
         <div style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 10, padding: '10px 16px', display: 'flex', gap: 20, flexWrap: 'wrap' }}>
