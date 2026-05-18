@@ -33,6 +33,8 @@ const envSchema = z.object({
     .transform((v) => v === "true"),
   WORKER_SEND_DELAY_MS: z.coerce.number().int().min(0).default(50),
   WORKER_MAX_RETRIES: z.coerce.number().int().min(0).default(3),
+  REDIS_URL: z.string().min(1).default("redis://localhost:6379"),
+  IDEMPOTENCY_TTL_SECONDS: z.coerce.number().int().positive().default(600),
 });
 
 export type Env = z.infer<typeof envSchema>;

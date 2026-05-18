@@ -33,6 +33,7 @@ A comprehensive full-stack WhatsApp campaign management system built with the ME
 
 - **Campaign Management** - Create, manage, and track WhatsApp campaigns with detailed analytics
 - **Asynchronous Send Pipeline** - Campaigns are queued in **RabbitMQ** and processed by a worker (DLQ on permanent failure); the HTTP API returns immediately and survives restarts
+- **Redis-Backed Shared State** - Distributed login rate-limiting, JWT denylist for real logout invalidation, and `Idempotency-Key` support on campaign creation — all with safe fail-open fallbacks
 - **Credit System** - Flexible credit management for campaign operations and user balance tracking
 - **Role-Based Access Control** - Three-tier system (Admin, Reseller, User) with granular permissions
 - **Real-time Reports** - Comprehensive WhatsApp campaign analytics with exportable data
@@ -90,6 +91,9 @@ A comprehensive full-stack WhatsApp campaign management system built with the ME
 | express-rate-limit | 8.1.0 | Rate Limiting |
 | RabbitMQ | 3 (management) | Async Campaign Send Queue |
 | amqplib | 0.10.x | RabbitMQ Client |
+| Redis | 7 (alpine) | Rate-limit / Denylist / Idempotency |
+| ioredis | 5.x | Redis Client |
+| rate-limit-redis | 4.x | Shared rate-limit store |
 
 ---
 
@@ -113,29 +117,35 @@ A comprehensive full-stack WhatsApp campaign management system built with the ME
 ┌──────▼──────┐ ┌────▼───────┐ ┌──▼─────────┐ ┌──────▼──────┐
 │ Auth Service│ │  Campaign  │ │File Service│ │  Producer   │
 │(JWT/bcrypt) │ │  Service   │ │(Cloudinary)│ │ (publishes  │
-└─────────────┘ └────┬───────┘ └────────────┘ │ to RabbitMQ)│
-                     │                         └──────┬──────┘
-                     │ Mongo txn:                     │
-                     │ debit + persist                │
-                     ▼                                ▼
-            ┌────────────────┐         ┌──────────────────────────┐
-            │   MongoDB      │         │   RabbitMQ (durable)     │
-            │  (Mongoose)    │         │ campaign.exchange ─┐     │
-            └────────────────┘         │ campaign.send.queue│     │
-                     ▲                 │ campaign.dlx → dlq │     │
-                     │                 └──────────┬─────────┘     │
-                     │ status:                    │ prefetch=1    │
-                     │ pending → processing       ▼               │
-                     │ → delivered / failed   ┌─────────────────┐ │
-                     └────────────────────────│  Worker (in-    │ │
-                                              │  process or     │ │
-                                              │  separate)      │ │
-                                              │  → WhatsApp     │ │
-                                              │  gateway stub   │ │
-                                              └─────────────────┘ │
-                                                                  │
-                                              (scale workers      │
-                                               horizontally)──────┘
+└──────┬──────┘ └────┬───────┘ └────────────┘ │ to RabbitMQ)│
+       │             │                         └──────┬──────┘
+       │             │ Mongo txn:                     │
+       │             │ debit + persist                │
+       │             ▼                                ▼
+       │    ┌────────────────┐         ┌──────────────────────────┐
+       │    │   MongoDB      │         │   RabbitMQ (durable)     │
+       │    │  (Mongoose)    │         │ campaign.exchange ─┐     │
+       │    └────────────────┘         │ campaign.send.queue│     │
+       │             ▲                 │ campaign.dlx → dlq │     │
+       │             │                 └──────────┬─────────┘     │
+       │             │ status updates             │ prefetch=1    │
+       │             │ pending → processing       ▼               │
+       │             │ → delivered / failed   ┌─────────────────┐ │
+       │             └────────────────────────│  Worker (in-    │ │
+       │                                      │  process or     │ │
+       │                                      │  separate)      │ │
+       │                                      │  → WhatsApp     │ │
+       │                                      │  gateway stub   │ │
+       │                                      └─────────────────┘ │
+       │                                                          │
+       │ rate-limit / denylist / idempotency      (scale workers  │
+       ▼                                           horizontally)──┘
+┌──────────────────┐
+│  Redis           │
+│  rl:login:*      │
+│  denylist:jwt:*  │
+│  idem:*          │
+└──────────────────┘
 ```
 
 **Async-send flow:** `POST /api/campaigns` validates → debits balance → persists `Campaign{status: pending}` → publishes job → returns 201 in ~ms. A worker (in-process by default; can be a separate container) consumes, marks `processing`, iterates recipients, then sets `delivered` or `failed`. Permanent failures go to the dead-letter queue for inspection. See `doc/backend.md` for full lifecycle, retries, and shutdown semantics.
@@ -154,6 +164,11 @@ A comprehensive full-stack WhatsApp campaign management system built with the ME
 - `campaign.exchange` (direct, durable) — all campaign publishes
 - `campaign.send.queue` (durable, DLX-wired) — active send jobs, routing key `campaign.send`
 - `campaign.dlx` → `campaign.dlq` — permanent failures for inspection / replay
+
+**Redis keyspaces (cache & shared state):**
+- `rl:login:*` — distributed rate-limit counters for the login endpoint
+- `denylist:jwt:<sha256(token)>` — revoked tokens, TTL = remaining JWT lifetime
+- `idem:campaigns.create:<userId>:<key>` — `Idempotency-Key` response cache
 
 ---
 
@@ -223,7 +238,7 @@ cp frontend/.env.example frontend/.env
 
 ### Step 4: Database + Queue Setup
 
-**Option A: Docker Compose (recommended)** — brings up MongoDB and RabbitMQ together:
+**Option A: Docker Compose (recommended)** — brings up MongoDB, RabbitMQ and Redis together:
 
 ```bash
 # From repo root:
@@ -231,9 +246,10 @@ docker compose up -d
 # Verify:
 docker compose ps
 # RabbitMQ management UI: http://localhost:15672  (guest / guest)
+# Redis on localhost:6379  (inspect with: docker exec -it whatsapp-campaigner-redis redis-cli)
 ```
 
-**Option B: Local MongoDB + standalone RabbitMQ**
+**Option B: Local MongoDB + standalone RabbitMQ + standalone Redis**
 ```bash
 # Start MongoDB
 sudo systemctl start mongod  # Linux
@@ -241,11 +257,15 @@ brew services start mongodb-community  # Mac
 
 # Start RabbitMQ (with management plugin)
 docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management
+
+# Start Redis
+docker run -d --name redis -p 6379:6379 redis:7-alpine
 ```
 
-**Option C: MongoDB Atlas + CloudAMQP / managed RabbitMQ**
+**Option C: MongoDB Atlas + CloudAMQP / managed RabbitMQ + managed Redis**
 1. Create account at [MongoDB Atlas](https://www.mongodb.com/cloud/atlas), create a cluster, copy the connection string into `MONGO_URI`.
 2. Provision a RabbitMQ instance (e.g. [CloudAMQP](https://www.cloudamqp.com/)) and put its `amqp(s)://...` URL into `RABBITMQ_URL`.
+3. Provision a Redis instance (e.g. [Upstash](https://upstash.com/), [Redis Cloud](https://redis.com/cloud/)) and put its connection string into `REDIS_URL`.
 
 ---
 
@@ -269,6 +289,11 @@ RABBITMQ_URL=amqp://guest:guest@localhost:5672
 WORKER_ENABLED=true              # Run the consumer in this process. Set to "false" on API-only nodes when scaling out workers separately.
 WORKER_SEND_DELAY_MS=50          # Stub gateway delay (simulates per-recipient send latency)
 WORKER_MAX_RETRIES=3             # Retry transient send errors this many times before DLQ
+
+# Redis — backs distributed rate-limit, JWT denylist, and idempotency keys.
+# All consumers fail open if Redis is down, so the API stays usable.
+REDIS_URL=redis://localhost:6379
+IDEMPOTENCY_TTL_SECONDS=600      # How long a cached Idempotency-Key response stays valid (the in-flight sentinel uses a separate short 60s TTL so silent handler crashes recover quickly — see doc/backend.md)
 
 # JWT Configuration
 JWT_SECRET=your_super_secret_jwt_key_here_minimum_32_characters_long

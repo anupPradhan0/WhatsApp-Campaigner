@@ -256,3 +256,72 @@ These are deliberate scope cuts, documented so future work has a starting point:
 - **Immediate retries**, no delay. A transiently-down dependency will burn through `WORKER_MAX_RETRIES` in milliseconds. Add a delayed-message exchange or per-message TTL queue.
 - **No per-recipient tracking.** A worker crash mid-campaign restarts the whole send. Switch to one-message-per-recipient queueing when this matters.
 - **No automatic refund** if queueing or sending permanently fails. The user lost balance; a manual admin credit is needed.
+
+## Cache & shared state (Redis)
+
+Redis powers three independent concerns. Every primitive degrades safely if Redis is unavailable — the API stays usable, just with a slightly weaker guarantee.
+
+### What Redis is used for
+
+| Use case | Where | Failure mode if Redis is down |
+|----------|-------|-------------------------------|
+| **Distributed login rate-limit** | `middleware/rate-limiter.middleware.ts` | Falls back to per-process in-memory limit. Handles both "Redis not ready at request start" and "Redis dropped mid-`INCR`" — see the rate-limit section below. |
+| **JWT denylist (logout invalidates token immediately)** | `services/token-denylist.service.ts` + `middleware/is-logged-in.middleware.ts` + `controllers/auth.controller.ts` | `isTokenRevoked` returns `false` (fail-open). Tokens still pass full JWT signature + expiry verification. |
+| **Idempotency keys on `POST /api/campaigns`** | `middleware/idempotency.middleware.ts` | Middleware passes through — request still works, just without dedup |
+
+### Connection
+
+- `config/redis.ts` is a lazy-connecting singleton built on **ioredis**.
+- Boot is non-blocking: `connectRedis()` is fire-and-forget in `server.ts`, like RabbitMQ.
+- `isRedisReady()` is the canonical check before touching the client (status === `"ready"`).
+- Disconnect is wired into the graceful shutdown chain.
+- `enableOfflineQueue: false` + `maxRetriesPerRequest: 2`: commands fail fast when the broker is unreachable, so the fail-open paths actually fire instead of hanging.
+
+### Rate-limiter behaviour in detail
+
+Two limiter instances live in the module — one Redis-backed, one in-memory — and the middleware picks per request:
+
+- **Redis ready → Redis limiter.** Shared counter across processes.
+- **Redis not ready → memory limiter.** Per-process. The cached Redis-limiter instance is discarded so a recovered Redis is picked up on the next request.
+- **Redis dropped mid-`INCR`** (after the ready-check passed, before the store call resolved): the Redis-limiter's `next(err)` callback is intercepted; if `headersSent` is still `false` we re-dispatch the same request through the memory limiter. Without this, the request would 500 because `express-rate-limit` propagates store errors to Express. A defensive `try/catch` covers synchronous throws too.
+- **Precision tradeoff at the failover boundary**: when the limiter swaps Redis→memory, the memory counter starts at 0. A user near the Redis-tracked limit could get up to `RATE_LIMIT_MAX_REQUESTS` more hits in the same window before the next reset. This is the deliberate cost of fail-open. With a 15-min window and a 100-request limit, the worst-case leak is small; if you need stricter guarantees, harden Redis instead of changing the policy.
+
+### JWT denylist details
+
+- Key: `denylist:jwt:<sha256(token)>` — token is hashed, not stored raw.
+- TTL: `exp - now` in seconds. Entries auto-expire when the token would have anyway, so the keyspace is bounded.
+- `revokeToken()` is called from the logout controller against whichever source the request used (Authorization header or `token` cookie).
+- `isLoggedIn` middleware checks the denylist *after* JWT signature/expiry validation — invalid tokens never reach Redis.
+
+### Idempotency-Key details
+
+- Header: `Idempotency-Key` on `POST /api/campaigns`. Required format: up to 128 chars, `[A-Za-z0-9_-]+`. Malformed → 400.
+- Key: `idem:campaigns.create:<userId>:<idempotency-key>` — scoped per user, so two users picking the same key don't collide.
+- **Two-phase write with split TTLs**:
+  1. `SET ... NX EX 60` with sentinel `__IN_PROGRESS__`. If `NX` claims the slot, the handler runs. The 60s sentinel TTL is long enough for any normal campaign POST but short enough to recover quickly if the handler crashes silently (process kill, no `res.close` firing).
+  2. After the handler responds, the sentinel is overwritten by a plain `SET ... EX IDEMPOTENCY_TTL_SECONDS` with `{ status, body }`. From this point the cached response lives for the full TTL window (default 600s).
+- Replay: a second request with the same key + user returns the cached body. If the sentinel is still in place (handler in flight), the replay gets **409 Conflict** ("retry shortly").
+- Only **2xx and 4xx responses** are cached. 5xx responses don't cache and the sentinel is `DEL`'d so retries can succeed.
+- If the handler crashes before responding, an `res.close` hook clears the sentinel so the client can retry immediately. The 60s sentinel TTL is the safety net for cases where the close hook can't fire (process exit, OOM kill, etc.).
+- **Note on cached-response staleness**: a replay returns the response that was generated at original-request time. Fields like `remainingBalance` reflect that moment — not "live" balance. This is the intended idempotency contract: same key + same user → same response, never re-debit, never re-publish.
+
+### Env vars
+
+| Var | Default | Purpose |
+|-----|---------|---------|
+| `REDIS_URL` | `redis://localhost:6379` | Connection string |
+| `IDEMPOTENCY_TTL_SECONDS` | `600` | How long an `Idempotency-Key` stays valid |
+
+### Local dev
+
+```bash
+docker compose up -d           # mongodb + rabbitmq + redis
+```
+
+Inspect with `redis-cli`:
+```bash
+docker exec -it whatsapp-campaigner-redis redis-cli
+> KEYS denylist:jwt:*
+> KEYS rl:login:*
+> KEYS idem:*
+```

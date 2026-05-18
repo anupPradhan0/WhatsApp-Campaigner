@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
 import { findUserById } from "../repositories/user.repository.js";
+import { isTokenRevoked } from "../services/token-denylist.service.js";
 
 const { JsonWebTokenError, TokenExpiredError } = jwt;
 
@@ -32,6 +33,13 @@ async function isLoggedIn(
     }
 
     const decoded = jwt.verify(token, env.JWT_SECRET) as DecodedJwtPayload;
+
+    if (await isTokenRevoked(token)) {
+      return res.status(401).json({
+        success: false,
+        message: "Access denied. Token has been revoked.",
+      });
+    }
 
     const user = await findUserById(decoded.id, { select: "-password" });
     if (!user) {

@@ -5,6 +5,7 @@ import {
   connectRabbitMQ,
   disconnectRabbitMQ,
 } from "./config/rabbitmq.js";
+import { connectRedis, disconnectRedis } from "./config/redis.js";
 import { assertCampaignTopology } from "./queue/topology.js";
 import {
   startCampaignConsumer,
@@ -35,6 +36,11 @@ function shutdown(server: import("http").Server): void {
       console.error("Error closing RabbitMQ:", e);
     }
     try {
+      await disconnectRedis();
+    } catch (e) {
+      console.error("Error closing Redis:", e);
+    }
+    try {
       await disconnectDatabase();
     } catch (e) {
       console.error("Error closing MongoDB:", e);
@@ -49,15 +55,20 @@ async function bootstrap(): Promise<void> {
   try {
     await connectDatabase();
 
-    // Kick off RabbitMQ connection in the background — don't block API boot
-    // on broker availability. The producer will return false if a publish
-    // happens before the channel is ready (campaigns get marked failed in
-    // that small window; logs make it obvious).
+    // Kick off RabbitMQ + Redis connections in the background — don't block
+    // API boot on either being available. Consumers fall back gracefully:
+    // the producer marks campaigns failed if it has no channel; the
+    // denylist / idempotency / rate-limiter all degrade to safe defaults
+    // when Redis isn't ready.
     void connectRabbitMQ({
       assertTopology: assertCampaignTopology,
       onReady: env.WORKER_ENABLED ? startCampaignConsumer : undefined,
     }).catch((err) => {
       console.error("[server] RabbitMQ connect chain failed:", err);
+    });
+
+    void connectRedis().catch((err) => {
+      console.error("[server] Redis connect chain failed:", err);
     });
 
     const app = createApp();

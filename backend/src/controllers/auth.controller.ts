@@ -8,6 +8,7 @@ import {
 } from "../services/auth.service.js";
 import { clearAuthCookie, setAuthCookie } from "../utils/cookie.utils.js";
 import { generateToken } from "../utils/generate-token.utils.js";
+import { revokeToken } from "../services/token-denylist.service.js";
 
 function mapAuthError(err: unknown): { status: number; message: string } {
   if (!(err instanceof Error)) {
@@ -156,8 +157,21 @@ export async function bootstrapAdminHandler(
   }
 }
 
-export function logout(req: Request, res: Response): Response {
+export async function logout(req: Request, res: Response): Promise<Response> {
   try {
+    // Pull the token from whichever source the request used (cookie or
+    // Authorization header) and add it to the denylist. Best-effort —
+    // if Redis is down, we still clear the cookie and 200 back.
+    const authHeader = req.headers.authorization;
+    const headerToken =
+      authHeader && authHeader.startsWith("Bearer ")
+        ? authHeader.split(" ")[1]
+        : undefined;
+    const token = headerToken || (req.cookies?.token as string | undefined);
+    if (token) {
+      await revokeToken(token);
+    }
+
     clearAuthCookie(res);
     return res.status(200).json({
       success: true,
