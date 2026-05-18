@@ -3,12 +3,12 @@ import { format } from "date-fns";
 import { X, Plus, Eye, Edit2, Trash2 } from "lucide-react";
 import { getUserRole } from "../utils/Auth";
 import { UserRole } from "../constants/Roles";
-import { api } from "../api/client";
+import { toast } from 'sonner';
+import { api, getErrorMessage } from "../api/client";
 import { D, inp, onFocusGreen, onBlurBorder } from '../theme/tokens';
 import { Paginator } from '../components/ui/Paginator';
 import { Spinner } from '../components/ui/Spinner';
 import { PageHeader } from '../components/ui/PageHeader';
-import { Toast } from '../components/ui/Alert';
 
 const taStyle: React.CSSProperties = { ...inp, resize: 'none' as const };
 const selStyle: React.CSSProperties = { ...inp };
@@ -48,17 +48,19 @@ export default function Complaints() {
   const [createForm, setCreateForm] = useState({ subject: '', description: '' });
   const [editForm, setEditForm] = useState({ status: 'pending' as Complaint['status'], adminResponse: '' });
   const [actionLoading, setActionLoading] = useState(false);
-  const [alert, setAlert] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
   const userRole = getUserRole();
   const isAdmin = userRole === UserRole.ADMIN;
 
   const currentUserName = (() => { try { const u = JSON.parse(localStorage.getItem('user') || '{}'); return u.companyName || u.email || ''; } catch { return ''; } })();
 
-  const showAlert = (type: 'success' | 'error', msg: string) => { setAlert({ type, msg }); setTimeout(() => setAlert(null), 4000); };
+  const showAlert = (type: 'success' | 'error', msg: string) => {
+    if (type === 'success') toast.success(msg);
+    else toast.error(msg);
+  };
 
   const fetchData = useCallback(async () => {
-    try { setLoading(true); const { data: r } = await api.get('/api/dashboard/complaints'); if (r.success) setData(r.data); else showAlert('error', r.message || 'Failed'); } catch { showAlert('error', 'Network error.'); } finally { setLoading(false); }
+    try { setLoading(true); const { data: r } = await api.get('/api/dashboard/complaints'); if (r.success) setData(r.data); else showAlert('error', r.message || 'Failed'); } catch (e) { showAlert('error', getErrorMessage(e)); } finally { setLoading(false); }
   }, []);
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setPage(1); }, [perPage]);
@@ -81,19 +83,19 @@ export default function Complaints() {
     const words = createForm.subject.trim().split(/\s+/).length;
     if (words < 1 || words > 30) { showAlert('error', 'Subject must be 1-30 words'); return; }
     setActionLoading(true);
-    try { const { data: r } = await api.post('/api/complaints/create', createForm); if (r.success) { showAlert('success', 'Complaint created!'); closeModal(); fetchData(); } else showAlert('error', r.message || 'Failed'); } catch { showAlert('error', 'Network error.'); } finally { setActionLoading(false); }
+    try { const { data: r } = await api.post('/api/complaints/create', createForm); if (r.success) { showAlert('success', 'Complaint created!'); closeModal(); fetchData(); } else showAlert('error', r.message || 'Failed'); } catch (e) { showAlert('error', getErrorMessage(e)); } finally { setActionLoading(false); }
   };
 
   const handleUpdate = async () => {
     if (!selected) return;
     setActionLoading(true);
-    try { const { data: r } = await api.put(`/api/complaints/update/${selected.complaintId}`, editForm); if (r.success) { showAlert('success', 'Complaint updated!'); closeModal(); fetchData(); } else showAlert('error', r.message || 'Failed'); } catch { showAlert('error', 'Network error.'); } finally { setActionLoading(false); }
+    try { const { data: r } = await api.put(`/api/complaints/update/${selected.complaintId}`, editForm); if (r.success) { showAlert('success', 'Complaint updated!'); closeModal(); fetchData(); } else showAlert('error', r.message || 'Failed'); } catch (e) { showAlert('error', getErrorMessage(e)); } finally { setActionLoading(false); }
   };
 
   const handleDelete = async () => {
     if (!selected) return;
     setActionLoading(true);
-    try { const { data: r } = await api.delete(`/api/complaints/delete/${selected.complaintId}`); if (r.success) { showAlert('success', 'Complaint deleted!'); closeModal(); fetchData(); } else showAlert('error', r.message || 'Failed'); } catch { showAlert('error', 'Network error.'); } finally { setActionLoading(false); }
+    try { const { data: r } = await api.delete(`/api/complaints/delete/${selected.complaintId}`); if (r.success) { showAlert('success', 'Complaint deleted!'); closeModal(); fetchData(); } else showAlert('error', r.message || 'Failed'); } catch (e) { showAlert('error', getErrorMessage(e)); } finally { setActionLoading(false); }
   };
 
   if (loading) return <Spinner label="Loading complaints…" />;
@@ -101,8 +103,6 @@ export default function Complaints() {
   return (
     <>
       <style>{`.row-h:hover td{background:rgba(255,255,255,0.025)!important} select option{background:#18181b;color:#f4f4f5}`}</style>
-
-      {alert && <Toast msg={alert.msg} type={alert.type} onClose={() => setAlert(null)} />}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <PageHeader title="Complaints" subtitle={`${total} total complaints`}

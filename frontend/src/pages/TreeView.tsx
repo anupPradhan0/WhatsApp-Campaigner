@@ -35,7 +35,11 @@ export default function TreeView() {
   }, []);
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const toggle = (id: string) => setExpanded(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  const toggle = (id: string) => setExpanded(prev => {
+    const s = new Set(prev);
+    if (s.has(id)) s.delete(id); else s.add(id);
+    return s;
+  });
 
   const renderNode = (node: TreeNode, depth = 0): React.ReactElement => {
     const isExp = expanded.has(node.id);

@@ -43,7 +43,19 @@ export default function AllCampaigns() {
   const paginated = filtered.slice(idx, idx + perPage);
 
   const downloadImage = async (url: string, name: string) => {
-    try { const r = await fetch(url); const b = await r.blob(); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = `${name}-image.jpg`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); } catch { /* */ }
+    // External image URL — uses plain fetch without auth/credentials to avoid CORS preflight.
+    try {
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const b = await r.blob();
+      const u = URL.createObjectURL(b);
+      const a = document.createElement('a');
+      a.href = u; a.download = `${name}-image.jpg`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(u);
+    } catch {
+      toast.error('Could not download image');
+    }
   };
 
   const handleUpdateStatus = async () => {

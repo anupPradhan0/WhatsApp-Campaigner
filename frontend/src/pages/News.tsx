@@ -3,12 +3,12 @@ import { format } from "date-fns";
 import { X, Plus, Edit2, Trash2, Eye } from "lucide-react";
 import { getUserRole } from "../utils/Auth";
 import { UserRole } from "../constants/Roles";
-import { api } from "../api/client";
+import { toast } from 'sonner';
+import { api, getErrorMessage } from "../api/client";
 import { D, inp, onFocusGreen, onBlurBorder } from '../theme/tokens';
 import { Paginator } from '../components/ui/Paginator';
 import { Spinner } from '../components/ui/Spinner';
 import { PageHeader } from '../components/ui/PageHeader';
-import { Toast } from '../components/ui/Alert';
 
 const taStyle: React.CSSProperties = { ...inp, resize: 'none' as const };
 const selStyle: React.CSSProperties = { ...inp };
@@ -59,15 +59,17 @@ export default function News() {
   const [selected, setSelected] = useState<NewsItem | null>(null);
   const [formData, setFormData] = useState({ title: '', description: '', status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE' });
   const [actionLoading, setActionLoading] = useState(false);
-  const [alert, setAlert] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
   const userRole = getUserRole();
   const isAdmin = userRole === UserRole.ADMIN;
 
-  const showAlert = (type: 'success' | 'error', msg: string) => { setAlert({ type, msg }); setTimeout(() => setAlert(null), 4000); };
+  const showAlert = (type: 'success' | 'error', msg: string) => {
+    if (type === 'success') toast.success(msg);
+    else toast.error(msg);
+  };
 
   const fetchData = useCallback(async () => {
-    try { setLoading(true); const { data: r } = await api.get('/api/dashboard/news'); if (r.success) setNewsData(r.data); else showAlert('error', r.message || 'Failed'); } catch { showAlert('error', 'Network error.'); } finally { setLoading(false); }
+    try { setLoading(true); const { data: r } = await api.get('/api/dashboard/news'); if (r.success) setNewsData(r.data); else showAlert('error', r.message || 'Failed'); } catch (e) { showAlert('error', getErrorMessage(e)); } finally { setLoading(false); }
   }, []);
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setPage(1); }, [perPage]);
@@ -86,19 +88,19 @@ export default function News() {
   const handleCreate = async () => {
     if (!formData.title || !formData.description) { showAlert('error', 'Please fill in all fields'); return; }
     setActionLoading(true);
-    try { const { data: r } = await api.post('/api/news/create', formData); if (r.success) { showAlert('success', 'News created!'); closeModal(); fetchData(); } else showAlert('error', r.message || 'Failed'); } catch { showAlert('error', 'Network error.'); } finally { setActionLoading(false); }
+    try { const { data: r } = await api.post('/api/news/create', formData); if (r.success) { showAlert('success', 'News created!'); closeModal(); fetchData(); } else showAlert('error', r.message || 'Failed'); } catch (e) { showAlert('error', getErrorMessage(e)); } finally { setActionLoading(false); }
   };
 
   const handleUpdate = async () => {
     if (!selected || !formData.title || !formData.description) { showAlert('error', 'Please fill in all fields'); return; }
     setActionLoading(true);
-    try { const { data: r } = await api.put(`/api/news/update/${selected.id}`, formData); if (r.success) { showAlert('success', 'News updated!'); closeModal(); fetchData(); } else showAlert('error', r.message || 'Failed'); } catch { showAlert('error', 'Network error.'); } finally { setActionLoading(false); }
+    try { const { data: r } = await api.put(`/api/news/update/${selected.id}`, formData); if (r.success) { showAlert('success', 'News updated!'); closeModal(); fetchData(); } else showAlert('error', r.message || 'Failed'); } catch (e) { showAlert('error', getErrorMessage(e)); } finally { setActionLoading(false); }
   };
 
   const handleDelete = async () => {
     if (!selected) return;
     setActionLoading(true);
-    try { const { data: r } = await api.delete(`/api/news/delete/${selected.id}`); if (r.success) { showAlert('success', 'News deleted!'); closeModal(); fetchData(); } else showAlert('error', r.message || 'Failed'); } catch { showAlert('error', 'Network error.'); } finally { setActionLoading(false); }
+    try { const { data: r } = await api.delete(`/api/news/delete/${selected.id}`); if (r.success) { showAlert('success', 'News deleted!'); closeModal(); fetchData(); } else showAlert('error', r.message || 'Failed'); } catch (e) { showAlert('error', getErrorMessage(e)); } finally { setActionLoading(false); }
   };
 
   if (loading) return <Spinner label="Loading news…" />;
@@ -106,8 +108,6 @@ export default function News() {
   return (
     <>
       <style>{`.row-h:hover td{background:rgba(255,255,255,0.025)!important} select option{background:#18181b;color:#f4f4f5}`}</style>
-
-      {alert && <Toast msg={alert.msg} type={alert.type} onClose={() => setAlert(null)} />}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <PageHeader title="News" subtitle={`${total} news items`}
