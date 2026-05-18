@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { X, Eye, Calendar, Plus, Download, Loader2, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useCampaigns, type Campaign } from '../hooks/useCampaigns';
 import { D } from '../theme/tokens';
 import { Spinner } from '../components/ui/Spinner';
@@ -36,7 +37,19 @@ export default function WhatsAppReports() {
   const paginated = filtered.slice(idx, idx + perPage);
 
   const downloadImage = async (url: string, name: string) => {
-    try { const r = await fetch(url); const b = await r.blob(); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = `${name}_image.jpg`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); } catch { /* */ }
+    // External image URL — uses plain fetch without auth/credentials to avoid CORS preflight.
+    try {
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const b = await r.blob();
+      const u = URL.createObjectURL(b);
+      const a = document.createElement('a');
+      a.href = u; a.download = `${name}_image.jpg`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(u);
+    } catch {
+      toast.error('Could not download image');
+    }
   };
 
   if (loading) return <Spinner label="Loading reports…" />;

@@ -4,11 +4,11 @@ import {
   Mail, Phone, User, Shield, HelpCircle, MessageSquare,
   ExternalLink, CheckCircle2, Send,
 } from 'lucide-react';
-import { api } from '../api/client';
+import { toast } from 'sonner';
+import { api, getErrorMessage } from '../api/client';
 import { D, inp, onFocusGreen, onBlurBorder } from '../theme/tokens';
 import { Spinner } from '../components/ui/Spinner';
 import { PageHeader } from '../components/ui/PageHeader';
-import { Toast } from '../components/ui/Alert';
 
 interface CreatorData {
   companyName: string;
@@ -60,7 +60,6 @@ const Support = () => {
   const [error, setError] = useState('');
   const [supportForm, setSupportForm] = useState({ name: '', email: '', number: '', subject: '', message: '' });
   const [submitting, setSubmitting] = useState(false);
-  const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -68,7 +67,7 @@ const Support = () => {
         const { data } = await api.get<{ success: boolean; message?: string; data: CreatorData }>('/api/dashboard/support');
         if (data.success) setCreatorData(data.data);
         else setError(data.message || 'Failed to load support information');
-      } catch { setError('Network error. Please try again.'); }
+      } catch (e) { setError(getErrorMessage(e)); }
       finally { setLoading(false); }
     })();
   }, []);
@@ -83,12 +82,12 @@ const Support = () => {
     try {
       const { data } = await api.post<{ success: boolean; message?: string }>('/api/support', supportForm);
       if (data.success) {
-        setToast({ type: 'success', msg: data.message || "Message sent! We'll get back to you soon." });
+        toast.success(data.message || "Message sent! We'll get back to you soon.");
         setSupportForm({ name: '', email: '', number: '', subject: '', message: '' });
       } else {
-        setToast({ type: 'error', msg: data.message || 'Failed to send message.' });
+        toast.error(data.message || 'Failed to send message.');
       }
-    } catch { setToast({ type: 'error', msg: 'Network error. Please try again.' }); }
+    } catch (err) { toast.error(getErrorMessage(err)); }
     finally { setSubmitting(false); }
   };
 
@@ -99,8 +98,6 @@ const Support = () => {
 
   return (
     <>
-      {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
-
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         <PageHeader title="Support & Help" subtitle="Get assistance from your creator or platform support" />
 

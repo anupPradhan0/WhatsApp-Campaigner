@@ -4,6 +4,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from '@/lib/queryClient';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster } from '@/components/ui/sonner';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import Login from './pages/Login';
 import DashboardLayout from './components/layout/DashboardLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -20,6 +21,7 @@ import WhatsAppReportsPage from './pages/WhatsAppReports';
 import AllCampaignPage from './pages/AllCampaigns';
 import DocumentationPage from './pages/Documentation';
 import SupportPage from './pages/Support';
+import NotFoundPage from './pages/NotFound';
 
 const wrapped = (Page: React.ComponentType) => (
   <ProtectedRoute>
@@ -29,31 +31,34 @@ const wrapped = (Page: React.ComponentType) => (
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-    <Toaster position="top-right" richColors theme="dark" />
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Login />} />
-        <Route path="/home"           element={wrapped(DashboardPage)} />
-        <Route path="/send-whatsapp"  element={wrapped(SendWhatsapp)} />
-        <Route path="/credits"        element={wrapped(CreditReportsPage)} />
-        <Route path="/manage-reseller"element={wrapped(ManageResellerPage)} />
-        <Route path="/manage-users"   element={wrapped(ManageUserPage)} />
-        <Route path="/whatsapp-report"element={wrapped(WhatsAppReportsPage)} />
-        <Route path="/all-campaign"   element={wrapped(AllCampaignPage)} />
-        <Route path="/news"           element={wrapped(NewsPage)} />
-        <Route path="/tree-view"      element={wrapped(TreeViewPage)} />
-        <Route path="/complaints"     element={wrapped(ComplaintsPage)} />
-        <Route path="/manage-business"element={wrapped(ManageBusinessPage)} />
-        <Route path="/docs"           element={wrapped(DocumentationPage)} />
-        <Route path="/support"        element={wrapped(SupportPage)} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
-    </TooltipProvider>
-    <ReactQueryDevtools initialIsOpen={false} />
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster position="top-right" richColors theme="dark" closeButton />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Login />} />
+              <Route path="/home"           element={wrapped(DashboardPage)} />
+              <Route path="/send-whatsapp"  element={wrapped(SendWhatsapp)} />
+              <Route path="/credits"        element={wrapped(CreditReportsPage)} />
+              <Route path="/manage-reseller"element={wrapped(ManageResellerPage)} />
+              <Route path="/manage-users"   element={wrapped(ManageUserPage)} />
+              <Route path="/whatsapp-report"element={wrapped(WhatsAppReportsPage)} />
+              <Route path="/all-campaign"   element={wrapped(AllCampaignPage)} />
+              <Route path="/news"           element={wrapped(NewsPage)} />
+              <Route path="/tree-view"      element={wrapped(TreeViewPage)} />
+              <Route path="/complaints"     element={wrapped(ComplaintsPage)} />
+              <Route path="/manage-business"element={wrapped(ManageBusinessPage)} />
+              <Route path="/docs"           element={wrapped(DocumentationPage)} />
+              <Route path="/support"        element={wrapped(SupportPage)} />
+              <Route path="/404"            element={wrapped(NotFoundPage)} />
+              <Route path="*"               element={<Navigate to="/404" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+        {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

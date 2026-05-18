@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import ReactQuill from 'react-quill-new';
 import type { FormEvent, ChangeEvent } from 'react';
-import axios from 'axios';
+import { toast } from 'sonner';
 import 'react-quill-new/dist/quill.snow.css';
-import { api } from '../api/client';
+import { api, getErrorMessage } from '../api/client';
 import { Send, Phone, Link2, ImageIcon, Users, X, CheckCircle2, Hash, Upload } from 'lucide-react';
 import { D, inp } from '../theme/tokens';
-import { Toast } from '../components/ui/Alert';
 import { PageHeader } from '../components/ui/PageHeader';
 
 interface CampaignForm {
@@ -56,7 +55,6 @@ const SendWhatsapp = () => {
   const [fileType, setFileType] = useState<'image' | 'video' | 'pdf' | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
-  const [toastError, setToastError] = useState('');
 
   const modules = { toolbar: [['bold', 'italic'], [{ list: 'ordered' }, { list: 'bullet' }], ['blockquote'], ['link']] };
   const formats = ['bold', 'italic', 'list', 'blockquote', 'link'];
@@ -69,25 +67,25 @@ const SendWhatsapp = () => {
   const handleFileUpload = (e: ChangeEvent<HTMLInputElement>, type: 'image' | 'video' | 'pdf') => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { setToastError('File size exceeds 5 MB limit'); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error('File size exceeds 5 MB limit'); return; }
     const valid: Record<string, string[]> = {
       image: ['image/png', 'image/jpeg', 'image/jpg', 'image/gif'],
       video: ['video/mp4'],
       pdf: ['application/pdf'],
     };
-    if (!valid[type].includes(file.type)) { setToastError(`Invalid ${type} file type`); return; }
+    if (!valid[type].includes(file.type)) { toast.error(`Invalid ${type} file type`); return; }
     setSelectedFile(file); setFileType(type);
   };
 
   const handleMobileNumberChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     const { value } = e.target;
-    if (!/^[0-9+,\s\n\r]*$/.test(value)) { setToastError('Only numbers, +, commas, spaces, and line breaks are allowed'); return; }
+    if (!/^[0-9+,\s\n\r]*$/.test(value)) { toast.error('Only numbers, +, commas, spaces, and line breaks are allowed'); return; }
     setFormData(prev => ({ ...prev, mobileNumbers: value }));
   };
 
   const handlePhoneNumberChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { value } = e.target;
-    if (!/^[0-9\s+]*$/.test(value)) { setToastError('Only numbers, spaces, and + are allowed'); return; }
+    if (!/^[0-9\s+]*$/.test(value)) { toast.error('Only numbers, spaces, and + are allowed'); return; }
     setFormData(prev => ({ ...prev, phoneButtonNumber: value }));
   };
 
@@ -97,9 +95,9 @@ const SendWhatsapp = () => {
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault(); setToastError(''); setSuccess('');
+    e.preventDefault(); setSuccess('');
     if (!formData.campaignName || !formData.message || !formData.mobileNumbers) {
-      setToastError('Campaign name, message, and mobile numbers are required'); return;
+      toast.error('Campaign name, message, and mobile numbers are required'); return;
     }
     setLoading(true);
     try {
@@ -126,17 +124,10 @@ const SendWhatsapp = () => {
         setFormData({ campaignName: '', message: '', phoneButtonText: '', phoneButtonNumber: '', linkButtonText: '', linkButtonUrl: '', mobileNumberEntryType: 'Manual Entry', mobileNumbers: '', countryCode: '+91', numberCount: '' });
         setSelectedFile(null); setFileType(null);
       } else {
-        setToastError(result.errors?.[0] || result.message || 'Failed to create campaign');
+        toast.error(result.errors?.[0] || result.message || 'Failed to create campaign');
       }
     } catch (err: unknown) {
-      if (axios.isAxiosError(err) && err.response?.data) {
-        const d = err.response.data as { message?: string; errors?: string[] };
-        setToastError(d.errors?.[0] || d.message || 'Failed to create campaign');
-      } else if (err instanceof Error) {
-        setToastError(err.message);
-      } else {
-        setToastError('An unknown error occurred. Please try again.');
-      }
+      toast.error(getErrorMessage(err, 'Failed to create campaign'));
     } finally { setLoading(false); }
   };
 
@@ -161,8 +152,6 @@ const SendWhatsapp = () => {
         textarea:focus, select:focus { outline: none; border-color: #16a34a !important; }
         select option { background: #18181b; color: #f4f4f5; }
       `}</style>
-
-      {toastError && <Toast msg={toastError} type="error" onClose={() => setToastError('')} />}
 
       {/* Loading overlay */}
       {loading && (
