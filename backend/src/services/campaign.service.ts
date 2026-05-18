@@ -14,6 +14,7 @@ import {
   saveUser,
 } from "../repositories/user.repository.js";
 import { createTransactions } from "../repositories/transaction.repository.js";
+import { publishCampaignJob } from "../queue/campaign.producer.js";
 import type {
   CampaignStatsBody,
   CreateCampaignBody,
@@ -150,6 +151,30 @@ export async function createCampaignForUser(
     await saveUser(user, session);
 
     await session.commitTransaction();
+
+    // Enqueue the send job. Failure to enqueue is non-fatal here: we mark the
+    // campaign failed asynchronously and log. Debits remain — refund is a
+    // separate manual/admin action.
+    try {
+      const queued = publishCampaignJob(
+        (newCampaign._id as Types.ObjectId).toString(),
+      );
+      if (!queued) {
+        console.error(
+          "[campaign.service] failed to enqueue campaign",
+          (newCampaign._id as Types.ObjectId).toString(),
+        );
+        newCampaign.status = CampaignStats.FAILED;
+        newCampaign.statusMessage =
+          "Could not enqueue send job. Contact support.";
+        await newCampaign.save();
+      }
+    } catch (err) {
+      console.error(
+        "[campaign.service] enqueue threw:",
+        (err as Error).message,
+      );
+    }
 
     return {
       newCampaign,
