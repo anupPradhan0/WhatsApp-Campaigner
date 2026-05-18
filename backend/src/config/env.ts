@@ -23,6 +23,16 @@ const envSchema = z.object({
   EMAIL_USER: z.string().optional(),
   EMAIL_PASS: z.string().optional(),
   EMAIL_RECEIVER: z.string().optional(),
+  RABBITMQ_URL: z
+    .string()
+    .min(1)
+    .default("amqp://guest:guest@localhost:5672"),
+  WORKER_ENABLED: z
+    .union([z.literal("true"), z.literal("false")])
+    .default("true")
+    .transform((v) => v === "true"),
+  WORKER_SEND_DELAY_MS: z.coerce.number().int().min(0).default(50),
+  WORKER_MAX_RETRIES: z.coerce.number().int().min(0).default(3),
 });
 
 export type Env = z.infer<typeof envSchema>;

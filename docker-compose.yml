@@ -10,5 +10,24 @@ services:
     volumes:
       - mongo_data:/data/db
 
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: whatsapp-campaigner-mq
+    restart: always
+    ports:
+      - "5672:5672"     # AMQP
+      - "15672:15672"   # Management UI (http://localhost:15672, guest/guest)
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
 volumes:
   mongo_data:
+  rabbitmq_data:
