@@ -28,21 +28,51 @@ function readRetryCount(msg: ConsumeMessage): number {
   return 0;
 }
 
-async function republishWithRetry(
+/**
+ * Channel can be closed between message-arrival and our reply, in which case
+ * ack/nack/publish will throw "channel closed". The broker auto-redelivers
+ * unacked messages on next connect, so swallowing the throw is safe.
+ */
+function safeAck(channel: Channel, msg: ConsumeMessage): void {
+  try {
+    channel.ack(msg);
+  } catch (err) {
+    console.warn("[consumer] ack failed:", (err as Error).message);
+  }
+}
+
+function safeNack(channel: Channel, msg: ConsumeMessage): void {
+  try {
+    channel.nack(msg, false, false);
+  } catch (err) {
+    console.warn("[consumer] nack failed:", (err as Error).message);
+  }
+}
+
+function safeRepublish(
   channel: Channel,
   msg: ConsumeMessage,
   retryCount: number,
-): Promise<void> {
-  channel.publish(CAMPAIGN_EXCHANGE, ROUTING_KEY_SEND, msg.content, {
-    persistent: true,
-    contentType: msg.properties.contentType ?? "application/json",
-    messageId: msg.properties.messageId,
-    timestamp: Date.now(),
-    headers: {
-      ...msg.properties.headers,
-      [RETRY_HEADER]: retryCount,
-    },
-  });
+): boolean {
+  try {
+    channel.publish(CAMPAIGN_EXCHANGE, ROUTING_KEY_SEND, msg.content, {
+      persistent: true,
+      contentType: msg.properties.contentType ?? "application/json",
+      messageId: msg.properties.messageId,
+      timestamp: Date.now(),
+      headers: {
+        ...msg.properties.headers,
+        [RETRY_HEADER]: retryCount,
+      },
+    });
+    return true;
+  } catch (err) {
+    console.warn(
+      "[consumer] retry republish failed:",
+      (err as Error).message,
+    );
+    return false;
+  }
 }
 
 async function markCampaign(
@@ -69,9 +99,14 @@ async function processCampaignJob(payload: CampaignJobPayload): Promise<void> {
     return;
   }
 
-  if (campaign.status === CampaignStats.DELIVERED) {
+  // Idempotency: skip any terminal state. Re-injected DLQ messages or
+  // duplicate publishes should not re-run the send.
+  if (
+    campaign.status === CampaignStats.DELIVERED ||
+    campaign.status === CampaignStats.FAILED
+  ) {
     console.log(
-      "[consumer] campaign already delivered, skipping:",
+      `[consumer] campaign in terminal state (${campaign.status}), skipping:`,
       payload.campaignId,
     );
     return;
@@ -139,22 +174,27 @@ async function handleMessage(
       "[consumer] malformed payload, sending to DLQ:",
       (err as Error).message,
     );
-    channel.nack(msg, false, false);
+    safeNack(channel, msg);
     return;
   }
 
   const retryCount = readRetryCount(msg);
   try {
     await processCampaignJob(payload);
-    channel.ack(msg);
+    safeAck(channel, msg);
   } catch (err) {
     const errMsg = (err as Error).message;
     if (retryCount < env.WORKER_MAX_RETRIES) {
       console.warn(
         `[consumer] retry ${retryCount + 1}/${env.WORKER_MAX_RETRIES} for campaign ${payload.campaignId}: ${errMsg}`,
       );
-      await republishWithRetry(channel, msg, retryCount + 1);
-      channel.ack(msg);
+      const republished = safeRepublish(channel, msg, retryCount + 1);
+      if (republished) {
+        safeAck(channel, msg);
+        return;
+      }
+      // Republish failed (channel closed). Don't ack — broker will redeliver
+      // on next connect; existing retry count stays so we still progress.
       return;
     }
 
@@ -164,7 +204,11 @@ async function handleMessage(
     // Mark failed in DB so the user sees the outcome.
     try {
       const campaign = await findCampaignById(payload.campaignId);
-      if (campaign && campaign.status !== CampaignStats.DELIVERED) {
+      if (
+        campaign &&
+        campaign.status !== CampaignStats.DELIVERED &&
+        campaign.status !== CampaignStats.FAILED
+      ) {
         await markCampaign(
           campaign,
           CampaignStats.FAILED,
@@ -178,7 +222,7 @@ async function handleMessage(
       );
     }
     // nack without requeue → DLQ via DLX.
-    channel.nack(msg, false, false);
+    safeNack(channel, msg);
   }
 }
 

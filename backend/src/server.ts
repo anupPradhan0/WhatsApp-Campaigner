@@ -15,15 +15,28 @@ import { startCleanupJob } from "./jobs/cleanup.job.js";
 
 const PORT = env.PORT;
 
-async function shutdown(
-  server: import("http").Server,
-): Promise<void> {
-  await stopCampaignConsumer();
-  await disconnectRabbitMQ();
+/**
+ * Graceful shutdown: stop accepting HTTP first so in-flight requests can
+ * drain (including publishing to the queue), then close MQ, then DB.
+ */
+function shutdown(server: import("http").Server): void {
+  const SHUTDOWN_TIMEOUT_MS = 15_000;
+  const forceExit = setTimeout(() => {
+    console.error("Shutdown timed out, forcing exit.");
+    process.exit(1);
+  }, SHUTDOWN_TIMEOUT_MS);
+  forceExit.unref();
+
   server.close(async () => {
     try {
+      await stopCampaignConsumer();
+      await disconnectRabbitMQ();
+    } catch (e) {
+      console.error("Error closing RabbitMQ:", e);
+    }
+    try {
       await disconnectDatabase();
-    } catch (e: unknown) {
+    } catch (e) {
       console.error("Error closing MongoDB:", e);
     }
     process.exit(0);
@@ -36,9 +49,15 @@ async function bootstrap(): Promise<void> {
   try {
     await connectDatabase();
 
-    await connectRabbitMQ({
+    // Kick off RabbitMQ connection in the background — don't block API boot
+    // on broker availability. The producer will return false if a publish
+    // happens before the channel is ready (campaigns get marked failed in
+    // that small window; logs make it obvious).
+    void connectRabbitMQ({
       assertTopology: assertCampaignTopology,
       onReady: env.WORKER_ENABLED ? startCampaignConsumer : undefined,
+    }).catch((err) => {
+      console.error("[server] RabbitMQ connect chain failed:", err);
     });
 
     const app = createApp();
@@ -61,7 +80,7 @@ async function bootstrap(): Promise<void> {
       if (shuttingDown) return;
       shuttingDown = true;
       console.log(`${signal} received, closing server…`);
-      void shutdown(server);
+      shutdown(server);
     };
     process.on("SIGINT", () => onSignal("SIGINT"));
     process.on("SIGTERM", () => onSignal("SIGTERM"));

@@ -6,6 +6,7 @@ let connection: ChannelModel | null = null;
 let channel: Channel | null = null;
 let connecting: Promise<void> | null = null;
 let intentionalClose = false;
+let reconnectTimer: NodeJS.Timeout | null = null;
 let topologyAssertor: ((ch: Channel) => Promise<void>) | null = null;
 let onChannelReady: ((ch: Channel) => Promise<void>) | null = null;
 
@@ -22,8 +23,20 @@ function backoffDelay(): number {
   return delay;
 }
 
+function scheduleReconnect(): void {
+  if (intentionalClose || reconnectTimer) return;
+  const delay = backoffDelay();
+  console.warn(`[rabbitmq] reconnecting in ${delay}ms`);
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    if (intentionalClose) return;
+    connecting = openConnection().catch((err) => {
+      console.error("[rabbitmq] reconnect failed:", err);
+    });
+  }, delay);
+}
+
 async function openConnection(): Promise<void> {
-  intentionalClose = false;
   try {
     connection = await amqp.connect(env.RABBITMQ_URL);
     channel = await connection.createChannel();
@@ -37,13 +50,8 @@ async function openConnection(): Promise<void> {
       channel = null;
       connection = null;
       if (intentionalClose) return;
-      const delay = backoffDelay();
-      console.warn(`[rabbitmq] connection closed, reconnecting in ${delay}ms`);
-      setTimeout(() => {
-        connecting = openConnection().catch((err) => {
-          console.error("[rabbitmq] reconnect failed:", err);
-        });
-      }, delay);
+      console.warn("[rabbitmq] connection closed");
+      scheduleReconnect();
     });
 
     if (topologyAssertor) {
@@ -57,12 +65,11 @@ async function openConnection(): Promise<void> {
   } catch (err) {
     connection = null;
     channel = null;
-    const delay = backoffDelay();
+    if (intentionalClose) return;
     console.error(
-      `[rabbitmq] connect failed (${(err as Error).message}), retrying in ${delay}ms`,
+      `[rabbitmq] connect failed: ${(err as Error).message}`,
     );
-    await new Promise((resolve) => setTimeout(resolve, delay));
-    return openConnection();
+    scheduleReconnect();
   }
 }
 
@@ -77,6 +84,7 @@ export async function connectRabbitMQ(opts: {
 }): Promise<void> {
   topologyAssertor = opts.assertTopology;
   onChannelReady = opts.onReady ?? null;
+  intentionalClose = false;
   if (channel) return;
   if (!connecting) {
     connecting = openConnection();
@@ -90,6 +98,10 @@ export function getChannel(): Channel | null {
 
 export async function disconnectRabbitMQ(): Promise<void> {
   intentionalClose = true;
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
   try {
     if (channel) {
       await channel.close();
@@ -106,4 +118,5 @@ export async function disconnectRabbitMQ(): Promise<void> {
   }
   channel = null;
   connection = null;
+  connecting = null;
 }
