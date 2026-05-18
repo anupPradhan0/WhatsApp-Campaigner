@@ -7,6 +7,7 @@ import isLoggedIn from "../middleware/is-logged-in.middleware.js";
 import upload from "../utils/upload.utils.js";
 import { uploadCampaignFileToCloudinary } from "../middleware/upload-to-cloudinary.middleware.js";
 import { validateBody, validateParams } from "../middleware/validate.middleware.js";
+import { idempotencyMiddleware } from "../middleware/idempotency.middleware.js";
 import {
   campaignStatsBodySchema,
   createCampaignBodySchema,
@@ -18,6 +19,7 @@ const router = Router();
 router.post(
   "/",
   isLoggedIn,
+  idempotencyMiddleware("campaigns.create"),
   upload.single("image"),
   uploadCampaignFileToCloudinary,
   validateBody(createCampaignBodySchema),
