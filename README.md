@@ -293,7 +293,7 @@ WORKER_MAX_RETRIES=3             # Retry transient send errors this many times b
 # Redis — backs distributed rate-limit, JWT denylist, and idempotency keys.
 # All consumers fail open if Redis is down, so the API stays usable.
 REDIS_URL=redis://localhost:6379
-IDEMPOTENCY_TTL_SECONDS=600      # How long an Idempotency-Key on POST /api/campaigns stays valid
+IDEMPOTENCY_TTL_SECONDS=600      # How long a cached Idempotency-Key response stays valid (the in-flight sentinel uses a separate short 60s TTL so silent handler crashes recover quickly — see doc/backend.md)
 
 # JWT Configuration
 JWT_SECRET=your_super_secret_jwt_key_here_minimum_32_characters_long
