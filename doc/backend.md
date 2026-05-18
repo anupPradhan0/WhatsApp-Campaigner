@@ -123,6 +123,71 @@ See `backend/src/config/env.ts` for required environment variables (database URI
 
 Campaign send is **asynchronous**. The HTTP `POST /api/campaigns` handler validates, debits balance, persists the campaign in `status: pending`, then publishes a job to RabbitMQ and returns 201 immediately. A worker consumes the job, marks the campaign `processing`, iterates `mobileNumbers` calling the WhatsApp gateway, and finishes by marking `delivered` or `failed`.
 
+### Why a queue
+
+- API stays responsive: the POST returns in ~ms regardless of how many recipients the campaign has.
+- Send work survives an API restart — jobs are durable on disk in RabbitMQ.
+- Workers scale horizontally: more worker processes = more concurrent campaigns.
+- Permanent failures land in a Dead-Letter Queue for inspection / replay.
+
+### End-to-end lifecycle
+
+```
+┌──────────────┐  HTTP POST /api/campaigns
+│ Client (SPA) │ ────────────────────────────────────────────────┐
+└──────────────┘                                                  │
+                                                                  ▼
+                  ┌─────────────────────────────────────────────────────┐
+                  │ campaign.service.createCampaignForUser              │
+                  │  1. Validate, debit balance (Mongo txn)             │
+                  │  2. Save Campaign { status: pending }               │
+                  │  3. Commit txn                                      │
+                  │  4. publishCampaignJob(id)  ──┐                     │
+                  └───────────────────────────────┼─────────────────────┘
+                                                  ▼
+                                  ┌──────────────────────────┐
+                                  │   campaign.exchange      │
+                                  │   (direct, durable)      │
+                                  └──────────┬───────────────┘
+                                             │ routing key: campaign.send
+                                             ▼
+                                  ┌──────────────────────────┐
+                                  │  campaign.send.queue     │  (durable, DLX-wired)
+                                  └──────────┬───────────────┘
+                                             │ prefetch=1
+                                             ▼
+                  ┌─────────────────────────────────────────────────────┐
+                  │ campaign.consumer.processCampaignJob                │
+                  │  1. Load Campaign by id                             │
+                  │  2. Skip if status is DELIVERED or FAILED           │
+                  │  3. Mark processing                                 │
+                  │  4. for number of mobileNumbers:                    │
+                  │       sendOneMessage(campaign, number) (gateway)    │
+                  │  5. Mark delivered / failed (with counts)           │
+                  └─────────────────────────────────────────────────────┘
+                                  │              │
+                       success ack │              │ retries exhausted → nack(no-requeue)
+                                   │              ▼
+                                   │   ┌──────────────────────────┐
+                                   │   │   campaign.dlx → dlq     │  (inspect / replay)
+                                   │   └──────────────────────────┘
+                                   ▼
+                            (message removed)
+```
+
+### Campaign status state machine
+
+| From       | To         | Trigger                                       |
+|------------|------------|-----------------------------------------------|
+| —          | `pending`  | Campaign created, job published               |
+| `pending`  | `failed`   | Producer could not enqueue (no MQ channel)    |
+| `pending`  | `processing` | Worker picked up the job                    |
+| `processing` | `delivered` | All sends OK (or partial with note)       |
+| `processing` | `failed`  | All sends failed, or retries exhausted       |
+| `delivered` / `failed` | (terminal) | Re-delivery is a no-op (idempotent)|
+
+Admins can still flip status manually via `PUT /api/campaigns/stats/:campaignId` — that endpoint is unchanged.
+
 ### Topology
 
 | Object | Name | Purpose |
@@ -133,14 +198,18 @@ Campaign send is **asynchronous**. The HTTP `POST /api/campaigns` handler valida
 | DLX | `campaign.dlx` (direct, durable) | Dead-letter for permanent failures |
 | DLQ | `campaign.dlq` (durable) | Inspect failures |
 
+Topology is **asserted on every (re)connect** in `assertCampaignTopology(channel)` — declarations are idempotent, so this is safe.
+
 ### Files
 
-- `src/config/rabbitmq.ts` — shared connection + channel, auto-reconnect with backoff.
-- `src/queue/topology.ts` — exchange/queue declarations (idempotent, asserted on every connect).
-- `src/queue/campaign.producer.ts` — `publishCampaignJob(campaignId)`.
-- `src/queue/campaign.consumer.ts` — `prefetch=1`, retries via header (`x-retry-count`) up to `WORKER_MAX_RETRIES`, DLQ on permanent failure.
-- `src/services/whatsapp-gateway.service.ts` — **stub**: replace `sendOneMessage(...)` with a real provider call (Meta Cloud API / Twilio / Gupshup).
-- `src/server.ts` — `bootstrap()` connects RabbitMQ, asserts topology, starts the in-process consumer when `WORKER_ENABLED=true`.
+| File | Role |
+|------|------|
+| `src/config/rabbitmq.ts` | Shared connection + channel. Auto-reconnect with exponential backoff (1s → 30s cap). Cancellable on shutdown. |
+| `src/queue/topology.ts` | Exchange / queue / DLX / DLQ declarations + binding. |
+| `src/queue/campaign.producer.ts` | `publishCampaignJob(campaignId)` — persistent message, returns `false` only when no channel is available. Back-pressure is logged but not treated as failure. |
+| `src/queue/campaign.consumer.ts` | `prefetch=1`. Retries via `x-retry-count` header up to `WORKER_MAX_RETRIES`. Permanent failure → nack-no-requeue → DLQ. All `ack`/`nack`/`publish` calls are wrapped (`safeAck` / `safeNack` / `safeRepublish`) so a closed channel never crashes the process. |
+| `src/services/whatsapp-gateway.service.ts` | **Stub gateway** — `sendOneMessage(...)` sleeps for `WORKER_SEND_DELAY_MS`. Replace this single function with a real provider call (Meta Cloud API / Twilio / Gupshup) when integrating a live gateway. |
+| `src/server.ts` | `bootstrap()` connects RabbitMQ in the background (does not block API startup) and starts the in-process consumer when `WORKER_ENABLED=true`. Graceful shutdown drains HTTP first, then closes MQ, then DB. |
 
 ### Env vars
 
@@ -151,15 +220,39 @@ Campaign send is **asynchronous**. The HTTP `POST /api/campaigns` handler valida
 | `WORKER_SEND_DELAY_MS` | `50` | Stub send delay (simulates per-number gateway latency) |
 | `WORKER_MAX_RETRIES` | `3` | Retry transient errors this many times before nack→DLQ |
 
+### Failure & retry semantics
+
+- **Transient error inside `sendOneMessage`** (`throw`): the consumer republishes the message with `x-retry-count + 1` and acks the original. Retries are **immediate** (no delay backoff today — to add: use a delayed exchange or per-message TTL).
+- **Retries exhausted**: campaign is marked `failed` with the reason, message is `nack`'d (no requeue) → routes via `campaign.dlx` → `campaign.dlq`.
+- **Malformed payload** (JSON parse error): straight to DLQ, no retry.
+- **Worker crash mid-job**: message was never acked → RabbitMQ redelivers on the next consumer. The campaign may already be `processing`; the consumer treats that as "resume from scratch" since we don't track per-recipient progress yet. Idempotency check skips campaigns already in a terminal state (`delivered` / `failed`).
+- **Producer publish without a channel** (broker down at the moment of POST): producer returns `false`, the service marks the campaign `failed` and surfaces that in the API response. Logs make this obvious.
+- **Back-pressure** (`channel.publish` returning `false`): the message was still queued in the channel write buffer — we log and continue. **Not** treated as failure.
+
+### Connection & shutdown
+
+- Initial connect is **fire-and-forget**: if RabbitMQ is unreachable at boot, the HTTP server still binds. Endpoints that don't need the queue (login, dashboard, support) keep working. The connection retries in the background with exponential backoff.
+- On `SIGINT` / `SIGTERM`: `server.close()` runs first so in-flight HTTP requests can finish (including their publish). Then the consumer is cancelled, MQ is closed, then Mongo is closed. A 15s watchdog force-exits if anything hangs.
+- On unexpected connection close: the close handler schedules a backoff reconnect. The handler tracks its timer and `disconnectRabbitMQ()` clears it, so an intentional shutdown can't accidentally spawn a reconnect.
+
 ### Local dev
 
 ```bash
 docker compose up -d           # mongodb + rabbitmq
-pnpm --filter backend dev      # API + worker (in-process)
+pnpm --filter backend dev      # API + in-process worker
 ```
 
-RabbitMQ management UI: <http://localhost:15672> (guest/guest).
+- RabbitMQ management UI: <http://localhost:15672> (guest/guest) — useful for watching `campaign.send.queue` depth and inspecting `campaign.dlq`.
 
 ### Scaling out
 
-Run the same backend image as additional worker-only processes (set `WORKER_ENABLED=true`, point them at the same `RABBITMQ_URL`). The API container can flip `WORKER_ENABLED=false` so it only produces. Each worker has `prefetch=1`, so adding workers linearly increases concurrent campaign throughput.
+Run the same backend image as additional worker-only processes (`WORKER_ENABLED=true`, same `RABBITMQ_URL`). Flip the API container to `WORKER_ENABLED=false` so it only produces. Each worker has `prefetch=1`, so adding workers linearly increases concurrent campaign throughput.
+
+### Known limitations (V1)
+
+These are deliberate scope cuts, documented so future work has a starting point:
+
+- **No publisher confirms.** `channel.publish` is fire-and-forget; a broker crash in the small window between socket write and durable persist can lose a message. Wrap `createConfirmChannel` + `waitForConfirms` for zero-loss guarantees.
+- **Immediate retries**, no delay. A transiently-down dependency will burn through `WORKER_MAX_RETRIES` in milliseconds. Add a delayed-message exchange or per-message TTL queue.
+- **No per-recipient tracking.** A worker crash mid-campaign restarts the whole send. Switch to one-message-per-recipient queueing when this matters.
+- **No automatic refund** if queueing or sending permanently fails. The user lost balance; a manual admin credit is needed.
