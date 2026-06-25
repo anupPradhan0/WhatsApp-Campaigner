@@ -3,6 +3,7 @@ import {
   uploadToCloudinary,
   deleteFromCloudinary,
 } from "../utils/cloudinary.utils.js";
+import { getFileTypeCategory } from "../utils/upload.utils.js";
 
 export async function uploadUserImageToCloudinary(
   req: Request,
@@ -67,26 +68,32 @@ export async function uploadCampaignFileToCloudinary(
         : "campaign";
     const publicId = `${campaignName}-${userId}-${timestamp}`;
 
-    let cloudinaryUrl: string;
-
-    if (req.file.mimetype.startsWith("image/")) {
-      cloudinaryUrl = await uploadToCloudinary(
-        req.file.path,
-        "whatsapp-campaign/campaigns",
-        publicId,
-        "image"
-      );
-    } else {
+    const category = getFileTypeCategory(req.file.mimetype);
+    if (!category) {
       res.status(400).json({
         success: false,
         message:
-          "Only images are currently supported. Videos and PDFs coming soon!",
+          "Unsupported file type. Allowed: images, MP4/MOV/WebM video, and PDF.",
       });
       return;
     }
 
+    // Cloudinary resource types: images & video have native types; PDFs are
+    // stored as "raw" so the original document is preserved and downloadable.
+    const resourceType =
+      category === "image" ? "image" : category === "video" ? "video" : "raw";
+
+    const cloudinaryUrl = await uploadToCloudinary(
+      req.file.path,
+      "whatsapp-campaign/campaigns",
+      publicId,
+      resourceType
+    );
+
     req.file.path = cloudinaryUrl;
     req.body.fileUrl = cloudinaryUrl;
+    // Authoritative media type, derived server-side from the actual file.
+    req.body.mediaType = category;
 
     next();
   } catch (error: unknown) {

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   CampaignStats,
+  MediaType,
   MobileNumberEntryType,
 } from "../models/campaign.model.js";
 
@@ -20,6 +21,7 @@ export const createCampaignBodySchema = z.object({
   mobileNumbers: mobileNumbersField,
   countryCode: z.string().regex(/^\+\d{1,4}$/),
   fileUrl: z.string().url().optional(),
+  mediaType: z.nativeEnum(MediaType).optional(),
 });
 
 export const campaignStatsBodySchema = z.object({

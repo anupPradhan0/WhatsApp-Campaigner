@@ -278,7 +278,7 @@ const Documentation = () => {
                   No limit! The system supports bulk import and handles large recipient lists efficiently.
                 </FaqItem>
                 <FaqItem q="What file formats are supported for media?">
-                  Images: JPG, PNG, GIF. Videos: MP4 (coming soon). Max 5 MB per file.
+                  Images (JPG, PNG, GIF, WebP), video (MP4, MOV, WebM), and PDF documents. Max 5 MB per file.
                 </FaqItem>
                 <FaqItem q="Can I edit a campaign after creating it?">
                   Currently campaigns cannot be edited once created. Create a new one with updated details.

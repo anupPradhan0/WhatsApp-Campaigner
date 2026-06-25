@@ -34,6 +34,7 @@ export interface ICampaign extends Document {
   phoneButton?: IPhoneButton;
   linkButton?: ILinkButton;
   media?: string;
+  mediaType?: MediaType;
   createdBy: mongoose.Types.ObjectId;
   mobileNumberEntryType: MobileNumberEntryType;
   mobileNumbers: string[];
@@ -117,6 +118,10 @@ const campaignSchema = new Schema<ICampaign>(
     },
     media: {
       type: String,
+    },
+    mediaType: {
+      type: String,
+      enum: Object.values(MediaType),
     },
     createdBy: {
       type: Schema.Types.ObjectId,

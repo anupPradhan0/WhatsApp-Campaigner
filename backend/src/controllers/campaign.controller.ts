@@ -57,6 +57,7 @@ export async function createCampaign(
         phoneButton: newCampaign.phoneButton,
         linkButton: newCampaign.linkButton,
         media: newCampaign.media,
+        mediaType: newCampaign.mediaType,
         mobileNumberEntryType: newCampaign.mobileNumberEntryType,
         requestedNumberCount,
         actualNumberCount,

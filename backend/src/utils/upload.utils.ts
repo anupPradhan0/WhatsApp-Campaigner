@@ -35,14 +35,21 @@ const fileFilter = (
   cb: Cb
 ): void => {
   const allowedMimeTypes = [
+    // images
     "image/jpeg",
     "image/jpg",
     "image/png",
     "image/gif",
     "image/webp",
+    // video
+    "video/mp4",
+    "video/quicktime",
+    "video/webm",
+    // documents
+    "application/pdf",
   ];
 
-  const allowedExtensions = /\.(jpg|jpeg|png|gif|webp)$/i;
+  const allowedExtensions = /\.(jpg|jpeg|png|gif|webp|mp4|mov|webm|pdf)$/i;
 
   const fileExtension = path.extname(file.originalname).toLowerCase();
   const mimeType = file.mimetype.toLowerCase();
@@ -55,7 +62,7 @@ const fileFilter = (
   } else {
     cb(
       new Error(
-        "Invalid file type. Only JPG, PNG, GIF, and WebP images are allowed!"
+        "Invalid file type. Allowed: images (JPG, PNG, GIF, WebP), video (MP4, MOV, WebM), and PDF."
       )
     );
   }

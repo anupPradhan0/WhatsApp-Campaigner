@@ -99,6 +99,7 @@ export async function createCampaignForUser(
       countryCode,
       createdBy: creatorId,
       media: mediaPath || undefined,
+      mediaType: mediaPath ? body.mediaType : undefined,
       status: CampaignStats.PENDING,
       statusMessage: "Campaign is in the pending state.",
     };

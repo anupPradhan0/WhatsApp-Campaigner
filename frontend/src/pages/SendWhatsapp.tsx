@@ -4,9 +4,10 @@ import type { FormEvent, ChangeEvent } from 'react';
 import { toast } from 'sonner';
 import 'react-quill-new/dist/quill.snow.css';
 import { api, getErrorMessage } from '../api/client';
-import { Send, Phone, Link2, ImageIcon, Users, X, CheckCircle2, Hash, Upload } from 'lucide-react';
+import { Send, Phone, Link2, ImageIcon, Users, X, CheckCircle2, Hash, Upload, FileSpreadsheet } from 'lucide-react';
 import { D, inp } from '../theme/tokens';
 import { PageHeader } from '../components/ui/PageHeader';
+import { parseRecipientsFile } from '../utils/parseRecipients';
 
 interface CampaignForm {
   campaignName: string;
@@ -48,9 +49,10 @@ const SendWhatsapp = () => {
     campaignName: '', message: '',
     phoneButtonText: '', phoneButtonNumber: '',
     linkButtonText: '', linkButtonUrl: '',
-    mobileNumberEntryType: 'Manual Entry',
+    mobileNumberEntryType: 'manual',
     mobileNumbers: '', countryCode: '+91', numberCount: '',
   });
+  const [importing, setImporting] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileType, setFileType] = useState<'image' | 'video' | 'pdf' | null>(null);
   const [loading, setLoading] = useState(false);
@@ -69,12 +71,38 @@ const SendWhatsapp = () => {
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) { toast.error('File size exceeds 5 MB limit'); return; }
     const valid: Record<string, string[]> = {
-      image: ['image/png', 'image/jpeg', 'image/jpg', 'image/gif'],
-      video: ['video/mp4'],
+      image: ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'],
+      video: ['video/mp4', 'video/quicktime', 'video/webm'],
       pdf: ['application/pdf'],
     };
     if (!valid[type].includes(file.type)) { toast.error(`Invalid ${type} file type`); return; }
     setSelectedFile(file); setFileType(type);
+  };
+
+  const handleRecipientsImport = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error('File size exceeds 5 MB limit'); return; }
+    setImporting(true);
+    try {
+      const numbers = await parseRecipientsFile(file);
+      if (numbers.length === 0) {
+        toast.error('No valid phone numbers found in that file');
+        return;
+      }
+      setFormData(prev => {
+        // Merge with anything already in the box, de-duplicating.
+        const existing = prev.mobileNumbers.split(/[\n,]/).map(n => n.trim()).filter(Boolean);
+        const merged = Array.from(new Set([...existing, ...numbers]));
+        return { ...prev, mobileNumbers: merged.join(', ') };
+      });
+      toast.success(`Imported ${numbers.length} number${numbers.length === 1 ? '' : 's'} from ${file.name}`);
+    } catch {
+      toast.error('Could not read that file. Use a CSV or Excel (.xlsx/.xls) file.');
+    } finally {
+      setImporting(false);
+    }
   };
 
   const handleMobileNumberChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
@@ -121,7 +149,7 @@ const SendWhatsapp = () => {
 
       if (result.success) {
         setSuccess('Campaign created successfully!');
-        setFormData({ campaignName: '', message: '', phoneButtonText: '', phoneButtonNumber: '', linkButtonText: '', linkButtonUrl: '', mobileNumberEntryType: 'Manual Entry', mobileNumbers: '', countryCode: '+91', numberCount: '' });
+        setFormData({ campaignName: '', message: '', phoneButtonText: '', phoneButtonNumber: '', linkButtonText: '', linkButtonUrl: '', mobileNumberEntryType: 'manual', mobileNumbers: '', countryCode: '+91', numberCount: '' });
         setSelectedFile(null); setFileType(null);
       } else {
         toast.error(result.errors?.[0] || result.message || 'Failed to create campaign');
@@ -235,9 +263,9 @@ const SendWhatsapp = () => {
             )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
               {[
-                { type: 'image' as const, label: 'Image', hint: 'JPG, PNG, GIF', disabled: false, accept: 'image/*' },
-                { type: 'video' as const, label: 'Video', hint: 'MP4 — coming soon', disabled: true, accept: 'video/*' },
-                { type: 'pdf' as const, label: 'PDF', hint: 'Coming soon', disabled: true, accept: 'application/pdf' },
+                { type: 'image' as const, label: 'Image', hint: 'JPG, PNG, GIF, WebP', disabled: false, accept: 'image/*' },
+                { type: 'video' as const, label: 'Video', hint: 'MP4, MOV, WebM', disabled: false, accept: 'video/mp4,video/quicktime,video/webm' },
+                { type: 'pdf' as const, label: 'PDF', hint: 'PDF document', disabled: false, accept: 'application/pdf' },
               ].map(({ type, label, disabled, accept }) => (
                 <div key={type}>
                   <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: disabled ? D.textSubtle : D.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
@@ -258,11 +286,30 @@ const SendWhatsapp = () => {
               <div>
                 <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: D.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>Entry Type</label>
                 <select name="mobileNumberEntryType" value={formData.mobileNumberEntryType} onChange={handleInput} disabled={loading} style={{ ...inp }}>
-                  <option value="Manual Entry">Manual Entry</option>
-                  <option value="CSV Upload">CSV Upload</option>
-                  <option value="Contact List">Contact List</option>
+                  <option value="manual">Manual Entry</option>
+                  <option value="upload">File Upload (CSV / Excel)</option>
                 </select>
               </div>
+
+              {formData.mobileNumberEntryType === 'upload' && (
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: D.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
+                    Import from CSV / Excel
+                  </label>
+                  <input
+                    type="file"
+                    accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    onChange={handleRecipientsImport}
+                    disabled={loading || importing}
+                    className="file-input"
+                    style={{ ...inp, padding: '8px 12px', fontSize: 12, cursor: importing ? 'wait' : 'pointer' }}
+                  />
+                  <p style={{ fontSize: 11, color: D.textSubtle, marginTop: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <FileSpreadsheet size={12} style={{ color: D.textSubtle }} />
+                    {importing ? 'Reading file…' : 'Numbers from any column are detected and added below. Review them before sending.'}
+                  </p>
+                </div>
+              )}
               <div>
                 <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: D.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>Mobile Numbers *</label>
                 <div style={{ display: 'flex', gap: 8 }}>
