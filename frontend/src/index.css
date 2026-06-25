@@ -5,6 +5,13 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Native dropdown options on the dark theme (applies app-wide so pages
+   don't each need an inline <style> block for it). */
+select option {
+  background: #18181b;
+  color: #f4f4f5;
+}
+
 /* React Quill Custom Styles */
 .ql-toolbar {
     background: rgba(255, 255, 255, 0.6) !important;
@@ -100,6 +107,34 @@
     --radius-3xl: calc(var(--radius) * 2.2);
     --radius-4xl: calc(var(--radius) * 2.6);
 }
+
+  /* Brand palette — mirrors src/theme/tokens.ts so pages use semantic
+     Tailwind utilities (bg-surface, text-subtle, bg-brand-dim, …) instead of
+     inline hex. Generates bg-*/text-*/border-* utilities for each. */
+  @theme {
+    --color-bg: #0a0a0c;
+    --color-surface: #111113;
+    --color-surface2: #18181b;
+    --color-line: #27272a;
+    --color-line-strong: #3f3f46;
+    --color-fg: #f4f4f5;
+    --color-fg-muted: #71717a;
+    --color-fg-subtle: #52525b;
+    --color-brand: #16a34a;
+    --color-brand-light: #4ade80;
+    --color-brand-hover: #15803d;
+    --color-brand-dim: rgba(22, 163, 74, 0.12);
+    --color-brand-border: rgba(22, 163, 74, 0.3);
+    --color-info: #3b82f6;
+    --color-info-dim: rgba(59, 130, 246, 0.12);
+    --color-warning: #fbbf24;
+    --color-warning-dim: rgba(251, 191, 36, 0.1);
+    --color-violet: #a78bfa;
+    --color-violet-dim: rgba(167, 139, 250, 0.12);
+    --color-danger: #f87171;
+    --color-danger-dim: rgba(248, 113, 113, 0.1);
+    --color-danger-border: rgba(248, 113, 113, 0.3);
+  }
 
   :root {
     /* Dark green SaaS theme — always-dark */

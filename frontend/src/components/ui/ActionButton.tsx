@@ -1,37 +1,40 @@
 import React from 'react';
-import { D } from '../../theme/tokens';
+import { cn } from '../../lib/utils';
 
 interface PrimaryBtnProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   danger?: boolean;
   variant?: 'green' | 'blue' | 'amber';
 }
 
-export const PrimaryBtn = ({ children, danger, variant = 'green', ...p }: PrimaryBtnProps) => {
-  const bg = danger ? D.red : variant === 'blue' ? D.blue : variant === 'amber' ? D.amber : D.green;
+export const PrimaryBtn = ({ children, danger, variant = 'green', className, ...p }: PrimaryBtnProps) => {
+  const bgCls = danger
+    ? 'bg-danger'
+    : variant === 'blue'
+    ? 'bg-info'
+    : variant === 'amber'
+    ? 'bg-warning'
+    : 'bg-brand';
   return (
     <button
       {...p}
-      style={{
-        flex: 1, padding: '9px 0', background: bg, color: '#fff',
-        fontWeight: 600, fontSize: 13, border: 'none', borderRadius: 8,
-        cursor: p.disabled ? 'not-allowed' : 'pointer',
-        opacity: p.disabled ? 0.6 : 1, transition: 'opacity 0.15s',
-        ...p.style,
-      }}
+      className={cn(
+        "flex-1 px-0 py-[9px] text-white font-semibold text-[13px] border-none rounded-lg cursor-pointer transition-opacity duration-150 disabled:cursor-not-allowed disabled:opacity-60",
+        bgCls,
+        className
+      )}
     >
       {children}
     </button>
   );
 };
 
-export const GhostBtn = ({ children, ...p }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+export const GhostBtn = ({ children, className, ...p }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
   <button
     {...p}
-    style={{
-      flex: 1, padding: '9px 0', background: D.surface2, color: D.textMuted,
-      fontWeight: 600, fontSize: 13, border: `1px solid ${D.border}`,
-      borderRadius: 8, cursor: 'pointer', ...p.style,
-    }}
+    className={cn(
+      "flex-1 px-0 py-[9px] bg-surface2 text-fg-muted font-semibold text-[13px] border border-line rounded-lg cursor-pointer",
+      className
+    )}
   >
     {children}
   </button>
@@ -49,11 +52,8 @@ export const ActionBtn = ({ icon: Icon, color, bg, title: t, onClick }: ActionBt
   <button
     onClick={onClick}
     title={t}
-    style={{
-      width: 30, height: 30, borderRadius: 7, background: bg, border: 'none',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      cursor: 'pointer', flexShrink: 0, color,
-    }}
+    className="w-[30px] h-[30px] rounded-[7px] border-none flex items-center justify-center cursor-pointer shrink-0"
+    style={{ background: bg, color }}
   >
     <Icon size={13} />
   </button>

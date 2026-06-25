@@ -5,7 +5,7 @@ import { Plus, Eye, Edit2, DollarSign, Minus, Lock, Unlock, Trash2, CheckCircle2
 import { getUserRole } from '../utils/Auth';
 import { UserRole } from '../constants/Roles';
 import { useUserManagement } from '../hooks/useUserManagement';
-import { D } from '../theme/tokens';
+import { cn } from '../lib/utils';
 import { Spinner } from '../components/ui/Spinner';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { ModalOverlay, ModalHeader, ModalBody, ModalFooter } from '../components/ui/Modal';
@@ -41,80 +41,77 @@ const ManageUser = () => {
   if (loading) return <Spinner label="Loading users…" />;
 
   if (!isAdminOrReseller) return (
-    <div style={{ padding: '12px 16px', background: D.redDim, border: `1px solid ${D.redBorder}`, borderRadius: 10 }}>
-      <p style={{ color: D.red, fontSize: 14 }}>Access denied. Admin or Reseller role required.</p>
+    <div className="px-4 py-3 bg-danger-dim border border-danger-border rounded-[10px]">
+      <p className="text-danger text-sm">Access denied. Admin or Reseller role required.</p>
     </div>
   );
 
   return (
     <>
       <style>{`
-        @keyframes spin{to{transform:rotate(360deg)}}
-        .row-hover:hover td{background:rgba(255,255,255,0.025)!important}
-        select option{background:#18181b;color:#f4f4f5}
         input[type=file]::file-selector-button{background:rgba(22,163,74,0.15);border:1px solid rgba(22,163,74,0.3);color:#4ade80;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;margin-right:8px}
       `}</style>
 
       {success && (
-        <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, background: D.greenDim, border: `1px solid ${D.greenBorder}`, borderRadius: 10, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>
-          <CheckCircle2 size={14} style={{ color: D.greenLight }} />
-          <p style={{ fontSize: 13, color: D.text }}>{success}</p>
+        <div className="fixed top-5 right-5 z-[9999] bg-brand-dim border border-brand-border rounded-[10px] px-4 py-2.5 flex items-center gap-2 shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
+          <CheckCircle2 size={14} className="text-brand-light" />
+          <p className="text-[13px] text-fg">{success}</p>
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="flex flex-col gap-4">
         <PageHeader
           title="Manage Users"
           subtitle={`${total} total users`}
           action={
-            <button onClick={() => openModal('create')} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', background: D.green, color: '#fff', fontWeight: 600, fontSize: 13, border: 'none', borderRadius: 8, cursor: 'pointer' }}>
+            <button onClick={() => openModal('create')} className="flex items-center gap-[7px] px-4 py-[9px] bg-brand text-white font-semibold text-[13px] border-none rounded-lg cursor-pointer">
               <Plus size={15} /> Add User
             </button>
           }
         />
 
-        <div style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 10, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 11, color: D.textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Show</span>
+        <div className="bg-surface border border-line rounded-[10px] px-4 py-2.5 flex items-center gap-2.5 flex-wrap">
+          <span className="text-[11px] text-fg-muted font-semibold uppercase tracking-[0.07em]">Show</span>
           <select value={itemsPerPage} onChange={e => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-            style={{ background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 6, color: D.text, fontSize: 12, padding: '4px 8px', outline: 'none' }}>
+            className="bg-surface2 border border-line rounded-md text-fg text-xs px-2 py-1 outline-none">
             {[10, 25, 50].map(n => <option key={n} value={n}>{n}</option>)}
           </select>
-          <span style={{ fontSize: 11, color: D.textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>entries</span>
-          <span style={{ marginLeft: 'auto', fontSize: 12, color: D.textSubtle }}>
+          <span className="text-[11px] text-fg-muted font-semibold uppercase tracking-[0.07em]">entries</span>
+          <span className="ml-auto text-xs text-fg-subtle">
             {startIdx + 1}–{Math.min(startIdx + itemsPerPage, total)} of {total}
           </span>
         </div>
 
         {/* Desktop table */}
-        <div className="hidden lg:block" style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 12, overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div className="hidden lg:block bg-surface border border-line rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
               <thead>
-                <tr style={{ borderBottom: `1px solid ${D.border}` }}>
+                <tr className="border-b border-line">
                   {['', 'Company', 'Phone', 'Email', 'Balance', 'Status', 'Actions'].map(h => (
-                    <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: 10, color: D.textSubtle, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>{h}</th>
+                    <th key={h} className="px-4 py-3 text-left text-[10px] text-fg-subtle font-bold uppercase tracking-[0.08em] whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {current.length === 0 ? (
-                  <tr><td colSpan={7} style={{ padding: '40px 16px', textAlign: 'center', color: D.textSubtle, fontSize: 13 }}>No users found</td></tr>
+                  <tr><td colSpan={7} className="px-4 py-10 text-center text-fg-subtle text-[13px]">No users found</td></tr>
                 ) : current.map(r => (
-                  <tr key={r.id} className="row-hover" style={{ borderBottom: `1px solid rgba(39,39,42,0.5)` }}>
-                    <td style={{ padding: '10px 16px' }}><Avatar name={r.companyName} image={r.image} size={34} /></td>
-                    <td style={{ padding: '10px 16px', fontSize: 13, color: D.text, fontWeight: 500 }}>{r.companyName}</td>
-                    <td style={{ padding: '10px 16px', fontSize: 12, color: D.textMuted }}>{r.number}</td>
-                    <td style={{ padding: '10px 16px', fontSize: 12, color: D.textMuted, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.email}</td>
-                    <td style={{ padding: '10px 16px', fontSize: 14, fontWeight: 700, color: D.greenLight }}>₹{r.balance.toLocaleString()}</td>
-                    <td style={{ padding: '10px 16px' }}><StatusBadge status={r.status} /></td>
-                    <td style={{ padding: '10px 16px' }}>
-                      <div style={{ display: 'flex', gap: 5 }}>
-                        <ActionBtn icon={Eye}        color={D.blue}      bg={D.blueDim}  title="View"          onClick={() => openModal('view', r)} />
-                        <ActionBtn icon={Edit2}       color={D.amber}     bg={D.amberDim} title="Edit"          onClick={() => openModal('edit', r)} />
-                        <ActionBtn icon={DollarSign}  color={D.greenLight} bg={D.greenDim} title="Add Credit"   onClick={() => openModal('addCredit', r)} />
-                        <ActionBtn icon={Minus}       color={D.red}       bg={D.redDim}   title="Remove Credit" onClick={() => openModal('removeCredit', r)} />
-                        <ActionBtn icon={r.status === 'active' ? Lock : Unlock} color={r.status === 'active' ? D.red : D.greenLight} bg={r.status === 'active' ? D.redDim : D.greenDim} title={r.status === 'active' ? 'Freeze' : 'Unfreeze'} onClick={() => openModal('freeze', r)} />
-                        <ActionBtn icon={Trash2}      color={D.red}       bg={D.redDim}   title="Delete"        onClick={() => openModal('delete', r)} />
+                  <tr key={r.id} className="group border-b border-line/50">
+                    <td className="px-4 py-2.5 group-hover:bg-white/[0.025]"><Avatar name={r.companyName} image={r.image} size={34} /></td>
+                    <td className="px-4 py-2.5 text-[13px] text-fg font-medium group-hover:bg-white/[0.025]">{r.companyName}</td>
+                    <td className="px-4 py-2.5 text-xs text-fg-muted group-hover:bg-white/[0.025]">{r.number}</td>
+                    <td className="px-4 py-2.5 text-xs text-fg-muted max-w-[160px] overflow-hidden text-ellipsis whitespace-nowrap group-hover:bg-white/[0.025]">{r.email}</td>
+                    <td className="px-4 py-2.5 text-sm font-bold text-brand-light group-hover:bg-white/[0.025]">₹{r.balance.toLocaleString()}</td>
+                    <td className="px-4 py-2.5 group-hover:bg-white/[0.025]"><StatusBadge status={r.status} /></td>
+                    <td className="px-4 py-2.5 group-hover:bg-white/[0.025]">
+                      <div className="flex gap-[5px]">
+                        <ActionBtn icon={Eye}        color="var(--color-info)"        bg="var(--color-info-dim)"  title="View"          onClick={() => openModal('view', r)} />
+                        <ActionBtn icon={Edit2}       color="var(--color-warning)"     bg="var(--color-warning-dim)" title="Edit"          onClick={() => openModal('edit', r)} />
+                        <ActionBtn icon={DollarSign}  color="var(--color-brand-light)" bg="var(--color-brand-dim)" title="Add Credit"   onClick={() => openModal('addCredit', r)} />
+                        <ActionBtn icon={Minus}       color="var(--color-danger)"      bg="var(--color-danger-dim)"   title="Remove Credit" onClick={() => openModal('removeCredit', r)} />
+                        <ActionBtn icon={r.status === 'active' ? Lock : Unlock} color={r.status === 'active' ? 'var(--color-danger)' : 'var(--color-brand-light)'} bg={r.status === 'active' ? 'var(--color-danger-dim)' : 'var(--color-brand-dim)'} title={r.status === 'active' ? 'Freeze' : 'Unfreeze'} onClick={() => openModal('freeze', r)} />
+                        <ActionBtn icon={Trash2}      color="var(--color-danger)"      bg="var(--color-danger-dim)"   title="Delete"        onClick={() => openModal('delete', r)} />
                       </div>
                     </td>
                   </tr>
@@ -125,32 +122,32 @@ const ManageUser = () => {
         </div>
 
         {/* Mobile cards */}
-        <div className="lg:hidden" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="lg:hidden flex flex-col gap-2.5">
           {current.length === 0 ? (
-            <div style={{ padding: 32, textAlign: 'center', background: D.surface, border: `1px solid ${D.border}`, borderRadius: 12 }}>
-              <p style={{ color: D.textSubtle, fontSize: 13 }}>No users found</p>
+            <div className="p-8 text-center bg-surface border border-line rounded-xl">
+              <p className="text-fg-subtle text-[13px]">No users found</p>
             </div>
           ) : current.map(r => (
-            <div key={r.id} style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 10, padding: '12px 14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, paddingBottom: 10, borderBottom: `1px solid ${D.border}` }}>
+            <div key={r.id} className="bg-surface border border-line rounded-[10px] px-3.5 py-3">
+              <div className="flex items-center gap-2.5 mb-2.5 pb-2.5 border-b border-line">
                 <Avatar name={r.companyName} image={r.image} size={38} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: D.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.companyName}</p>
-                  <p style={{ fontSize: 11, color: D.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.email}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-semibold text-fg overflow-hidden text-ellipsis whitespace-nowrap">{r.companyName}</p>
+                  <p className="text-[11px] text-fg-muted overflow-hidden text-ellipsis whitespace-nowrap">{r.email}</p>
                 </div>
                 <StatusBadge status={r.status} />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-                <div><p style={{ fontSize: 10, color: D.textSubtle, marginBottom: 2 }}>PHONE</p><p style={{ fontSize: 12, color: D.textMuted }}>{r.number}</p></div>
-                <div style={{ textAlign: 'right' }}><p style={{ fontSize: 10, color: D.textSubtle, marginBottom: 2 }}>BALANCE</p><p style={{ fontSize: 16, fontWeight: 700, color: D.greenLight }}>₹{r.balance.toLocaleString()}</p></div>
+              <div className="flex justify-between mb-2.5">
+                <div><p className="text-[10px] text-fg-subtle mb-0.5">PHONE</p><p className="text-xs text-fg-muted">{r.number}</p></div>
+                <div className="text-right"><p className="text-[10px] text-fg-subtle mb-0.5">BALANCE</p><p className="text-base font-bold text-brand-light">₹{r.balance.toLocaleString()}</p></div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 6 }}>
-                <ActionBtn icon={Eye}        color={D.blue}      bg={D.blueDim}  title="View"          onClick={() => openModal('view', r)} />
-                <ActionBtn icon={Edit2}       color={D.amber}     bg={D.amberDim} title="Edit"          onClick={() => openModal('edit', r)} />
-                <ActionBtn icon={DollarSign}  color={D.greenLight} bg={D.greenDim} title="Add Credit"   onClick={() => openModal('addCredit', r)} />
-                <ActionBtn icon={Minus}       color={D.red}       bg={D.redDim}   title="Remove Credit" onClick={() => openModal('removeCredit', r)} />
-                <ActionBtn icon={r.status === 'active' ? Lock : Unlock} color={r.status === 'active' ? D.red : D.greenLight} bg={r.status === 'active' ? D.redDim : D.greenDim} title={r.status === 'active' ? 'Freeze' : 'Unfreeze'} onClick={() => openModal('freeze', r)} />
-                <ActionBtn icon={Trash2}      color={D.red}       bg={D.redDim}   title="Delete"        onClick={() => openModal('delete', r)} />
+              <div className="grid grid-cols-6 gap-1.5">
+                <ActionBtn icon={Eye}        color="var(--color-info)"        bg="var(--color-info-dim)"  title="View"          onClick={() => openModal('view', r)} />
+                <ActionBtn icon={Edit2}       color="var(--color-warning)"     bg="var(--color-warning-dim)" title="Edit"          onClick={() => openModal('edit', r)} />
+                <ActionBtn icon={DollarSign}  color="var(--color-brand-light)" bg="var(--color-brand-dim)" title="Add Credit"   onClick={() => openModal('addCredit', r)} />
+                <ActionBtn icon={Minus}       color="var(--color-danger)"      bg="var(--color-danger-dim)"   title="Remove Credit" onClick={() => openModal('removeCredit', r)} />
+                <ActionBtn icon={r.status === 'active' ? Lock : Unlock} color={r.status === 'active' ? 'var(--color-danger)' : 'var(--color-brand-light)'} bg={r.status === 'active' ? 'var(--color-danger-dim)' : 'var(--color-brand-dim)'} title={r.status === 'active' ? 'Freeze' : 'Unfreeze'} onClick={() => openModal('freeze', r)} />
+                <ActionBtn icon={Trash2}      color="var(--color-danger)"      bg="var(--color-danger-dim)"   title="Delete"        onClick={() => openModal('delete', r)} />
               </div>
             </div>
           ))}
@@ -162,11 +159,11 @@ const ManageUser = () => {
       {/* Create modal */}
       {modal === 'create' && (
         <ModalOverlay onClose={closeModal}>
-          <div style={{ maxWidth: 520, margin: '0 auto' }}>
+          <div className="max-w-[520px] mx-auto">
             <ModalHeader title="Add New User" onClose={closeModal} />
             <ModalBody>
               {error && <InlineAlert msg={error} type="error" />}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div className="flex flex-col gap-3">
                 <FInput label="Company Name *" type="text" placeholder="e.g. Acme Corp" value={createForm.companyName} onChange={e => setCreateForm(f => ({ ...f, companyName: e.target.value }))} />
                 <FInput label="Email *" type="email" placeholder="admin@company.com" value={createForm.email} onChange={e => setCreateForm(f => ({ ...f, email: e.target.value }))} />
                 <FInput label="Password *" type="password" placeholder="Enter password" value={createForm.password} onChange={e => setCreateForm(f => ({ ...f, password: e.target.value }))} />
@@ -178,9 +175,9 @@ const ManageUser = () => {
                 <div>
                   <FLabel>Profile Image (optional)</FLabel>
                   <input type="file" accept="image/*"
-                    style={{ width: '100%', padding: '7px 10px', fontSize: 12, cursor: 'pointer', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, color: D.textMuted, outline: 'none' }}
+                    className="w-full px-2.5 py-[7px] text-xs cursor-pointer bg-surface2 border border-line rounded-lg text-fg-muted outline-none"
                     onChange={(e: ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) setCreateForm(x => ({ ...x, image: f })); }} />
-                  {createForm.image && <p style={{ fontSize: 11, color: D.greenLight, marginTop: 4 }}>✓ {createForm.image.name}</p>}
+                  {createForm.image && <p className="text-[11px] text-brand-light mt-1">✓ {createForm.image.name}</p>}
                 </div>
               </div>
             </ModalBody>
@@ -195,30 +192,30 @@ const ManageUser = () => {
       {/* View modal */}
       {modal === 'view' && selected && (
         <ModalOverlay onClose={closeModal}>
-          <div style={{ maxWidth: 520, margin: '0 auto' }}>
+          <div className="max-w-[520px] mx-auto">
             <ModalHeader title="User Details" onClose={closeModal} />
             <ModalBody>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
+              <div className="flex items-center gap-3.5 mb-5">
                 <Avatar name={selected.companyName} image={selected.image} size={60} />
                 <div>
-                  <p style={{ fontSize: 16, fontWeight: 700, color: D.text }}>{selected.companyName}</p>
-                  <p style={{ fontSize: 12, color: D.textMuted, marginTop: 2 }}>{selected.email}</p>
-                  <div style={{ marginTop: 6 }}><StatusBadge status={selected.status} /></div>
+                  <p className="text-base font-bold text-fg">{selected.companyName}</p>
+                  <p className="text-xs text-fg-muted mt-0.5">{selected.email}</p>
+                  <div className="mt-1.5"><StatusBadge status={selected.status} /></div>
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div className="grid grid-cols-2 gap-3 mb-4">
                 {[['User ID', selected.id], ['Phone', selected.number], ['Role', selected.role], ['Joined', formatDate(selected.createdAt)]].map(([l, v]) => (
-                  <div key={l} style={{ background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, padding: '10px 12px' }}>
-                    <p style={{ fontSize: 10, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>{l}</p>
-                    <p style={{ fontSize: 12, color: D.text, fontWeight: 500, wordBreak: 'break-all' }}>{v}</p>
+                  <div key={l} className="bg-surface2 border border-line rounded-lg px-3 py-2.5">
+                    <p className="text-[10px] text-fg-subtle font-semibold uppercase tracking-[0.07em] mb-1">{l}</p>
+                    <p className="text-xs text-fg font-medium break-all">{v}</p>
                   </div>
                 ))}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
-                {[['Balance', `₹${selected.balance.toLocaleString()}`, D.greenLight], ['Resellers', selected.resellerCount, D.blue], ['Users', selected.userCount, D.amber], ['Campaigns', selected.totalCampaigns, D.purple]].map(([l, v, c]) => (
-                  <div key={String(l)} style={{ background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, padding: '12px 8px', textAlign: 'center' }}>
-                    <p style={{ fontSize: 18, fontWeight: 700, color: String(c) }}>{v}</p>
-                    <p style={{ fontSize: 10, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', marginTop: 4 }}>{l}</p>
+              <div className="grid grid-cols-4 gap-2.5">
+                {[['Balance', `₹${selected.balance.toLocaleString()}`, 'text-brand-light'], ['Resellers', selected.resellerCount, 'text-info'], ['Users', selected.userCount, 'text-warning'], ['Campaigns', selected.totalCampaigns, 'text-violet']].map(([l, v, c]) => (
+                  <div key={String(l)} className="bg-surface2 border border-line rounded-lg px-2 py-3 text-center">
+                    <p className={cn('text-lg font-bold', c)}>{v}</p>
+                    <p className="text-[10px] text-fg-subtle font-semibold uppercase mt-1">{l}</p>
                   </div>
                 ))}
               </div>
@@ -231,23 +228,23 @@ const ManageUser = () => {
       {/* Edit modal */}
       {modal === 'edit' && selected && (
         <ModalOverlay onClose={closeModal}>
-          <div style={{ maxWidth: 500, margin: '0 auto' }}>
+          <div className="max-w-[500px] mx-auto">
             <ModalHeader title={`Edit — ${selected.companyName}`} onClose={closeModal} />
             <ModalBody>
               {error && <InlineAlert msg={error} type="error" />}
-              <div style={{ marginBottom: 16 }}>
-                <p style={{ fontSize: 11, color: D.textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Profile</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div className="mb-4">
+                <p className="text-[11px] text-fg-muted font-semibold uppercase tracking-[0.07em] mb-2.5">Profile</p>
+                <div className="flex flex-col gap-2.5">
                   <FInput label="Company Name" type="text" placeholder={selected.companyName} value={editForm.companyName} onChange={e => setEditForm(f => ({ ...f, companyName: e.target.value }))} />
                   <FInput label="Email" type="email" placeholder={selected.email} value={editForm.email} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} />
                   <FInput label="Phone" type="tel" placeholder={selected.number} maxLength={10} value={editForm.number} onChange={e => setEditForm(f => ({ ...f, number: e.target.value }))} />
                 </div>
               </div>
-              <div style={{ paddingTop: 16, borderTop: `1px solid ${D.border}` }}>
-                <p style={{ fontSize: 11, color: D.textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
-                  Change Password <span style={{ fontWeight: 400, textTransform: 'none', fontSize: 11, color: D.textSubtle }}>(leave blank to skip)</span>
+              <div className="pt-4 border-t border-line">
+                <p className="text-[11px] text-fg-muted font-semibold uppercase tracking-[0.07em] mb-1.5">
+                  Change Password <span className="font-normal normal-case text-[11px] text-fg-subtle">(leave blank to skip)</span>
                 </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div className="flex flex-col gap-2.5">
                   <FInput label="New Password" type="password" placeholder="Min 5 characters" value={editForm.password} onChange={e => setEditForm(f => ({ ...f, password: e.target.value }))} />
                   <FInput label="Confirm Password" type="password" placeholder="Repeat password" value={editForm.confirmPassword} onChange={e => setEditForm(f => ({ ...f, confirmPassword: e.target.value }))} />
                 </div>
@@ -264,13 +261,13 @@ const ManageUser = () => {
       {/* Add Credit modal */}
       {modal === 'addCredit' && selected && (
         <ModalOverlay onClose={closeModal}>
-          <div style={{ maxWidth: 400, margin: '0 auto' }}>
+          <div className="max-w-[400px] mx-auto">
             <ModalHeader title="Add Credit" onClose={closeModal} />
             <ModalBody>
               {error && <InlineAlert msg={error} type="error" />}
-              <div style={{ background: D.greenDim, border: `1px solid ${D.greenBorder}`, borderRadius: 8, padding: '10px 12px', marginBottom: 14 }}>
-                <p style={{ fontSize: 12, color: D.textMuted }}>User: <span style={{ color: D.text, fontWeight: 600 }}>{selected.companyName}</span></p>
-                <p style={{ fontSize: 12, color: D.textMuted, marginTop: 4 }}>Current Balance: <span style={{ color: D.greenLight, fontWeight: 700, fontSize: 15 }}>₹{selected.balance.toLocaleString()}</span></p>
+              <div className="bg-brand-dim border border-brand-border rounded-lg px-3 py-2.5 mb-3.5">
+                <p className="text-xs text-fg-muted">User: <span className="text-fg font-semibold">{selected.companyName}</span></p>
+                <p className="text-xs text-fg-muted mt-1">Current Balance: <span className="text-brand-light font-bold text-[15px]">₹{selected.balance.toLocaleString()}</span></p>
               </div>
               <FInput label="Amount to Credit *" type="number" placeholder="Enter amount" min="0" value={creditAmt} onChange={e => setCreditAmt(e.target.value)} />
             </ModalBody>
@@ -285,13 +282,13 @@ const ManageUser = () => {
       {/* Remove Credit modal */}
       {modal === 'removeCredit' && selected && (
         <ModalOverlay onClose={closeModal}>
-          <div style={{ maxWidth: 400, margin: '0 auto' }}>
+          <div className="max-w-[400px] mx-auto">
             <ModalHeader title="Remove Credit" onClose={closeModal} />
             <ModalBody>
               {error && <InlineAlert msg={error} type="error" />}
-              <div style={{ background: D.redDim, border: `1px solid ${D.redBorder}`, borderRadius: 8, padding: '10px 12px', marginBottom: 14 }}>
-                <p style={{ fontSize: 12, color: D.textMuted }}>User: <span style={{ color: D.text, fontWeight: 600 }}>{selected.companyName}</span></p>
-                <p style={{ fontSize: 12, color: D.textMuted, marginTop: 4 }}>Current Balance: <span style={{ color: D.greenLight, fontWeight: 700, fontSize: 15 }}>₹{selected.balance.toLocaleString()}</span></p>
+              <div className="bg-danger-dim border border-danger-border rounded-lg px-3 py-2.5 mb-3.5">
+                <p className="text-xs text-fg-muted">User: <span className="text-fg font-semibold">{selected.companyName}</span></p>
+                <p className="text-xs text-fg-muted mt-1">Current Balance: <span className="text-brand-light font-bold text-[15px]">₹{selected.balance.toLocaleString()}</span></p>
               </div>
               <FInput label="Amount to Debit *" type="number" placeholder="Enter amount" min="0" value={debitAmt} onChange={e => setDebitAmt(e.target.value)} />
             </ModalBody>
@@ -306,17 +303,17 @@ const ManageUser = () => {
       {/* Freeze modal */}
       {modal === 'freeze' && selected && (
         <ModalOverlay onClose={closeModal}>
-          <div style={{ maxWidth: 400, margin: '0 auto' }}>
+          <div className="max-w-[400px] mx-auto">
             <ModalHeader title={selected.status === 'active' ? 'Freeze Account' : 'Unfreeze Account'} onClose={closeModal} />
             <ModalBody>
               {error && <InlineAlert msg={error} type="error" />}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '16px 0' }}>
-                <div style={{ width: 52, height: 52, borderRadius: '50%', background: selected.status === 'active' ? D.redDim : D.greenDim, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {selected.status === 'active' ? <Lock size={22} style={{ color: D.red }} /> : <Unlock size={22} style={{ color: D.greenLight }} />}
+              <div className="flex flex-col items-center gap-3 py-4">
+                <div className={cn('w-[52px] h-[52px] rounded-full flex items-center justify-center', selected.status === 'active' ? 'bg-danger-dim' : 'bg-brand-dim')}>
+                  {selected.status === 'active' ? <Lock size={22} className="text-danger" /> : <Unlock size={22} className="text-brand-light" />}
                 </div>
-                <p style={{ fontSize: 14, color: D.text, textAlign: 'center', lineHeight: 1.6 }}>
+                <p className="text-sm text-fg text-center leading-[1.6]">
                   Are you sure you want to <strong>{selected.status === 'active' ? 'freeze' : 'unfreeze'}</strong>{' '}
-                  <strong style={{ color: D.text }}>{selected.companyName}</strong>?
+                  <strong className="text-fg">{selected.companyName}</strong>?
                 </p>
               </div>
             </ModalBody>
@@ -333,16 +330,16 @@ const ManageUser = () => {
       {/* Delete modal */}
       {modal === 'delete' && selected && (
         <ModalOverlay onClose={closeModal}>
-          <div style={{ maxWidth: 400, margin: '0 auto' }}>
+          <div className="max-w-[400px] mx-auto">
             <ModalHeader title="Delete User" onClose={closeModal} />
             <ModalBody>
               {error && <InlineAlert msg={error} type="error" />}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '16px 0' }}>
-                <div style={{ width: 52, height: 52, borderRadius: '50%', background: D.redDim, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Trash2 size={22} style={{ color: D.red }} />
+              <div className="flex flex-col items-center gap-3 py-4">
+                <div className="w-[52px] h-[52px] rounded-full bg-danger-dim flex items-center justify-center">
+                  <Trash2 size={22} className="text-danger" />
                 </div>
-                <p style={{ fontSize: 14, color: D.text, textAlign: 'center', lineHeight: 1.6 }}>
-                  Delete <strong style={{ color: D.text }}>{selected.companyName}</strong>? This will soft-delete the account.
+                <p className="text-sm text-fg text-center leading-[1.6]">
+                  Delete <strong className="text-fg">{selected.companyName}</strong>? This will soft-delete the account.
                 </p>
               </div>
             </ModalBody>

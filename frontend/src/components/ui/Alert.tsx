@@ -1,5 +1,5 @@
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
-import { D } from '../../theme/tokens';
+import { cn } from '../../lib/utils';
 
 interface InlineAlertProps {
   msg: string;
@@ -11,17 +11,18 @@ interface InlineAlertProps {
  * For transient global notifications, use sonner `toast.success/.error` directly.
  */
 export const InlineAlert = ({ msg, type }: InlineAlertProps) => (
-  <div style={{
-    display: 'flex', alignItems: 'flex-start', gap: 8,
-    padding: '10px 12px',
-    background: type === 'error' ? D.redDim : D.greenDim,
-    border: `1px solid ${type === 'error' ? D.redBorder : D.greenBorder}`,
-    borderRadius: 8, marginBottom: 14,
-  }}>
+  <div
+    className={cn(
+      "flex items-start gap-2 px-3 py-2.5 border rounded-lg mb-3.5",
+      type === 'error'
+        ? "bg-danger-dim border-danger-border"
+        : "bg-brand-dim border-brand-border"
+    )}
+  >
     {type === 'error'
-      ? <AlertCircle size={14} style={{ color: D.red, flexShrink: 0, marginTop: 1 }} />
-      : <CheckCircle2 size={14} style={{ color: D.greenLight, flexShrink: 0, marginTop: 1 }} />
+      ? <AlertCircle size={14} className="text-danger shrink-0 mt-px" />
+      : <CheckCircle2 size={14} className="text-brand-light shrink-0 mt-px" />
     }
-    <p style={{ fontSize: 12, color: D.text }}>{msg}</p>
+    <p className="text-xs text-fg">{msg}</p>
   </div>
 );

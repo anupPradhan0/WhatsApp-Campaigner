@@ -1,19 +1,15 @@
 
-import { D } from '../../theme/tokens';
-
 interface SpinnerProps {
   label?: string;
   size?: number;
 }
 
 export const Spinner = ({ label = 'Loading…', size = 36 }: SpinnerProps) => (
-  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400, flexDirection: 'column', gap: 12 }}>
-    <div style={{
-      width: size, height: size, borderRadius: '50%',
-      border: `3px solid ${D.border}`, borderTopColor: D.green,
-      animation: 'spin 0.8s linear infinite',
-    }} />
-    <p style={{ color: D.textMuted, fontSize: 13 }}>{label}</p>
-    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+  <div className="flex flex-col items-center justify-center gap-3 min-h-[400px]">
+    <div
+      className="rounded-full border-[3px] border-line border-t-brand animate-spin [animation-duration:0.8s]"
+      style={{ width: size, height: size }}
+    />
+    <p className="text-fg-muted text-[13px]">{label}</p>
   </div>
 );

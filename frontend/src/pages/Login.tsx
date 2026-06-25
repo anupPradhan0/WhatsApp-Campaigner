@@ -21,28 +21,7 @@ import {
   Send,
 } from 'lucide-react';
 import { api } from '../api/client';
-
-/* ─── design tokens ─────────────────────────────────────────────────────── */
-const D = {
-  bg: '#0a0a0c',
-  surface: '#111113',
-  surfaceHover: '#18181b',
-  border: '#27272a',
-  borderFocus: '#16a34a',
-  text: '#f4f4f5',
-  textMuted: '#71717a',
-  textSubtle: '#52525b',
-  green: '#16a34a',
-  greenHover: '#15803d',
-  greenDim: 'rgba(22,163,74,0.15)',
-  greenGlow: 'rgba(22,163,74,0.12)',
-  red: '#f87171',
-  redBg: 'rgba(248,113,113,0.08)',
-  redBorder: 'rgba(248,113,113,0.3)',
-  amber: '#f59e0b',
-  amberBg: 'rgba(245,158,11,0.08)',
-  amberBorder: 'rgba(245,158,11,0.25)',
-};
+import { cn } from '../lib/utils';
 
 /* ─── tiny reusable primitives ──────────────────────────────────────────── */
 
@@ -50,7 +29,7 @@ function Label({ htmlFor, children }: { htmlFor: string; children: React.ReactNo
   return (
     <label
       htmlFor={htmlFor}
-      style={{ color: D.text, fontSize: 14, fontWeight: 500, lineHeight: '20px', display: 'block', marginBottom: 6 }}
+      className="block text-fg text-sm font-medium leading-5 mb-1.5"
     >
       {children}
     </label>
@@ -77,7 +56,7 @@ function Input({
   suffix?: React.ReactNode;
 }) {
   return (
-    <div style={{ position: 'relative' }}>
+    <div className="relative">
       <input
         id={id}
         type={type}
@@ -86,37 +65,17 @@ function Input({
         placeholder={placeholder}
         disabled={disabled}
         autoComplete={type === 'password' ? 'current-password' : type === 'email' ? 'email' : 'off'}
-        style={{
-          width: '100%',
-          height: 42,
-          padding: suffix ? '0 40px 0 12px' : '0 12px',
-          background: D.surface,
-          border: `1px solid ${hasError ? D.red : D.border}`,
-          borderRadius: 8,
-          fontSize: 14,
-          color: D.text,
-          outline: 'none',
-          boxSizing: 'border-box',
-          opacity: disabled ? 0.5 : 1,
-          cursor: disabled ? 'not-allowed' : 'text',
-          boxShadow: hasError ? `0 0 0 3px ${D.redBg}` : 'none',
-          transition: 'border-color 0.15s, box-shadow 0.15s',
-        }}
-        onFocus={(e) => {
-          if (!hasError) {
-            e.currentTarget.style.borderColor = D.borderFocus;
-            e.currentTarget.style.boxShadow = `0 0 0 3px ${D.greenGlow}`;
-          }
-        }}
-        onBlur={(e) => {
-          if (!hasError) {
-            e.currentTarget.style.borderColor = D.border;
-            e.currentTarget.style.boxShadow = 'none';
-          }
-        }}
+        className={cn(
+          'w-full h-[42px] bg-surface rounded-lg text-sm text-fg outline-none box-border border transition-[border-color,box-shadow] duration-150',
+          suffix ? 'pl-3 pr-10' : 'px-3',
+          'disabled:opacity-50 disabled:cursor-not-allowed',
+          hasError
+            ? 'border-danger shadow-[0_0_0_3px_rgba(248,113,113,0.08)]'
+            : 'border-line focus:border-[#16a34a] focus:shadow-[0_0_0_3px_rgba(22,163,74,0.12)]',
+        )}
       />
       {suffix && (
-        <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }}>
+        <span className="absolute right-3 top-1/2 -translate-y-1/2">
           {suffix}
         </span>
       )}
@@ -140,37 +99,25 @@ function PrimaryButton({
   onClick?: () => void;
   color?: 'green' | 'amber';
 }) {
-  const bg = color === 'amber' ? '#d97706' : '#16a34a';
-  const hover = color === 'amber' ? '#b45309' : '#15803d';
-  const [hov, setHov] = useState(false);
+  const isDisabled = disabled || loading;
   return (
     <button
       type={type}
-      disabled={disabled || loading}
+      disabled={isDisabled}
       onClick={onClick}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        width: '100%',
-        height: 42,
-        background: disabled || loading ? '#9ca3af' : hov ? hover : bg,
-        color: '#ffffff',
-        border: 'none',
-        borderRadius: 8,
-        fontSize: 14,
-        fontWeight: 500,
-        cursor: disabled || loading ? 'not-allowed' : 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        transition: 'background 0.15s',
-      }}
+      className={cn(
+        'w-full h-[42px] text-white border-none rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-[background] duration-150',
+        isDisabled
+          ? 'bg-[#9ca3af] cursor-not-allowed'
+          : color === 'amber'
+            ? 'bg-[#d97706] hover:bg-[#b45309] cursor-pointer'
+            : 'bg-[#16a34a] hover:bg-[#15803d] cursor-pointer',
+      )}
     >
       {loading && (
-        <svg style={{ animation: 'spin 1s linear infinite', width: 16, height: 16 }} fill="none" viewBox="0 0 24 24">
-          <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+        <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
         </svg>
       )}
       {children}
@@ -288,12 +235,7 @@ export default function Login() {
     <button
       type="button"
       onClick={onClick}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 6,
-        background: 'none', border: 'none', cursor: 'pointer',
-        color: D.textMuted, fontSize: 14, fontWeight: 500, padding: 0,
-        marginBottom: 28,
-      }}
+      className="inline-flex items-center gap-1.5 bg-none border-none cursor-pointer text-fg-muted text-sm font-medium p-0 mb-7"
     >
       <ArrowLeft size={16} />
       Back to sign in
@@ -303,9 +245,6 @@ export default function Login() {
   return (
     <>
       <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif; background: #0a0a0c; }
         ::placeholder { color: #52525b; }
         input:-webkit-autofill,
         input:-webkit-autofill:focus {
@@ -315,163 +254,120 @@ export default function Login() {
         }
       `}</style>
 
-      <div style={{ display: 'flex', minHeight: '100dvh', background: D.bg }}>
+      <div className="flex min-h-[100dvh] bg-bg">
 
         {/* ── LEFT PANEL ── */}
-        <div style={{
-          display: 'none',
-          flex: '0 0 57%',
-          height: '100dvh',
-          overflow: 'hidden',
-          position: 'relative',
-          backgroundColor: '#0a0a0c',
-        }}
-          className="lg-show"
-        >
+        <div className="hidden lg:flex flex-[0_0_57%] h-[100dvh] overflow-hidden relative bg-[#0a0a0c]">
           {/* mesh grid background */}
-          <div style={{
-            position: 'absolute', inset: 0,
-            backgroundImage: `
+          <div
+            className="absolute inset-0 bg-[length:40px_40px]"
+            style={{
+              backgroundImage: `
               linear-gradient(rgba(22,163,74,0.06) 1px, transparent 1px),
               linear-gradient(90deg, rgba(22,163,74,0.06) 1px, transparent 1px)
             `,
-            backgroundSize: '40px 40px',
-          }} />
+            }}
+          />
           {/* radial glow */}
-          <div style={{
-            position: 'absolute', inset: 0,
-            background: 'radial-gradient(ellipse 70% 50% at 50% 40%, rgba(22,163,74,0.12) 0%, transparent 70%)',
-          }} />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_40%,rgba(22,163,74,0.12)_0%,transparent_70%)]" />
 
           {/* content */}
-          <div style={{
-            position: 'relative', zIndex: 1,
-            display: 'flex', flexDirection: 'column',
-            height: '100%', padding: '40px 48px',
-          }}>
+          <div className="relative z-[1] flex flex-col h-full px-12 py-10">
             {/* logo */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{
-                width: 36, height: 36, borderRadius: 10,
-                background: 'linear-gradient(135deg, #16a34a, #15803d)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 0 20px rgba(22,163,74,0.4)',
-              }}>
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-[10px] bg-[linear-gradient(135deg,#16a34a,#15803d)] flex items-center justify-center shadow-[0_0_20px_rgba(22,163,74,0.4)]">
                 <MessageSquare size={18} color="#fff" />
               </div>
               <div>
-                <div style={{ color: '#ffffff', fontSize: 15, fontWeight: 600, lineHeight: 1.2 }}>WhatsApp</div>
-                <div style={{ color: '#4ade80', fontSize: 11, fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Campaign Manager</div>
+                <div className="text-white text-[15px] font-semibold leading-[1.2]">WhatsApp</div>
+                <div className="text-[#4ade80] text-[11px] font-medium tracking-[0.08em] uppercase">Campaign Manager</div>
               </div>
             </div>
 
             {/* headline */}
-            <div style={{ marginTop: 'auto', marginBottom: 48 }}>
-              <p style={{ color: '#4ade80', fontSize: 12, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 14 }}>
+            <div className="mt-auto mb-12">
+              <p className="text-[#4ade80] text-xs font-semibold tracking-[0.1em] uppercase mb-3.5">
                 WhatsApp Marketing Platform
               </p>
-              <h1 style={{
-                color: '#ffffff', fontSize: 42, fontWeight: 700,
-                lineHeight: 1.12, letterSpacing: '-0.5px', marginBottom: 16,
-              }}>
+              <h1 className="text-white text-[42px] font-bold leading-[1.12] tracking-[-0.5px] mb-4">
                 Reach millions.<br />
-                <span style={{ color: '#4ade80' }}>Drive results.</span>
+                <span className="text-[#4ade80]">Drive results.</span>
               </h1>
-              <p style={{ color: '#6b7280', fontSize: 15, lineHeight: 1.6, maxWidth: 380 }}>
+              <p className="text-[#6b7280] text-[15px] leading-[1.6] max-w-[380px]">
                 The all-in-one WhatsApp campaign platform for businesses that want to grow faster and connect deeper with their customers.
               </p>
             </div>
 
             {/* stats row */}
-            <div style={{ display: 'flex', gap: 0, marginBottom: 32, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.07)' }}>
+            <div className="flex gap-0 mb-8 rounded-xl overflow-hidden border border-white/[0.07]">
               {stats.map(({ label, value, icon: Icon }, i) => (
-                <div key={label} style={{
-                  flex: 1, padding: '20px 16px',
-                  background: 'rgba(255,255,255,0.03)',
-                  borderRight: i < stats.length - 1 ? '1px solid rgba(255,255,255,0.07)' : 'none',
-                  textAlign: 'center',
-                }}>
-                  <Icon size={16} color="#4ade80" style={{ marginBottom: 8, display: 'block', margin: '0 auto 8px' }} />
-                  <div style={{ color: '#ffffff', fontSize: 22, fontWeight: 700, lineHeight: 1 }}>{value}</div>
-                  <div style={{ color: '#6b7280', fontSize: 11, marginTop: 4, fontWeight: 500 }}>{label}</div>
+                <div
+                  key={label}
+                  className={cn(
+                    'flex-1 px-4 py-5 bg-white/[0.03] text-center',
+                    i < stats.length - 1 ? 'border-r border-white/[0.07]' : '',
+                  )}
+                >
+                  <Icon size={16} color="#4ade80" className="block mx-auto mb-2" />
+                  <div className="text-white text-[22px] font-bold leading-none">{value}</div>
+                  <div className="text-[#6b7280] text-[11px] mt-1 font-medium">{label}</div>
                 </div>
               ))}
             </div>
 
             {/* features */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div className="grid grid-cols-2 gap-2.5">
               {features.map(({ icon: Icon, text }) => (
-                <div key={text} style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '12px 14px',
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.07)',
-                  borderRadius: 10,
-                }}>
-                  <div style={{
-                    width: 30, height: 30, borderRadius: 8,
-                    background: 'rgba(22,163,74,0.15)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0,
-                  }}>
+                <div
+                  key={text}
+                  className="flex items-center gap-2.5 px-3.5 py-3 bg-white/[0.04] border border-white/[0.07] rounded-[10px]"
+                >
+                  <div className="w-[30px] h-[30px] rounded-lg bg-[rgba(22,163,74,0.15)] flex items-center justify-center shrink-0">
                     <Icon size={14} color="#4ade80" />
                   </div>
-                  <span style={{ color: '#d1d5db', fontSize: 13, fontWeight: 500, lineHeight: 1.3 }}>{text}</span>
+                  <span className="text-[#d1d5db] text-[13px] font-medium leading-[1.3]">{text}</span>
                 </div>
               ))}
             </div>
 
-            <p style={{ color: '#374151', fontSize: 12, marginTop: 32 }}>
+            <p className="text-[#374151] text-xs mt-8">
               © {new Date().getFullYear()} WhatsApp Campaign Manager
             </p>
           </div>
         </div>
 
         {/* ── RIGHT PANEL ── */}
-        <div style={{
-          flex: 1, display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center',
-          padding: '40px 24px', overflowY: 'auto',
-          background: D.bg,
-        }}>
-          <div style={{ width: '100%', maxWidth: 440 }}>
+        <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 overflow-y-auto bg-bg">
+          <div className="w-full max-w-[440px]">
 
             {/* mobile logo */}
-            <div className="lg-hide" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 32 }}>
-              <div style={{
-                width: 32, height: 32, borderRadius: 8,
-                background: D.green,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
+            <div className="flex lg:hidden items-center gap-2 mb-8">
+              <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
                 <MessageSquare size={16} color="#fff" />
               </div>
-              <span style={{ fontWeight: 700, fontSize: 15, color: D.text }}>WhatsApp Campaign Manager</span>
+              <span className="font-bold text-[15px] text-fg">WhatsApp Campaign Manager</span>
             </div>
 
             {/* ── LOGIN FORM ── */}
             {!showSignUp && !showBootstrapForm && (
               <>
-                <div style={{ marginBottom: 28 }}>
-                  <h2 style={{ fontSize: 24, fontWeight: 500, color: D.text, letterSpacing: '-0.1px', lineHeight: '30px' }}>
+                <div className="mb-7">
+                  <h2 className="text-2xl font-medium text-fg tracking-[-0.1px] leading-[30px]">
                     Welcome back
                   </h2>
-                  <p style={{ fontSize: 14, color: D.textMuted, marginTop: 4, lineHeight: '20px' }}>
+                  <p className="text-sm text-fg-muted mt-1 leading-5">
                     Sign in to your account to continue
                   </p>
                 </div>
 
                 {error && (
-                  <div style={{
-                    display: 'flex', gap: 10, alignItems: 'flex-start',
-                    padding: '12px 14px', background: D.redBg,
-                    border: `1px solid ${D.redBorder}`, borderRadius: 8, marginBottom: 20,
-                  }}>
-                    <AlertCircle size={15} color={D.red} style={{ flexShrink: 0, marginTop: 1 }} />
-                    <p style={{ fontSize: 13, color: D.red, lineHeight: '18px' }}>{error}</p>
+                  <div className="flex gap-2.5 items-start px-3.5 py-3 bg-[rgba(248,113,113,0.08)] border border-[rgba(248,113,113,0.3)] rounded-lg mb-5">
+                    <AlertCircle size={15} color="#f87171" className="shrink-0 mt-px" />
+                    <p className="text-[13px] text-danger leading-[18px]">{error}</p>
                   </div>
                 )}
 
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                   <div>
                     <Label htmlFor="email">Email address</Label>
                     <Input
@@ -482,19 +378,19 @@ export default function Login() {
                       placeholder="you@company.com"
                       disabled={loading}
                       hasError={!!error && !password}
-                      suffix={<AtSign size={15} color={D.textSubtle} />}
+                      suffix={<AtSign size={15} color="#52525b" />}
                     />
                   </div>
 
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                      <label htmlFor="password" style={{ fontSize: 14, fontWeight: 500, color: D.text }}>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <label htmlFor="password" className="text-sm font-medium text-fg">
                         Password
                       </label>
                       <button
                         type="button"
                         onClick={() => setShowForgotPassword(true)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: D.green, fontWeight: 500, padding: 0 }}
+                        className="bg-none border-none cursor-pointer text-[13px] text-brand font-medium p-0"
                       >
                         Forgot password?
                       </button>
@@ -510,7 +406,7 @@ export default function Login() {
                         <button
                           type="button"
                           onClick={() => setShowPassword(v => !v)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: D.textSubtle }}
+                          className="bg-none border-none cursor-pointer p-0 flex text-fg-subtle"
                           tabIndex={-1}
                         >
                           {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -524,12 +420,12 @@ export default function Login() {
                   </PrimaryButton>
                 </form>
 
-                <p style={{ textAlign: 'center', marginTop: 20, fontSize: 14, color: D.textMuted }}>
+                <p className="text-center mt-5 text-sm text-fg-muted">
                   Don't have an account?{' '}
                   <button
                     type="button"
                     onClick={() => { setShowSignUp(true); setShowBootstrapForm(false); setError(''); }}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: D.green, fontWeight: 500, fontSize: 14, padding: 0 }}
+                    className="bg-none border-none cursor-pointer text-brand font-medium text-sm p-0"
                   >
                     Contact us
                   </button>
@@ -537,21 +433,14 @@ export default function Login() {
 
                 {/* bootstrap banner */}
                 {bootstrapChecked && bootstrapAvailable && (
-                  <div style={{
-                    marginTop: 20, padding: '16px',
-                    background: D.amberBg, border: `1px solid ${D.amberBorder}`, borderRadius: 10,
-                  }}>
-                    <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-                      <div style={{
-                        width: 32, height: 32, borderRadius: 8,
-                        background: 'rgba(245,158,11,0.15)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                      }}>
-                        <Zap size={15} color={D.amber} />
+                  <div className="mt-5 p-4 bg-[rgba(245,158,11,0.08)] border border-[rgba(245,158,11,0.25)] rounded-[10px]">
+                    <div className="flex gap-2.5 mb-3">
+                      <div className="w-8 h-8 rounded-lg bg-[rgba(245,158,11,0.15)] flex items-center justify-center shrink-0">
+                        <Zap size={15} color="#f59e0b" />
                       </div>
                       <div>
-                        <p style={{ fontSize: 13, fontWeight: 600, color: D.amber }}>First-time setup</p>
-                        <p style={{ fontSize: 12, color: D.textMuted, marginTop: 2, lineHeight: '16px' }}>
+                        <p className="text-[13px] font-semibold text-[#f59e0b]">First-time setup</p>
+                        <p className="text-xs text-fg-muted mt-0.5 leading-4">
                           No accounts found. Create your super admin to get started.
                         </p>
                       </div>
@@ -572,36 +461,28 @@ export default function Login() {
               <>
                 <BackBtn onClick={() => { setShowBootstrapForm(false); setBootstrapError(''); }} />
 
-                <div style={{ marginBottom: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div className="mb-7 flex justify-between items-start">
                   <div>
-                    <h2 style={{ fontSize: 24, fontWeight: 500, color: D.text, letterSpacing: '-0.1px', lineHeight: '30px' }}>
+                    <h2 className="text-2xl font-medium text-fg tracking-[-0.1px] leading-[30px]">
                       Create Admin Account
                     </h2>
-                    <p style={{ fontSize: 14, color: D.textMuted, marginTop: 4 }}>
+                    <p className="text-sm text-fg-muted mt-1">
                       This account will have full system access.
                     </p>
                   </div>
-                  <span style={{
-                    fontSize: 11, fontWeight: 600, color: D.amber,
-                    background: D.amberBg, border: `1px solid ${D.amberBorder}`,
-                    borderRadius: 20, padding: '4px 10px', flexShrink: 0, marginTop: 4,
-                  }}>
+                  <span className="text-[11px] font-semibold text-[#f59e0b] bg-[rgba(245,158,11,0.08)] border border-[rgba(245,158,11,0.25)] rounded-[20px] px-2.5 py-1 shrink-0 mt-1">
                     First-time setup
                   </span>
                 </div>
 
                 {bootstrapError && (
-                  <div style={{
-                    display: 'flex', gap: 10, alignItems: 'flex-start',
-                    padding: '12px 14px', background: D.redBg,
-                    border: `1px solid ${D.redBorder}`, borderRadius: 8, marginBottom: 20,
-                  }}>
-                    <AlertCircle size={15} color={D.red} style={{ flexShrink: 0, marginTop: 1 }} />
-                    <p style={{ fontSize: 13, color: D.red }}>{bootstrapError}</p>
+                  <div className="flex gap-2.5 items-start px-3.5 py-3 bg-[rgba(248,113,113,0.08)] border border-[rgba(248,113,113,0.3)] rounded-lg mb-5">
+                    <AlertCircle size={15} color="#f87171" className="shrink-0 mt-px" />
+                    <p className="text-[13px] text-danger">{bootstrapError}</p>
                   </div>
                 )}
 
-                <form onSubmit={handleBootstrapSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <form onSubmit={handleBootstrapSubmit} className="flex flex-col gap-4">
                   <div>
                     <Label htmlFor="b-company">Company Name</Label>
                     <Input
@@ -610,7 +491,7 @@ export default function Login() {
                       onChange={v => setBootstrapForm(f => ({ ...f, companyName: v }))}
                       placeholder="Acme Corp"
                       disabled={bootstrapLoading}
-                      suffix={<Building2 size={15} color={D.textSubtle} />}
+                      suffix={<Building2 size={15} color="#52525b" />}
                     />
                   </div>
                   <div>
@@ -622,7 +503,7 @@ export default function Login() {
                       onChange={v => setBootstrapForm(f => ({ ...f, email: v }))}
                       placeholder="admin@company.com"
                       disabled={bootstrapLoading}
-                      suffix={<AtSign size={15} color={D.textSubtle} />}
+                      suffix={<AtSign size={15} color="#52525b" />}
                     />
                   </div>
                   <div>
@@ -638,7 +519,7 @@ export default function Login() {
                         <button
                           type="button"
                           onClick={() => setShowBootstrapPassword(v => !v)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: D.textSubtle }}
+                          className="bg-none border-none cursor-pointer p-0 flex text-fg-subtle"
                           tabIndex={-1}
                         >
                           {showBootstrapPassword ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -655,13 +536,13 @@ export default function Login() {
                       onChange={v => setBootstrapForm(f => ({ ...f, number: v }))}
                       placeholder="+91 98765 43210"
                       disabled={bootstrapLoading}
-                      suffix={<Phone size={15} color={D.textSubtle} />}
+                      suffix={<Phone size={15} color="#52525b" />}
                     />
                   </div>
                   <div>
-                    <label htmlFor="b-image" style={{ fontSize: 14, fontWeight: 500, color: D.text, display: 'block', marginBottom: 6 }}>
+                    <label htmlFor="b-image" className="text-sm font-medium text-fg block mb-1.5">
                       Profile Image{' '}
-                      <span style={{ color: D.textSubtle, fontWeight: 400, fontSize: 13 }}>(optional)</span>
+                      <span className="text-fg-subtle font-normal text-[13px]">(optional)</span>
                     </label>
                     <input
                       type="file"
@@ -669,11 +550,7 @@ export default function Login() {
                       accept="image/*"
                       disabled={bootstrapLoading}
                       onChange={(e) => setBootstrapForm(f => ({ ...f, image: e.target.files?.[0] || null }))}
-                      style={{
-                        width: '100%', fontSize: 13, color: D.textMuted,
-                        border: `1px solid ${D.border}`, borderRadius: 8,
-                        padding: '8px 12px', background: D.surface, cursor: 'pointer',
-                      }}
+                      className="w-full text-[13px] text-fg-muted border border-line rounded-lg px-3 py-2 bg-surface cursor-pointer"
                     />
                   </div>
                   <PrimaryButton type="submit" loading={bootstrapLoading}>
@@ -688,65 +565,45 @@ export default function Login() {
               <>
                 <BackBtn onClick={() => setShowSignUp(false)} />
 
-                <div style={{ marginBottom: 28 }}>
-                  <h2 style={{ fontSize: 24, fontWeight: 500, color: D.text, letterSpacing: '-0.1px', lineHeight: '30px' }}>
+                <div className="mb-7">
+                  <h2 className="text-2xl font-medium text-fg tracking-[-0.1px] leading-[30px]">
                     Get Access
                   </h2>
-                  <p style={{ fontSize: 14, color: D.textMuted, marginTop: 4 }}>
+                  <p className="text-sm text-fg-muted mt-1">
                     Reach out to our team and we'll set you up.
                   </p>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div className="flex flex-col gap-2.5">
                   <a
                     href="mailto:support@example.com"
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 14,
-                      padding: '14px 16px', border: `1px solid ${D.border}`,
-                      borderRadius: 10, textDecoration: 'none', background: D.surface,
-                      transition: 'border-color 0.15s, background 0.15s',
-                    }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = D.borderFocus; (e.currentTarget as HTMLElement).style.background = D.surfaceHover; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = D.border; (e.currentTarget as HTMLElement).style.background = D.surface; }}
+                    className="flex items-center gap-3.5 px-4 py-3.5 border border-line rounded-[10px] no-underline bg-surface transition-[border-color,background] duration-150 hover:border-[#16a34a] hover:bg-[#18181b]"
                   >
-                    <div style={{
-                      width: 38, height: 38, borderRadius: 10,
-                      background: 'rgba(59,130,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                    }}>
+                    <div className="w-[38px] h-[38px] rounded-[10px] bg-[rgba(59,130,246,0.15)] flex items-center justify-center shrink-0">
                       <Mail size={18} color="#60a5fa" />
                     </div>
                     <div>
-                      <p style={{ fontSize: 11, fontWeight: 600, color: D.textSubtle, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Email Us</p>
-                      <p style={{ fontSize: 14, fontWeight: 500, color: '#60a5fa' }}>support@example.com</p>
+                      <p className="text-[11px] font-semibold text-fg-subtle uppercase tracking-[0.06em] mb-0.5">Email Us</p>
+                      <p className="text-sm font-medium text-[#60a5fa]">support@example.com</p>
                     </div>
                   </a>
 
                   <a
                     href="tel:+911234567890"
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 14,
-                      padding: '14px 16px', border: `1px solid ${D.border}`,
-                      borderRadius: 10, textDecoration: 'none', background: D.surface,
-                      transition: 'border-color 0.15s, background 0.15s',
-                    }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = D.borderFocus; (e.currentTarget as HTMLElement).style.background = D.surfaceHover; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = D.border; (e.currentTarget as HTMLElement).style.background = D.surface; }}
+                    className="flex items-center gap-3.5 px-4 py-3.5 border border-line rounded-[10px] no-underline bg-surface transition-[border-color,background] duration-150 hover:border-[#16a34a] hover:bg-[#18181b]"
                   >
-                    <div style={{
-                      width: 38, height: 38, borderRadius: 10,
-                      background: D.greenDim, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                    }}>
+                    <div className="w-[38px] h-[38px] rounded-[10px] bg-brand-dim flex items-center justify-center shrink-0">
                       <Phone size={18} color="#4ade80" />
                     </div>
                     <div>
-                      <p style={{ fontSize: 11, fontWeight: 600, color: D.textSubtle, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Call Us</p>
-                      <p style={{ fontSize: 14, fontWeight: 500, color: '#4ade80' }}>+91 12345 67890</p>
+                      <p className="text-[11px] font-semibold text-fg-subtle uppercase tracking-[0.06em] mb-0.5">Call Us</p>
+                      <p className="text-sm font-medium text-[#4ade80]">+91 12345 67890</p>
                     </div>
                   </a>
 
-                  <div style={{ padding: '12px 14px', background: D.surface, border: `1px solid ${D.border}`, borderRadius: 8 }}>
-                    <p style={{ fontSize: 12, color: D.textMuted, lineHeight: '18px' }}>
-                      <span style={{ fontWeight: 600, color: D.text }}>Note: </span>
+                  <div className="px-3.5 py-3 bg-surface border border-line rounded-lg">
+                    <p className="text-xs text-fg-muted leading-[18px]">
+                      <span className="font-semibold text-fg">Note: </span>
                       Our team will verify your details and create an account within 24 hours.
                     </p>
                   </div>
@@ -754,24 +611,17 @@ export default function Login() {
 
                 <a
                   href="mailto:support@example.com"
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    marginTop: 16, height: 42, background: D.green, color: '#fff',
-                    borderRadius: 8, textDecoration: 'none', fontSize: 14, fontWeight: 500,
-                    transition: 'background 0.15s',
-                  }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = D.greenHover; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = D.green; }}
+                  className="flex items-center justify-center mt-4 h-[42px] bg-brand hover:bg-brand-hover text-white rounded-lg no-underline text-sm font-medium transition-[background] duration-150"
                 >
                   Send Email
                 </a>
 
-                <p style={{ textAlign: 'center', marginTop: 18, fontSize: 14, color: D.textMuted }}>
+                <p className="text-center mt-[18px] text-sm text-fg-muted">
                   Already have an account?{' '}
                   <button
                     type="button"
                     onClick={() => setShowSignUp(false)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: D.green, fontWeight: 500, fontSize: 14, padding: 0 }}
+                    className="bg-none border-none cursor-pointer text-brand font-medium text-sm p-0"
                   >
                     Sign in
                   </button>
@@ -783,67 +633,49 @@ export default function Login() {
 
         {/* ── FORGOT PASSWORD MODAL ── */}
         {showForgotPassword && (
-          <div style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
-            backdropFilter: 'blur(4px)', display: 'flex',
-            alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16,
-          }}>
-            <div style={{
-              background: D.surface, borderRadius: 16,
-              width: '100%', maxWidth: 420,
-              border: `1px solid ${D.border}`,
-              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)',
-              overflow: 'hidden',
-            }}>
-              <div style={{ padding: '24px 24px 0' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-                  <h3 style={{ fontSize: 17, fontWeight: 600, color: D.text }}>Forgot Password?</h3>
+          <div className="fixed inset-0 bg-black/45 backdrop-blur-[4px] flex items-center justify-center z-50 p-4">
+            <div className="bg-surface rounded-2xl w-full max-w-[420px] border border-line shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] overflow-hidden">
+              <div className="px-6 pt-6">
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className="text-[17px] font-semibold text-fg">Forgot Password?</h3>
                   <button
                     type="button"
                     onClick={() => setShowForgotPassword(false)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: D.textMuted, display: 'flex', padding: 4, borderRadius: 6 }}
+                    className="bg-none border-none cursor-pointer text-fg-muted flex p-1 rounded-md"
                   >
                     <X size={18} />
                   </button>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
-                  <div style={{ width: 56, height: 56, borderRadius: 14, background: 'rgba(234,88,12,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="flex justify-center mb-5">
+                  <div className="w-14 h-14 rounded-[14px] bg-[rgba(234,88,12,0.12)] flex items-center justify-center">
                     <Lock size={24} color="#fb923c" />
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
-                  <div style={{ padding: '14px', background: 'rgba(234,88,12,0.08)', border: '1px solid rgba(234,88,12,0.2)', borderRadius: 10 }}>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: '#fb923c', marginBottom: 6 }}>Contact Your Admin or Reseller</p>
-                    <p style={{ fontSize: 13, color: D.textMuted, lineHeight: '18px' }}>
-                      To reset your password, contact your <strong style={{ color: D.text }}>Admin</strong> or <strong style={{ color: D.text }}>Reseller</strong>. They have the authority to change your password.
+                <div className="flex flex-col gap-2.5 mb-5">
+                  <div className="p-3.5 bg-[rgba(234,88,12,0.08)] border border-[rgba(234,88,12,0.2)] rounded-[10px]">
+                    <p className="text-[13px] font-semibold text-[#fb923c] mb-1.5">Contact Your Admin or Reseller</p>
+                    <p className="text-[13px] text-fg-muted leading-[18px]">
+                      To reset your password, contact your <strong className="text-fg">Admin</strong> or <strong className="text-fg">Reseller</strong>. They have the authority to change your password.
                     </p>
                   </div>
-                  <div style={{ padding: '14px', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 10 }}>
-                    <p style={{ fontSize: 12, fontWeight: 600, color: '#60a5fa', marginBottom: 4 }}>After Password Reset</p>
-                    <p style={{ fontSize: 12, color: D.textMuted, lineHeight: '18px' }}>
+                  <div className="p-3.5 bg-[rgba(59,130,246,0.08)] border border-[rgba(59,130,246,0.2)] rounded-[10px]">
+                    <p className="text-xs font-semibold text-[#60a5fa] mb-1">After Password Reset</p>
+                    <p className="text-xs text-fg-muted leading-[18px]">
                       You can update it yourself via{' '}
-                      <span style={{ fontWeight: 600, color: '#60a5fa' }}>Dashboard → Manage Business Profile</span>
+                      <span className="font-semibold text-[#60a5fa]">Dashboard → Manage Business Profile</span>
                     </p>
                   </div>
                 </div>
               </div>
-              <div style={{ padding: '0 24px 24px' }}>
+              <div className="px-6 pb-6">
                 <PrimaryButton onClick={() => setShowForgotPassword(false)}>Got it</PrimaryButton>
               </div>
             </div>
           </div>
         )}
       </div>
-
-      {/* responsive: show left panel on large screens */}
-      <style>{`
-        @media (min-width: 1024px) {
-          .lg-show { display: flex !important; }
-          .lg-hide { display: none !important; }
-        }
-      `}</style>
     </>
   );
 }

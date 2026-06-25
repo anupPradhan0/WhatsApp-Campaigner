@@ -22,10 +22,10 @@ const CustomTooltip = ({ active, payload }: {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
-    <div style={{ background: D.surface2, border: `1px solid ${D.border2}`, borderRadius: 8, padding: '10px 14px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
-      <p style={{ fontSize: 11, color: D.textSubtle, marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{d.weekRange}</p>
-      <p style={{ fontSize: 13, color: D.blue, fontWeight: 600, marginBottom: 3 }}>Campaigns: {d.totalCampaigns}</p>
-      <p style={{ fontSize: 13, color: D.greenLight, fontWeight: 600 }}>Messages: {d.totalMessages}</p>
+    <div className="bg-surface2 border border-line-strong rounded-lg px-3.5 py-2.5 shadow-[0_8px_24px_rgba(0,0,0,0.5)]">
+      <p className="text-[11px] text-fg-subtle mb-1.5 font-semibold uppercase tracking-[0.06em]">{d.weekRange}</p>
+      <p className="text-[13px] text-info font-semibold mb-[3px]">Campaigns: {d.totalCampaigns}</p>
+      <p className="text-[13px] text-brand-light font-semibold">Messages: {d.totalMessages}</p>
     </div>
   );
 };
@@ -50,8 +50,8 @@ const Dashboard = () => {
   if (loading) return <Spinner label="Loading dashboard…" />;
 
   if (error) return (
-    <div style={{ padding: '12px 16px', background: D.redDim, border: `1px solid ${D.redBorder}`, borderRadius: 10 }}>
-      <p style={{ color: D.red, fontSize: 14 }}>{error}</p>
+    <div className="px-4 py-3 bg-danger-dim border border-danger-border rounded-[10px]">
+      <p className="text-danger text-sm">{error}</p>
     </div>
   );
 
@@ -99,72 +99,68 @@ const Dashboard = () => {
   return (
     <>
       <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.5)} }
-        .stat-card:hover { background: ${D.surface2} !important; }
-        .campaign-row:hover td { background: rgba(255,255,255,0.025) !important; }
         @media (max-width:639px)  { .stat-grid { grid-template-columns: repeat(2,1fr) !important; } }
         @media (min-width:640px)  { .stat-grid { grid-template-columns: repeat(${cols > 2 ? 2 : cols},1fr) !important; } }
         @media (min-width:1024px) { .stat-grid { grid-template-columns: repeat(${cols},1fr) !important; } }
         @media (min-width:1024px) { .main-grid { grid-template-columns: 3fr 2fr !important; } }
       `}</style>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div className="flex flex-col gap-5">
 
         {/* Page header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
-            <h1 style={{ fontSize: 20, fontWeight: 700, color: D.text, margin: 0, lineHeight: 1.2 }}>
+            <h1 className="text-xl font-bold text-fg m-0 leading-[1.2]">
               {greeting}, {data.companyName || 'there'} 👋
             </h1>
-            <p style={{ fontSize: 13, color: D.textMuted, marginTop: 4 }}>
+            <p className="text-[13px] text-fg-muted mt-1">
               Here's what's happening with your campaigns today.
             </p>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: D.surface, border: `1px solid ${D.border}`, borderRadius: 8, padding: '6px 12px' }}>
-            <div style={{ width: 7, height: 7, borderRadius: '50%', background: D.greenLight, animation: 'pulse-dot 2s ease-in-out infinite', flexShrink: 0 }} />
-            <span style={{ fontSize: 12, color: D.textMuted, fontWeight: 500 }}>{data.role || userRole}</span>
+          <div className="flex items-center gap-2 bg-surface border border-line rounded-lg px-3 py-1.5">
+            <div className="w-[7px] h-[7px] rounded-full bg-brand-light shrink-0" style={{ animation: 'pulse-dot 2s ease-in-out infinite' }} />
+            <span className="text-xs text-fg-muted font-medium">{data.role || userRole}</span>
           </div>
         </div>
 
         {/* News ticker */}
         {data.latestNews ? (
-          <div style={{ background: 'rgba(22,163,74,0.07)', border: '1px solid rgba(22,163,74,0.18)', borderRadius: 10, overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRight: '1px solid rgba(22,163,74,0.18)', flexShrink: 0 }}>
-              <Radio size={12} style={{ color: D.greenLight }} />
-              <span style={{ fontSize: 11, fontWeight: 700, color: D.greenLight, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Live</span>
+          <div className="bg-[rgba(22,163,74,0.07)] border border-[rgba(22,163,74,0.18)] rounded-[10px] overflow-hidden flex items-center">
+            <div className="flex items-center gap-1.5 px-3.5 py-[9px] border-r border-[rgba(22,163,74,0.18)] shrink-0">
+              <Radio size={12} className="text-brand-light" />
+              <span className="text-[11px] font-bold text-brand-light uppercase tracking-[0.08em]">Live</span>
             </div>
             <Marquee pauseOnHover gradient={false} speed={40} style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 32, padding: '9px 20px' }}>
-                <span style={{ color: D.text, fontWeight: 500, fontSize: 13 }}>{data.latestNews.title}</span>
-                <span style={{ color: D.textMuted, fontSize: 13 }}>— {data.latestNews.description}</span>
-                <span style={{ color: D.textSubtle, fontSize: 12 }}>
+              <div className="flex items-center gap-8 px-5 py-[9px]">
+                <span className="text-fg font-medium text-[13px]">{data.latestNews.title}</span>
+                <span className="text-fg-muted text-[13px]">— {data.latestNews.description}</span>
+                <span className="text-fg-subtle text-xs">
                   {new Date(data.latestNews.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </span>
               </div>
             </Marquee>
           </div>
         ) : (
-          <div style={{ padding: '9px 16px', background: D.amberDim, border: '1px solid rgba(251,191,36,0.2)', borderRadius: 10 }}>
-            <p style={{ color: D.amber, fontSize: 13, fontWeight: 500 }}>No announcements at this time.</p>
+          <div className="px-4 py-[9px] bg-warning-dim border border-[rgba(251,191,36,0.2)] rounded-[10px]">
+            <p className="text-warning text-[13px] font-medium">No announcements at this time.</p>
           </div>
         )}
 
         {/* Stat cards */}
-        <div className="stat-grid" style={{ display: 'grid', gap: 14 }}>
+        <div className="stat-grid grid gap-3.5">
           {statCards.map(c => (
             <div
               key={c.label}
-              className="stat-card"
-              style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 12, overflow: 'hidden', transition: 'background 0.15s' }}
+              className="group bg-surface hover:bg-surface2 border border-line rounded-xl overflow-hidden transition-colors"
             >
-              <div style={{ height: 3, background: c.accent, borderRadius: '12px 12px 0 0' }} />
-              <div style={{ padding: '18px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div className="h-[3px] rounded-t-xl" style={{ background: c.accent }} />
+              <div className="px-5 py-[18px] flex items-center justify-between">
                 <div>
-                  <p style={{ fontSize: 11, color: D.textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>{c.label}</p>
-                  <p style={{ fontSize: 26, fontWeight: 700, color: D.text, lineHeight: 1 }}>{c.value}</p>
+                  <p className="text-[11px] text-fg-muted font-semibold uppercase tracking-[0.07em] mb-2">{c.label}</p>
+                  <p className="text-[26px] font-bold text-fg leading-none">{c.value}</p>
                 </div>
-                <div style={{ width: 46, height: 46, borderRadius: 12, background: c.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div className="w-[46px] h-[46px] rounded-xl flex items-center justify-center shrink-0" style={{ background: c.iconBg }}>
                   <c.icon size={20} color={c.iconColor} />
                 </div>
               </div>
@@ -173,27 +169,27 @@ const Dashboard = () => {
         </div>
 
         {/* Chart + Table */}
-        <div className="main-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
+        <div className="main-grid grid grid-cols-1 gap-4">
 
           {/* Bar chart */}
-          <div style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 12 }}>
-            <div style={{ padding: '20px 24px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+          <div className="bg-surface border border-line rounded-xl">
+            <div className="pt-5 px-6 flex items-start justify-between flex-wrap gap-2.5">
               <div>
-                <p style={{ fontSize: 15, fontWeight: 600, color: D.text, margin: 0 }}>Weekly Activity</p>
-                <p style={{ fontSize: 12, color: D.textMuted, marginTop: 3 }}>Campaign & message volume · last 2 months</p>
+                <p className="text-[15px] font-semibold text-fg m-0">Weekly Activity</p>
+                <p className="text-xs text-fg-muted mt-[3px]">Campaign & message volume · last 2 months</p>
               </div>
-              <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div style={{ width: 10, height: 10, borderRadius: 3, background: D.blue }} />
-                  <span style={{ fontSize: 11, color: D.textMuted }}>Campaigns</span>
+              <div className="flex gap-4 items-center">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-[3px] bg-info" />
+                  <span className="text-[11px] text-fg-muted">Campaigns</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div style={{ width: 10, height: 10, borderRadius: 3, background: D.green }} />
-                  <span style={{ fontSize: 11, color: D.textMuted }}>Messages</span>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-[3px] bg-brand" />
+                  <span className="text-[11px] text-fg-muted">Messages</span>
                 </div>
               </div>
             </div>
-            <div style={{ padding: '16px 8px 8px', overflowX: 'auto' }}>
+            <div className="pt-4 px-2 pb-2 overflow-x-auto">
               <ResponsiveContainer width="100%" height={chartHeight}>
                   <BarChart data={data.weeklyStats} margin={{ top: 4, right: 16, left: -12, bottom: isMobile ? 50 : 4 }} barCategoryGap="30%">
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
@@ -208,23 +204,23 @@ const Dashboard = () => {
           </div>
 
           {/* Recent campaigns */}
-          <div style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 12 }}>
-            <div style={{ padding: '20px 24px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="bg-surface border border-line rounded-xl">
+            <div className="pt-5 px-6 pb-4 flex items-center justify-between">
               <div>
-                <p style={{ fontSize: 15, fontWeight: 600, color: D.text, margin: 0 }}>Recent Campaigns</p>
-                <p style={{ fontSize: 12, color: D.textMuted, marginTop: 3 }}>Top 5 by activity</p>
+                <p className="text-[15px] font-semibold text-fg m-0">Recent Campaigns</p>
+                <p className="text-xs text-fg-muted mt-[3px]">Top 5 by activity</p>
               </div>
-              <MessageSquare size={16} style={{ color: D.textSubtle }} />
+              <MessageSquare size={16} className="text-fg-subtle" />
             </div>
-            <div style={{ height: 1, background: D.border, margin: '0 24px' }} />
+            <div className="h-px bg-line mx-6" />
 
             {/* Desktop table */}
-            <div className="hidden sm:block" style={{ overflowX: 'auto', padding: '8px 0' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div className="hidden sm:block overflow-x-auto py-2">
+              <table className="w-full border-collapse">
                 <thead>
                   <tr>
                     {['#', 'Campaign', 'Msgs', 'Status'].map(h => (
-                      <th key={h} style={{ padding: '8px 16px', textAlign: 'left', fontSize: 10, color: D.textSubtle, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{h}</th>
+                      <th key={h} className="px-4 py-2 text-left text-[10px] text-fg-subtle font-bold uppercase tracking-[0.08em]">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -232,45 +228,45 @@ const Dashboard = () => {
                   {data.topFiveCampaigns.map((c, i) => {
                     const sc = statusColor(c.status);
                     return (
-                      <tr key={c._id} className="campaign-row" style={{ cursor: 'default' }}>
-                        <td style={{ padding: '10px 16px', fontSize: 12, color: D.textSubtle }}>{i + 1}</td>
-                        <td style={{ padding: '10px 16px', fontSize: 13, color: D.text, fontWeight: 500, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.campaignName}</td>
-                        <td style={{ padding: '10px 16px', fontSize: 13, color: D.textMuted }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <ArrowUpRight size={12} style={{ color: D.greenLight }} />
+                      <tr key={c._id} className="group cursor-default">
+                        <td className="px-4 py-2.5 text-xs text-fg-subtle group-hover:bg-white/[0.025]">{i + 1}</td>
+                        <td className="px-4 py-2.5 text-[13px] text-fg font-medium max-w-[150px] overflow-hidden text-ellipsis whitespace-nowrap group-hover:bg-white/[0.025]">{c.campaignName}</td>
+                        <td className="px-4 py-2.5 text-[13px] text-fg-muted group-hover:bg-white/[0.025]">
+                          <span className="flex items-center gap-1">
+                            <ArrowUpRight size={12} className="text-brand-light" />
                             {c.numberCount.toLocaleString()}
                           </span>
                         </td>
-                        <td style={{ padding: '10px 16px' }}>
+                        <td className="px-4 py-2.5 group-hover:bg-white/[0.025]">
                           <Badge label={c.status || 'None'} color={sc.color} bg={sc.bg} />
                         </td>
                       </tr>
                     );
                   })}
                   {data.topFiveCampaigns.length === 0 && (
-                    <tr><td colSpan={4} style={{ padding: '32px 16px', textAlign: 'center', color: D.textSubtle, fontSize: 13 }}>No campaigns yet</td></tr>
+                    <tr><td colSpan={4} className="px-4 py-8 text-center text-fg-subtle text-[13px]">No campaigns yet</td></tr>
                   )}
                 </tbody>
               </table>
             </div>
 
             {/* Mobile cards */}
-            <div className="sm:hidden" style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 16px' }}>
+            <div className="sm:hidden flex flex-col gap-2 px-4 py-3">
               {data.topFiveCampaigns.map((c, i) => {
                 const sc = statusColor(c.status);
                 return (
-                  <div key={c._id} style={{ padding: '12px 14px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-                      <span style={{ fontSize: 11, color: D.textSubtle, fontWeight: 600 }}>#{i + 1}</span>
+                  <div key={c._id} className="px-3.5 py-3 bg-surface2 border border-line rounded-lg">
+                    <div className="flex justify-between items-start mb-1.5">
+                      <span className="text-[11px] text-fg-subtle font-semibold">#{i + 1}</span>
                       <Badge label={c.status || 'None'} color={sc.color} bg={sc.bg} />
                     </div>
-                    <p style={{ fontSize: 13, color: D.text, fontWeight: 500, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.campaignName}</p>
-                    <p style={{ fontSize: 12, color: D.textMuted }}>{c.numberCount.toLocaleString()} messages</p>
+                    <p className="text-[13px] text-fg font-medium mb-1 overflow-hidden text-ellipsis whitespace-nowrap">{c.campaignName}</p>
+                    <p className="text-xs text-fg-muted">{c.numberCount.toLocaleString()} messages</p>
                   </div>
                 );
               })}
               {data.topFiveCampaigns.length === 0 && (
-                <p style={{ textAlign: 'center', color: D.textSubtle, fontSize: 13, padding: 20 }}>No campaigns yet</p>
+                <p className="text-center text-fg-subtle text-[13px] p-5">No campaigns yet</p>
               )}
             </div>
           </div>

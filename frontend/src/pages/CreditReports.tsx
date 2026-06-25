@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Calendar, Wallet, TrendingUp, TrendingDown, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { api } from '../api/client';
@@ -27,16 +27,8 @@ interface TransactionData {
 
 const ITEMS_PER_PAGE = 10;
 
-const inputStyle: React.CSSProperties = {
-  background: D.surface2,
-  border: `1px solid ${D.border}`,
-  borderRadius: 7,
-  color: D.text as string,
-  fontSize: 13,
-  padding: '8px 12px',
-  outline: 'none',
-  colorScheme: 'dark' as const,
-};
+const dateInputCls =
+  "bg-surface2 border border-line rounded-[7px] text-fg text-[13px] px-3 py-2 outline-none [color-scheme:dark]";
 
 const CreditReports = () => {
   const [transactionData, setTransactionData] = useState<TransactionData | null>(null);
@@ -89,8 +81,8 @@ const CreditReports = () => {
   if (loading) return <Spinner label="Loading transactions…" />;
 
   if (error) return (
-    <div style={{ padding: '12px 16px', background: D.redDim, border: `1px solid ${D.redBorder}`, borderRadius: 10 }}>
-      <p style={{ color: D.red, fontSize: 14 }}>{error}</p>
+    <div className="px-4 py-3 bg-danger-dim border border-danger-border rounded-[10px]">
+      <p className="text-danger text-sm">{error}</p>
     </div>
   );
 
@@ -99,15 +91,14 @@ const CreditReports = () => {
   return (
     <>
       <style>{`
-        .txn-row:hover td { background: rgba(255,255,255,0.025) !important; }
         input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.5); cursor: pointer; }
       `}</style>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div className="flex flex-col gap-[18px]">
         <PageHeader title="Credit Reports" subtitle="Last 100 transactions · your wallet history" />
 
         {/* ── Summary stat cards ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+        <div className="grid gap-3.5 grid-cols-[repeat(auto-fit,minmax(180px,1fr))]">
           {[
             {
               label: 'Current Balance',
@@ -128,14 +119,14 @@ const CreditReports = () => {
               accent: D.red, iconBg: D.redDim, iconColor: D.red,
             },
           ].map(c => (
-            <div key={c.label} style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 12, overflow: 'hidden' }}>
-              <div style={{ height: 3, background: c.accent }} />
-              <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div key={c.label} className="bg-surface border border-line rounded-xl overflow-hidden">
+              <div className="h-[3px]" style={{ background: c.accent }} />
+              <div className="px-5 py-4 flex items-center justify-between">
                 <div>
-                  <p style={{ fontSize: 11, color: D.textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>{c.label}</p>
-                  <p style={{ fontSize: 22, fontWeight: 700, color: D.text, lineHeight: 1 }}>{c.value}</p>
+                  <p className="text-[11px] text-fg-muted font-semibold uppercase tracking-[0.07em] mb-1.5">{c.label}</p>
+                  <p className="text-[22px] font-bold text-fg leading-none">{c.value}</p>
                 </div>
-                <div style={{ width: 40, height: 40, borderRadius: 10, background: c.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="w-10 h-10 rounded-[10px] flex items-center justify-center" style={{ background: c.iconBg }}>
                   <c.icon size={18} color={c.iconColor} />
                 </div>
               </div>
@@ -144,48 +135,48 @@ const CreditReports = () => {
         </div>
 
         {/* ── Filters ── */}
-        <div style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 12, padding: '16px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Calendar size={14} style={{ color: D.textMuted }} />
-              <span style={{ fontSize: 12, fontWeight: 600, color: D.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Filter</span>
+        <div className="bg-surface border border-line rounded-xl px-5 py-4">
+          <div className="flex items-center flex-wrap gap-3">
+            <div className="flex items-center gap-1.5">
+              <Calendar size={14} className="text-fg-muted" />
+              <span className="text-xs font-semibold text-fg-muted uppercase tracking-[0.07em]">Filter</span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <span style={{ fontSize: 10, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>From</span>
-                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={inputStyle} />
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[10px] text-fg-subtle font-semibold uppercase tracking-[0.06em]">From</span>
+                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className={dateInputCls} />
               </div>
-              <span style={{ color: D.textSubtle, fontSize: 13, marginTop: 14 }}>→</span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <span style={{ fontSize: 10, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>To</span>
-                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={inputStyle} />
+              <span className="text-fg-subtle text-[13px] mt-3.5">→</span>
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[10px] text-fg-subtle font-semibold uppercase tracking-[0.06em]">To</span>
+                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className={dateInputCls} />
               </div>
             </div>
 
             {(startDate || endDate) && (
               <button
                 onClick={() => { setStartDate(''); setEndDate(''); }}
-                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', background: D.surface2, border: `1px solid ${D.border2}`, borderRadius: 7, cursor: 'pointer', color: D.textMuted, fontSize: 12, fontWeight: 500 }}
+                className="flex items-center gap-[5px] px-3 py-1.5 bg-surface2 border border-line-strong rounded-[7px] cursor-pointer text-fg-muted text-xs font-medium"
               >
                 <X size={12} /> Clear
               </button>
             )}
 
-            <span style={{ marginLeft: 'auto', fontSize: 12, color: D.textSubtle }}>
+            <span className="ml-auto text-xs text-fg-subtle">
               {startIdx + 1}–{Math.min(startIdx + ITEMS_PER_PAGE, filtered.length)} of {filtered.length}
             </span>
           </div>
         </div>
 
         {/* ── Desktop table ── */}
-        <div className="hidden md:block" style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 12, overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div className="hidden md:block bg-surface border border-line rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
               <thead>
-                <tr style={{ borderBottom: `1px solid ${D.border}` }}>
+                <tr className="border-b border-line">
                   {['#', 'User / Campaign', 'Amount', 'Type', 'Created By', 'Date'].map(h => (
-                    <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: 10, color: D.textSubtle, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>
+                    <th key={h} className="px-4 py-3 text-left text-[10px] text-fg-subtle font-bold uppercase tracking-[0.08em] whitespace-nowrap">
                       {h}
                     </th>
                   ))}
@@ -194,29 +185,27 @@ const CreditReports = () => {
               <tbody>
                 {paginated.length === 0 ? (
                   <tr>
-                    <td colSpan={6} style={{ padding: '40px 16px', textAlign: 'center', color: D.textSubtle, fontSize: 13 }}>
+                    <td colSpan={6} className="px-4 py-10 text-center text-fg-subtle text-[13px]">
                       No transactions found. Try adjusting your date filters.
                     </td>
                   </tr>
                 ) : paginated.map((t, i) => (
-                  <tr key={t.transactionId} className="txn-row" style={{ borderBottom: `1px solid rgba(39,39,42,0.5)`, cursor: 'default' }}>
-                    <td style={{ padding: '12px 16px', fontSize: 12, color: D.textSubtle }}>{startIdx + i + 1}</td>
-                    <td style={{ padding: '12px 16px', fontSize: 13, color: D.text, fontWeight: 500, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <tr key={t.transactionId} className="group border-b border-line/50 cursor-default">
+                    <td className="px-4 py-3 text-xs text-fg-subtle group-hover:bg-white/[0.025]">{startIdx + i + 1}</td>
+                    <td className="px-4 py-3 text-[13px] text-fg font-medium max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap group-hover:bg-white/[0.025]">
                       {t.userOrCampaign}
                     </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: t.type === 'credit' ? D.greenLight : D.red }}>
+                    <td className="px-4 py-3 group-hover:bg-white/[0.025]">
+                      <span className={t.type === 'credit' ? 'text-sm font-bold text-brand-light' : 'text-sm font-bold text-danger'}>
                         {t.type === 'credit' ? '+' : '-'}₹{t.amount.toLocaleString()}
                       </span>
                     </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 5,
-                        fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20,
-                        color:       t.type === 'credit' ? D.greenLight : D.amber,
-                        background:  t.type === 'credit' ? D.greenDim   : D.amberDim,
-                        border: `1px solid ${t.type === 'credit' ? D.greenBorder : 'rgba(251,191,36,0.25)'}`,
-                      }}>
+                    <td className="px-4 py-3 group-hover:bg-white/[0.025]">
+                      <span className={
+                        t.type === 'credit'
+                          ? 'inline-flex items-center gap-[5px] text-[11px] font-semibold px-[9px] py-[3px] rounded-[20px] text-brand-light bg-brand-dim border border-brand-border'
+                          : 'inline-flex items-center gap-[5px] text-[11px] font-semibold px-[9px] py-[3px] rounded-[20px] text-warning bg-warning-dim border border-[rgba(251,191,36,0.25)]'
+                      }>
                         {t.type === 'credit'
                           ? <TrendingUp  size={10} />
                           : <TrendingDown size={10} />
@@ -224,10 +213,10 @@ const CreditReports = () => {
                         {t.type === 'credit' ? 'Credit' : 'Debit'}
                       </span>
                     </td>
-                    <td style={{ padding: '12px 16px', fontSize: 13, color: D.textMuted, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <td className="px-4 py-3 text-[13px] text-fg-muted max-w-[150px] overflow-hidden text-ellipsis whitespace-nowrap group-hover:bg-white/[0.025]">
                       {t.createdBy}
                     </td>
-                    <td style={{ padding: '12px 16px', fontSize: 12, color: D.textMuted, whiteSpace: 'nowrap' }}>
+                    <td className="px-4 py-3 text-xs text-fg-muted whitespace-nowrap group-hover:bg-white/[0.025]">
                       {formatDate(t.createdAt)}
                     </td>
                   </tr>
@@ -238,36 +227,35 @@ const CreditReports = () => {
         </div>
 
         {/* ── Mobile cards ── */}
-        <div className="md:hidden" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="md:hidden flex flex-col gap-2">
           {paginated.length === 0 ? (
-            <div style={{ padding: 32, textAlign: 'center', background: D.surface, border: `1px solid ${D.border}`, borderRadius: 12 }}>
-              <p style={{ color: D.textSubtle, fontSize: 13 }}>No transactions found.</p>
+            <div className="p-8 text-center bg-surface border border-line rounded-xl">
+              <p className="text-fg-subtle text-[13px]">No transactions found.</p>
             </div>
           ) : paginated.map((t, i) => (
-            <div key={t.transactionId} style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 10, padding: '12px 14px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 11, color: D.textSubtle }}>#{startIdx + i + 1}</span>
-                  <span style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                    fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 20,
-                    color:      t.type === 'credit' ? D.greenLight : D.amber,
-                    background: t.type === 'credit' ? D.greenDim   : D.amberDim,
-                  }}>
+            <div key={t.transactionId} className="bg-surface border border-line rounded-[10px] px-3.5 py-3">
+              <div className="flex justify-between items-start mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-fg-subtle">#{startIdx + i + 1}</span>
+                  <span className={
+                    t.type === 'credit'
+                      ? 'inline-flex items-center gap-1 text-[10px] font-semibold px-[7px] py-0.5 rounded-[20px] text-brand-light bg-brand-dim'
+                      : 'inline-flex items-center gap-1 text-[10px] font-semibold px-[7px] py-0.5 rounded-[20px] text-warning bg-warning-dim'
+                  }>
                     {t.type === 'credit' ? <TrendingUp size={9} /> : <TrendingDown size={9} />}
                     {t.type === 'credit' ? 'Credit' : 'Debit'}
                   </span>
                 </div>
-                <span style={{ fontSize: 15, fontWeight: 700, color: t.type === 'credit' ? D.greenLight : D.red }}>
+                <span className={t.type === 'credit' ? 'text-[15px] font-bold text-brand-light' : 'text-[15px] font-bold text-danger'}>
                   {t.type === 'credit' ? '+' : '-'}₹{t.amount.toLocaleString()}
                 </span>
               </div>
-              <p style={{ fontSize: 13, color: D.text, fontWeight: 500, marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <p className="text-[13px] text-fg font-medium mb-1.5 overflow-hidden text-ellipsis whitespace-nowrap">
                 {t.userOrCampaign}
               </p>
-              <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 8, borderTop: `1px solid ${D.border}` }}>
-                <span style={{ fontSize: 11, color: D.textSubtle }}>By: <span style={{ color: D.textMuted }}>{t.createdBy}</span></span>
-                <span style={{ fontSize: 11, color: D.textSubtle }}>{format(new Date(t.createdAt), 'dd MMM, hh:mm a')}</span>
+              <div className="flex justify-between pt-2 border-t border-line">
+                <span className="text-[11px] text-fg-subtle">By: <span className="text-fg-muted">{t.createdBy}</span></span>
+                <span className="text-[11px] text-fg-subtle">{format(new Date(t.createdAt), 'dd MMM, hh:mm a')}</span>
               </div>
             </div>
           ))}

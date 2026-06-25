@@ -12,7 +12,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen" style={{ background: '#0a0a0c' }}>
+    <div className="flex min-h-screen bg-bg">
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       <div className="flex-1 flex flex-col min-w-0">
         <Header onToggleSidebar={() => setIsSidebarOpen(v => !v)} isSidebarOpen={isSidebarOpen} />

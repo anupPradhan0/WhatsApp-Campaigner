@@ -8,11 +8,10 @@ interface BadgeProps {
 }
 
 export const Badge = ({ label, color, bg }: BadgeProps) => (
-  <span style={{
-    fontSize: 11, fontWeight: 600, color, background: bg,
-    padding: '3px 9px', borderRadius: 20, whiteSpace: 'nowrap',
-    border: `1px solid ${color}33`,
-  }}>
+  <span
+    className="text-[11px] font-semibold px-[9px] py-[3px] rounded-[20px] whitespace-nowrap border"
+    style={{ color, background: bg, borderColor: `${color}33` }}
+  >
     {label}
   </span>
 );
@@ -33,11 +32,10 @@ export const statusColor = (status: string): { color: string; bg: string } => {
 export const StatusBadge = ({ status }: { status: string }) => {
   const { color, bg } = statusColor(status);
   return (
-    <span style={{
-      fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 20,
-      textTransform: 'uppercase', letterSpacing: '0.06em',
-      color, background: bg, border: `1px solid ${color}44`,
-    }}>
+    <span
+      className="text-[10px] font-bold px-[9px] py-[3px] rounded-[20px] uppercase tracking-[0.06em] border"
+      style={{ color, background: bg, borderColor: `${color}44` }}
+    >
       {(status || 'N/A').replace('-', ' ')}
     </span>
   );

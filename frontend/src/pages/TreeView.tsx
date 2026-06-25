@@ -3,21 +3,22 @@ import { ChevronRight, ChevronDown, User, Users, ShieldCheck, X } from "lucide-r
 import { getUserRole } from "../utils/Auth";
 import { UserRole } from "../constants/Roles";
 import { api } from "../api/client";
-import { D } from '../theme/tokens';
+import { cn } from "../lib/utils";
 import { Spinner } from '../components/ui/Spinner';
 import { PageHeader } from '../components/ui/PageHeader';
 
 interface TreeNode { id: string; companyName: string; email: string; number: string; role: string; balance: number; totalCampaigns: number; status: string; directResellers: number; directUsers: number; level: number; children: TreeNode[]; }
 interface TreeData { totalCount: number; tree: TreeNode; }
 
-const roleStyle = (role: string) => {
-  if (role === 'admin')    return { color: D.blue,      dim: D.blueDim,   Icon: ShieldCheck };
-  if (role === 'reseller') return { color: D.greenLight, dim: D.greenDim,  Icon: Users };
-  return                           { color: D.amber,     dim: D.amberDim,  Icon: User };
+interface RoleStyle { color: string; dim: string; hoverBorder: string; Icon: React.ComponentType<{ size?: number; className?: string }>; }
+const roleStyle = (role: string): RoleStyle => {
+  if (role === 'admin')    return { color: 'text-info',        dim: 'bg-info-dim',    hoverBorder: 'hover:border-info/50',        Icon: ShieldCheck };
+  if (role === 'reseller') return { color: 'text-brand-light', dim: 'bg-brand-dim',   hoverBorder: 'hover:border-brand-light/50',  Icon: Users };
+  return                          { color: 'text-warning',     dim: 'bg-warning-dim', hoverBorder: 'hover:border-warning/50',      Icon: User };
 };
 
 const StatusDot = ({ s }: { s: string }) => (
-  <span style={{ width: 7, height: 7, borderRadius: '50%', background: s === 'active' ? D.greenLight : D.red, display: 'inline-block', flexShrink: 0 }} />
+  <span className={cn("w-[7px] h-[7px] rounded-full inline-block flex-shrink-0", s === 'active' ? "bg-brand-light" : "bg-danger")} />
 );
 
 export default function TreeView() {
@@ -51,48 +52,46 @@ export default function TreeView() {
 
     return (
       <div key={node.id}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingLeft: indentPx, marginBottom: 6 }}>
-          {depth > 0 && <div style={{ width: 14, height: 1, background: D.border2, flexShrink: 0 }} />}
+        <div className="flex items-center gap-1.5 mb-1.5" style={{ paddingLeft: indentPx }}>
+          {depth > 0 && <div className="w-3.5 h-px bg-line-strong flex-shrink-0" />}
           {hasKids
-            ? <button onClick={() => toggle(node.id)} style={{ width: 20, height: 20, borderRadius: 5, background: D.surface2, border: `1px solid ${D.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
-                {isExp ? <ChevronDown size={11} style={{ color: D.textMuted }} /> : <ChevronRight size={11} style={{ color: D.textMuted }} />}
+            ? <button onClick={() => toggle(node.id)} className="w-5 h-5 rounded-[5px] bg-surface2 border border-line flex items-center justify-center cursor-pointer flex-shrink-0">
+                {isExp ? <ChevronDown size={11} className="text-fg-muted" /> : <ChevronRight size={11} className="text-fg-muted" />}
               </button>
-            : <div style={{ width: 20 }} />}
+            : <div className="w-5" />}
           <div
             onClick={() => setSelected(node)}
-            style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, cursor: 'pointer', transition: 'border-color 0.15s' }}
-            onMouseEnter={e => (e.currentTarget.style.borderColor = rs.color + '88')}
-            onMouseLeave={e => (e.currentTarget.style.borderColor = D.border)}
+            className={cn("flex-1 flex items-center gap-2 px-2.5 py-[7px] bg-surface2 border border-line rounded-lg cursor-pointer transition-colors", rs.hoverBorder)}
           >
-            <div style={{ width: 28, height: 28, borderRadius: 6, background: rs.dim, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <rs.Icon size={13} style={{ color: rs.color }} />
+            <div className={cn("w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0", rs.dim)}>
+              <rs.Icon size={13} className={rs.color} />
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                <p style={{ fontSize: 12, fontWeight: 600, color: D.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>{node.companyName}</p>
-                <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.06em', color: rs.color, background: rs.dim, flexShrink: 0 }}>{node.role}</span>
-                <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 20, background: D.surface, border: `1px solid ${D.border}`, color: D.textSubtle, flexShrink: 0 }}>L{node.level}</span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <p className="text-xs font-semibold text-fg overflow-hidden text-ellipsis whitespace-nowrap max-w-[180px]">{node.companyName}</p>
+                <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded-[20px] uppercase tracking-[0.06em] flex-shrink-0", rs.color, rs.dim)}>{node.role}</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded-[20px] bg-surface border border-line text-fg-subtle flex-shrink-0">L{node.level}</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+              <div className="flex items-center gap-2 mt-0.5">
                 <StatusDot s={node.status} />
-                <span style={{ fontSize: 11, color: D.textSubtle }}>₹{node.balance}</span>
-                {hasKids && <span style={{ fontSize: 11, color: D.textSubtle }}>· {node.children.length} children</span>}
+                <span className="text-[11px] text-fg-subtle">₹{node.balance}</span>
+                {hasKids && <span className="text-[11px] text-fg-subtle">· {node.children.length} children</span>}
               </div>
             </div>
           </div>
         </div>
 
         {hasKids && isExp && (
-          <div style={{ paddingLeft: indentPx + 26, borderLeft: `1px solid ${D.border}`, marginLeft: indentPx + 9, marginBottom: 4 }}>
+          <div className="border-l border-line mb-1" style={{ paddingLeft: indentPx + 26, marginLeft: indentPx + 9 }}>
             {users.length > 0 && (
-              <div style={{ marginBottom: 6 }}>
-                <div style={{ display: 'inline-block', fontSize: 9, fontWeight: 700, color: D.amber, background: D.amberDim, padding: '2px 8px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, marginLeft: -2 }}>Users ({users.length})</div>
+              <div className="mb-1.5">
+                <div className="inline-block text-[9px] font-bold text-warning bg-warning-dim px-2 py-0.5 rounded-[20px] uppercase tracking-[0.06em] mb-1.5 -ml-0.5">Users ({users.length})</div>
                 {users.map(c => renderNode(c, depth + 1))}
               </div>
             )}
             {resellers.length > 0 && (
               <div>
-                <div style={{ display: 'inline-block', fontSize: 9, fontWeight: 700, color: D.greenLight, background: D.greenDim, padding: '2px 8px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, marginLeft: -2 }}>Resellers ({resellers.length})</div>
+                <div className="inline-block text-[9px] font-bold text-brand-light bg-brand-dim px-2 py-0.5 rounded-[20px] uppercase tracking-[0.06em] mb-1.5 -ml-0.5">Resellers ({resellers.length})</div>
                 {resellers.map(c => renderNode(c, depth + 1))}
               </div>
             )}
@@ -105,14 +104,14 @@ export default function TreeView() {
   if (loading) return <Spinner label="Loading network…" />;
 
   if (!isAdminOrReseller) return (
-    <div style={{ padding: '10px 14px', background: D.redDim, border: `1px solid ${D.redBorder}`, borderRadius: 8 }}>
-      <p style={{ color: D.red, fontSize: 13 }}>Access Denied. Only Admin and Reseller can view this page.</p>
+    <div className="px-3.5 py-2.5 bg-danger-dim border border-danger-border rounded-lg">
+      <p className="text-danger text-[13px]">Access Denied. Only Admin and Reseller can view this page.</p>
     </div>
   );
 
   if (error) return (
-    <div style={{ padding: '10px 14px', background: D.redDim, border: `1px solid ${D.redBorder}`, borderRadius: 8 }}>
-      <p style={{ color: D.red, fontSize: 13 }}>{error}</p>
+    <div className="px-3.5 py-2.5 bg-danger-dim border border-danger-border rounded-lg">
+      <p className="text-danger text-[13px]">{error}</p>
     </div>
   );
 
@@ -120,30 +119,30 @@ export default function TreeView() {
 
   return (
     <>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="flex flex-col gap-4">
         <PageHeader title="Network Tree" subtitle="Your complete network hierarchy"
           action={
-            <div style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 10, padding: '10px 18px', textAlign: 'center' }}>
-              <p style={{ fontSize: 24, fontWeight: 700, color: D.text }}>{treeData.totalCount}</p>
-              <p style={{ fontSize: 10, color: D.textSubtle, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 2 }}>Total Members</p>
+            <div className="bg-surface border border-line rounded-[10px] px-[18px] py-2.5 text-center">
+              <p className="text-2xl font-bold text-fg">{treeData.totalCount}</p>
+              <p className="text-[10px] text-fg-subtle uppercase tracking-[0.07em] mt-0.5">Total Members</p>
             </div>
           }
         />
 
         {/* Legend */}
-        <div style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 10, padding: '10px 16px', display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-          <p style={{ fontSize: 10, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', alignSelf: 'center' }}>Legend:</p>
-          {[['Admin', D.blue, ShieldCheck], ['Reseller', D.greenLight, Users], ['User', D.amber, User]].map(([label, color, Icon]) => (
-            <div key={String(label)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              {React.createElement(Icon as React.ComponentType<{size: number; style: React.CSSProperties}>, { size: 14, style: { color: String(color) } })}
-              <span style={{ fontSize: 12, color: D.textMuted, fontWeight: 500 }}>{String(label)}</span>
+        <div className="bg-surface border border-line rounded-[10px] px-4 py-2.5 flex gap-5 flex-wrap">
+          <p className="text-[10px] text-fg-subtle font-semibold uppercase tracking-[0.07em] self-center">Legend:</p>
+          {([['Admin', 'text-info', ShieldCheck], ['Reseller', 'text-brand-light', Users], ['User', 'text-warning', User]] as const).map(([label, color, Icon]) => (
+            <div key={label} className="flex items-center gap-1.5">
+              <Icon size={14} className={color} />
+              <span className="text-xs text-fg-muted font-medium">{label}</span>
             </div>
           ))}
         </div>
 
         {/* Tree */}
-        <div style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 12, padding: '16px', overflowX: 'auto' }}>
-          <div style={{ minWidth: 280 }}>
+        <div className="bg-surface border border-line rounded-xl p-4 overflow-x-auto">
+          <div className="min-w-[280px]">
             {renderNode(treeData.tree)}
           </div>
         </div>
@@ -151,50 +150,50 @@ export default function TreeView() {
 
       {/* Details modal */}
       {selected && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }} onClick={() => setSelected(null)}>
-          <div onClick={e => e.stopPropagation()} style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 14, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${D.border}` }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                {(() => { const rs = roleStyle(selected.role); return <div style={{ width: 36, height: 36, borderRadius: 8, background: rs.dim, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><rs.Icon size={18} style={{ color: rs.color }} /></div>; })()}
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-[9999] p-4" onClick={() => setSelected(null)}>
+          <div onClick={e => e.stopPropagation()} className="bg-surface border border-line rounded-[14px] w-full max-w-[520px] max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-line">
+              <div className="flex items-center gap-2.5">
+                {(() => { const rs = roleStyle(selected.role); return <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center", rs.dim)}><rs.Icon size={18} className={rs.color} /></div>; })()}
                 <div>
-                  <p style={{ fontSize: 15, fontWeight: 700, color: D.text }}>{selected.companyName}</p>
-                  <p style={{ fontSize: 11, color: D.textMuted, textTransform: 'uppercase' }}>{selected.role} · Level {selected.level}</p>
+                  <p className="text-[15px] font-bold text-fg">{selected.companyName}</p>
+                  <p className="text-[11px] text-fg-muted uppercase">{selected.role} · Level {selected.level}</p>
                 </div>
               </div>
-              <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={18} style={{ color: D.textMuted }} /></button>
+              <button onClick={() => setSelected(null)} className="bg-transparent border-none cursor-pointer p-1"><X size={18} className="text-fg-muted" /></button>
             </div>
-            <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div className="p-5 flex flex-col gap-3.5">
               {/* Info grid */}
-              <div style={{ background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 10, padding: 14 }}>
-                <p style={{ fontSize: 10, fontWeight: 700, color: D.textSubtle, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 12 }}>Member Details</p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div className="bg-surface2 border border-line rounded-[10px] p-3.5">
+                <p className="text-[10px] font-bold text-fg-subtle uppercase tracking-[0.07em] mb-3">Member Details</p>
+                <div className="grid grid-cols-2 gap-3">
                   {[['Email', selected.email], ['Phone', selected.number]].map(([l, v]) => (
-                    <div key={l} style={{ gridColumn: '1/-1' }}><p style={{ fontSize: 10, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', marginBottom: 3 }}>{l}</p><p style={{ fontSize: 12, color: D.text, wordBreak: 'break-all' }}>{v}</p></div>
+                    <div key={l} className="col-span-full"><p className="text-[10px] text-fg-subtle font-semibold uppercase mb-[3px]">{l}</p><p className="text-xs text-fg break-all">{v}</p></div>
                   ))}
                   {[['Balance', `₹${selected.balance}`], ['Campaigns', String(selected.totalCampaigns)], ['Resellers', String(selected.directResellers)], ['Direct Users', String(selected.directUsers)]].map(([l, v]) => (
-                    <div key={l}><p style={{ fontSize: 10, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', marginBottom: 3 }}>{l}</p>
-                      <p style={{ fontSize: 14, fontWeight: 700, color: l === 'Balance' ? D.greenLight : D.text }}>{v}</p>
+                    <div key={l}><p className="text-[10px] text-fg-subtle font-semibold uppercase mb-[3px]">{l}</p>
+                      <p className={cn("text-sm font-bold", l === 'Balance' ? "text-brand-light" : "text-fg")}>{v}</p>
                     </div>
                   ))}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
-                  <p style={{ fontSize: 10, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase' }}>Status</p>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <div className="flex items-center gap-2 mt-3">
+                  <p className="text-[10px] text-fg-subtle font-semibold uppercase">Status</p>
+                  <div className="flex items-center gap-[5px]">
                     <StatusDot s={selected.status} />
-                    <span style={{ fontSize: 12, fontWeight: 600, color: selected.status === 'active' ? D.greenLight : D.red, textTransform: 'uppercase' }}>{selected.status}</span>
+                    <span className={cn("text-xs font-semibold uppercase", selected.status === 'active' ? "text-brand-light" : "text-danger")}>{selected.status}</span>
                   </div>
                 </div>
               </div>
               {/* Stats */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
-                {[['Resellers', selected.directResellers, D.greenLight], ['Users', selected.directUsers, D.amber], ['Total Direct', selected.children.length, D.blue]].map(([l, v, c]) => (
-                  <div key={String(l)} style={{ background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, padding: '12px 10px', textAlign: 'center' }}>
-                    <p style={{ fontSize: 20, fontWeight: 700, color: String(c) }}>{v}</p>
-                    <p style={{ fontSize: 10, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', marginTop: 4 }}>{l}</p>
+              <div className="grid grid-cols-3 gap-2.5">
+                {([['Resellers', selected.directResellers, 'text-brand-light'], ['Users', selected.directUsers, 'text-warning'], ['Total Direct', selected.children.length, 'text-info']] as const).map(([l, v, c]) => (
+                  <div key={l} className="bg-surface2 border border-line rounded-lg px-2.5 py-3 text-center">
+                    <p className={cn("text-xl font-bold", c)}>{v}</p>
+                    <p className="text-[10px] text-fg-subtle font-semibold uppercase mt-1">{l}</p>
                   </div>
                 ))}
               </div>
-              <button onClick={() => setSelected(null)} style={{ width: '100%', padding: '9px 0', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, cursor: 'pointer', color: D.textMuted, fontSize: 13, fontWeight: 600 }}>Close</button>
+              <button onClick={() => setSelected(null)} className="w-full py-[9px] bg-surface2 border border-line rounded-lg cursor-pointer text-fg-muted text-[13px] font-semibold">Close</button>
             </div>
           </div>
         </div>

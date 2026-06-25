@@ -30,55 +30,23 @@ export class ErrorBoundary extends Component<Props, State> {
     if (!this.state.error) return this.props.children;
 
     return (
-      <div style={{
-        minHeight: '100dvh',
-        background: '#0a0a0c',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 24,
-      }}>
-        <div style={{
-          maxWidth: 440,
-          width: '100%',
-          background: '#111113',
-          border: '1px solid #27272a',
-          borderRadius: 14,
-          padding: 32,
-          textAlign: 'center',
-        }}>
-          <div style={{
-            width: 56, height: 56, borderRadius: 14,
-            background: 'rgba(248,113,113,0.1)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 18px',
-          }}>
-            <AlertTriangle size={26} color="#f87171" />
+      <div className="min-h-[100dvh] bg-bg flex items-center justify-center p-6">
+        <div className="max-w-[440px] w-full bg-surface border border-line rounded-[14px] p-8 text-center">
+          <div className="w-14 h-14 rounded-[14px] bg-danger-dim flex items-center justify-center mx-auto mb-[18px]">
+            <AlertTriangle size={26} className="text-danger" />
           </div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: '#f4f4f5', marginBottom: 8 }}>
+          <h1 className="text-xl font-bold text-fg mb-2">
             Something went wrong
           </h1>
-          <p style={{ fontSize: 13, color: '#a1a1aa', lineHeight: 1.6, marginBottom: 24 }}>
+          <p className="text-[13px] text-[#a1a1aa] leading-[1.6] mb-6">
             The application ran into an unexpected error. Reload to try again — if it keeps happening, contact support.
           </p>
           {import.meta.env.DEV && this.state.error.message && (
-            <pre style={{
-              fontSize: 11, color: '#f87171',
-              background: 'rgba(248,113,113,0.06)',
-              border: '1px solid rgba(248,113,113,0.2)',
-              borderRadius: 8, padding: 10, marginBottom: 20,
-              textAlign: 'left', overflow: 'auto', maxHeight: 120,
-              whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-            }}>{this.state.error.message}</pre>
+            <pre className="text-[11px] text-danger bg-danger/[0.06] border border-danger/20 rounded-lg p-2.5 mb-5 text-left overflow-auto max-h-[120px] whitespace-pre-wrap break-words">{this.state.error.message}</pre>
           )}
           <button
             onClick={this.handleReload}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8,
-              padding: '10px 20px', background: '#16a34a',
-              color: '#fff', border: 'none', borderRadius: 8,
-              fontSize: 14, fontWeight: 600, cursor: 'pointer',
-            }}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand text-white border-none rounded-lg text-sm font-semibold cursor-pointer"
           >
             <RefreshCw size={15} />
             Reload App

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { menuConfig, type MenuSection } from '../../constants/Roles';
 import { getUserRole } from '../../utils/Auth';
+import { cn } from '../../lib/utils';
 
 const ICONS: Record<string, React.FC<{ size?: number; color?: string }>> = {
   '/home':            LayoutDashboard,
@@ -47,7 +48,6 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   };
 
   const filteredMenuSections = getFilteredMenuSections();
-  const W = collapsed ? 56 : 256;
 
   return (
     <>
@@ -60,92 +60,64 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       )}
 
       <aside
-        style={{
-          background: '#111113',
-          borderRight: '1px solid #27272a',
-          width: W,
-          minWidth: W,
-          transition: 'width 0.25s ease, min-width 0.25s ease',
-        }}
-        className={`
-          fixed lg:sticky top-0 left-0 z-50
-          h-screen py-4 flex flex-col
-          transform transition-transform duration-300 ease-in-out
-          ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-          overflow-y-auto lg:flex-shrink-0
-        `}
+        className={cn(
+          "fixed lg:sticky top-0 left-0 z-50 h-screen py-4 flex flex-col",
+          "bg-surface border-r border-line",
+          "transform transition-[transform,width,min-width] duration-300 ease-in-out",
+          "overflow-y-auto lg:flex-shrink-0",
+          collapsed ? "w-14 min-w-14" : "w-64 min-w-64",
+          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        )}
         onMouseLeave={() => setTooltip(null)}
       >
         {/* Close button — mobile only */}
         <button
           onClick={onClose}
-          className="lg:hidden absolute top-3 right-3 p-1.5 rounded-lg"
-          style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)' }}
+          className="lg:hidden absolute top-3 right-3 p-1.5 rounded-lg bg-danger-dim border border-[rgba(248,113,113,0.2)]"
           aria-label="Close menu"
         >
-          <X size={15} style={{ color: '#f87171' }} />
+          <X size={15} className="text-danger" />
         </button>
 
 
         {/* Logo — click to collapse */}
         <div
           onClick={() => { setCollapsed(c => !c); setTooltip(null); }}
-          style={{
-            background: 'rgba(22,163,74,0.1)',
-            border: '1px solid rgba(22,163,74,0.2)',
-            borderRadius: 12,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: collapsed ? 'center' : 'flex-start',
-            gap: 12,
-            padding: 12,
-            margin: collapsed ? '0 4px 24px' : '0 16px 24px',
-            transition: 'margin 0.25s ease',
-            overflow: 'hidden',
-            cursor: 'pointer',
-          }}
+          className={cn(
+            "flex items-center gap-3 p-3 rounded-xl overflow-hidden cursor-pointer transition-[margin] duration-300 ease-in-out",
+            "bg-brand/10 border border-brand/20",
+            collapsed ? "justify-center mx-1 mb-6" : "justify-start mx-4 mb-6"
+          )}
         >
-          <div
-            style={{
-              background: '#16a34a',
-              boxShadow: '0 0 12px rgba(22,163,74,0.4)',
-              width: 32, height: 32,
-              borderRadius: 8,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
+          <div className="bg-brand shadow-[0_0_12px_rgba(22,163,74,0.4)] w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0">
             <MessageSquare size={16} color="#fff" />
           </div>
           {!collapsed && (
             <div>
-              <p style={{ color: '#f4f4f5', fontSize: 13, fontWeight: 600, lineHeight: 1.2, whiteSpace: 'nowrap' }}>WhatsApp</p>
-              <p style={{ color: '#4ade80', fontSize: 10, fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Campaign Manager</p>
+              <p className="text-fg text-[13px] font-semibold leading-tight whitespace-nowrap">WhatsApp</p>
+              <p className="text-brand-light text-[10px] font-medium tracking-[0.08em] uppercase whitespace-nowrap">Campaign Manager</p>
             </div>
           )}
         </div>
 
         {/* Nav */}
         <nav
-          style={{
-            flex: 1,
-            paddingBottom: 24,
-            paddingLeft: collapsed ? 4 : 16,
-            paddingRight: collapsed ? 4 : 16,
-            transition: 'padding 0.25s ease',
-          }}
+          className={cn(
+            "flex-1 pb-6 transition-[padding] duration-300 ease-in-out",
+            collapsed ? "px-1" : "px-4"
+          )}
         >
           {filteredMenuSections.map((section, sectionIndex) => (
-            <div key={sectionIndex} style={{ marginBottom: 20 }}>
+            <div key={sectionIndex} className="mb-5">
               {section.title && !collapsed && (
-                <p style={{ color: '#52525b', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', paddingLeft: 8, marginBottom: 8 }}>
+                <p className="text-fg-subtle text-[11px] font-semibold uppercase tracking-[0.1em] pl-2 mb-2">
                   {section.title}
                 </p>
               )}
               {section.title && collapsed && (
-                <div style={{ height: 1, background: '#27272a', margin: '0 4px 8px' }} />
+                <div className="h-px bg-line mx-1 mb-2" />
               )}
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <ul className="list-none p-0 m-0 flex flex-col gap-0.5">
                 {section.items.map((item) => {
                   const isActive = activeItem === item.path;
                   const Icon = ICONS[item.path];
@@ -163,36 +135,16 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                       <Link
                         to={item.path}
                         onClick={onClose}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: collapsed ? 'center' : 'flex-start',
-                          gap: collapsed ? 0 : 12,
-                          padding: collapsed ? '10px 0' : '10px 12px',
-                          borderRadius: 8,
-                          fontSize: 14,
-                          fontWeight: 500,
-                          textDecoration: 'none',
-                          color: isActive ? '#4ade80' : '#a1a1aa',
-                          background: isActive ? 'rgba(22,163,74,0.12)' : 'transparent',
-                          borderLeft: isActive ? '2px solid #16a34a' : '2px solid transparent',
-                          transition: 'background 0.15s, color 0.15s',
-                        }}
-                        onMouseEnter={e => {
-                          if (!isActive) {
-                            (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)';
-                            (e.currentTarget as HTMLElement).style.color = '#f4f4f5';
-                          }
-                        }}
-                        onMouseLeave={e => {
-                          if (!isActive) {
-                            (e.currentTarget as HTMLElement).style.background = 'transparent';
-                            (e.currentTarget as HTMLElement).style.color = '#a1a1aa';
-                          }
-                        }}
+                        className={cn(
+                          "flex items-center rounded-lg text-sm font-medium no-underline transition-[background-color,color] duration-150 border-l-2",
+                          collapsed ? "justify-center gap-0 py-2.5 px-0" : "justify-start gap-3 py-2.5 px-3",
+                          isActive
+                            ? "text-brand-light bg-brand-dim border-l-brand"
+                            : "text-[#a1a1aa] bg-transparent border-l-transparent hover:bg-white/[0.04] hover:text-fg"
+                        )}
                       >
                         {Icon && <Icon size={16} />}
-                        {!collapsed && <span style={{ whiteSpace: 'nowrap' }}>{item.label}</span>}
+                        {!collapsed && <span className="whitespace-nowrap">{item.label}</span>}
                       </Link>
                     </li>
                   );
@@ -206,24 +158,8 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       {/* Floating tooltip for collapsed desktop mode */}
       {collapsed && tooltip && (
         <div
-          className="hidden lg:block"
-          style={{
-            position: 'fixed',
-            left: 64,
-            top: tooltip.y,
-            transform: 'translateY(-50%)',
-            background: '#27272a',
-            color: '#f4f4f5',
-            padding: '5px 10px',
-            borderRadius: 6,
-            fontSize: 12,
-            fontWeight: 500,
-            pointerEvents: 'none',
-            zIndex: 9999,
-            border: '1px solid #3f3f46',
-            whiteSpace: 'nowrap',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
-          }}
+          className="hidden lg:block fixed left-16 -translate-y-1/2 bg-line text-fg px-2.5 py-[5px] rounded-md text-xs font-medium pointer-events-none z-[9999] border border-line-strong whitespace-nowrap shadow-[0_2px_8px_rgba(0,0,0,0.4)]"
+          style={{ top: tooltip.y }}
         >
           {tooltip.label}
         </div>

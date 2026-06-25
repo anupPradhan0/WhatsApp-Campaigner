@@ -5,39 +5,48 @@ import { getUserRole } from "../utils/Auth";
 import { UserRole } from "../constants/Roles";
 import { toast } from 'sonner';
 import { api, getErrorMessage } from "../api/client";
-import { D, inp, onFocusGreen, onBlurBorder } from '../theme/tokens';
+import { cn } from "../lib/utils";
+import { fieldCls } from "../theme/classes";
 import { Paginator } from '../components/ui/Paginator';
 import { Spinner } from '../components/ui/Spinner';
 import { PageHeader } from '../components/ui/PageHeader';
 
-const taStyle: React.CSSProperties = { ...inp, resize: 'none' as const };
-const selStyle: React.CSSProperties = { ...inp };
-
-const FieldFocus = onFocusGreen;
-const FieldBlur  = onBlurBorder;
+const formLabelCls = "block text-[11px] font-semibold text-fg-subtle uppercase tracking-[0.07em] mb-1.5";
 
 // Defined outside component to prevent remount on every render
 const NewsStatusBadge = ({ s }: { s: 'ACTIVE' | 'INACTIVE' }) => (
-  <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.05em', color: s === 'ACTIVE' ? D.greenLight : D.red, background: s === 'ACTIVE' ? D.greenDim : D.redDim, border: `1px solid ${s === 'ACTIVE' ? D.greenBorder : D.redBorder}` }}>{s}</span>
+  <span
+    className={cn(
+      "inline-block text-[10px] font-bold px-[9px] py-[3px] rounded-full uppercase tracking-[0.05em] border",
+      s === 'ACTIVE'
+        ? "text-brand-light bg-brand-dim border-brand-border"
+        : "text-danger bg-danger-dim border-danger-border"
+    )}
+  >
+    {s}
+  </span>
 );
 
 interface NewsFormProps { formData: { title: string; description: string; status: 'ACTIVE' | 'INACTIVE' }; setFormData: React.Dispatch<React.SetStateAction<{ title: string; description: string; status: 'ACTIVE' | 'INACTIVE' }>>; onSave: () => void; label: string; actionLoading: boolean; onCancel: () => void; }
 const NewsForm = ({ formData, setFormData, onSave, label, actionLoading, onCancel }: NewsFormProps) => (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-    <div><label style={{ fontSize: 11, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Title *</label>
-      <input type="text" value={formData.title} onChange={e => setFormData(f => ({...f, title: e.target.value}))} placeholder="Enter news title" style={inp} onFocus={FieldFocus} onBlur={FieldBlur} />
+  <div className="flex flex-col gap-3">
+    <div>
+      <label className={formLabelCls}>Title *</label>
+      <input type="text" value={formData.title} onChange={e => setFormData(f => ({ ...f, title: e.target.value }))} placeholder="Enter news title" className={fieldCls} />
     </div>
-    <div><label style={{ fontSize: 11, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Description *</label>
-      <textarea value={formData.description} onChange={e => setFormData(f => ({...f, description: e.target.value}))} rows={5} placeholder="Enter news description" style={taStyle} onFocus={FieldFocus} onBlur={FieldBlur} />
+    <div>
+      <label className={formLabelCls}>Description *</label>
+      <textarea value={formData.description} onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} rows={5} placeholder="Enter news description" className={cn(fieldCls, "resize-none")} />
     </div>
-    <div><label style={{ fontSize: 11, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>Status *</label>
-      <select value={formData.status} onChange={e => setFormData(f => ({...f, status: e.target.value as 'ACTIVE' | 'INACTIVE'}))} style={selStyle} onFocus={FieldFocus} onBlur={FieldBlur}>
+    <div>
+      <label className={formLabelCls}>Status *</label>
+      <select value={formData.status} onChange={e => setFormData(f => ({ ...f, status: e.target.value as 'ACTIVE' | 'INACTIVE' }))} className={fieldCls}>
         <option value="ACTIVE">ACTIVE</option><option value="INACTIVE">INACTIVE</option>
       </select>
     </div>
-    <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-      <button onClick={onSave} disabled={actionLoading} style={{ flex: 1, padding: '9px 0', background: D.green, color: '#fff', fontWeight: 600, fontSize: 13, border: 'none', borderRadius: 8, cursor: 'pointer', opacity: actionLoading ? 0.6 : 1 }}>{actionLoading ? 'Saving…' : label}</button>
-      <button onClick={onCancel} style={{ flex: 1, padding: '9px 0', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, cursor: 'pointer', color: D.textMuted, fontSize: 13, fontWeight: 600 }}>Cancel</button>
+    <div className="flex gap-2.5 mt-1">
+      <button onClick={onSave} disabled={actionLoading} className="flex-1 py-[9px] bg-brand hover:bg-brand-hover text-white font-semibold text-[13px] rounded-lg cursor-pointer transition-colors disabled:opacity-60">{actionLoading ? 'Saving…' : label}</button>
+      <button onClick={onCancel} className="flex-1 py-[9px] bg-surface2 border border-line rounded-lg cursor-pointer text-fg-muted text-[13px] font-semibold">Cancel</button>
     </div>
   </div>
 );
@@ -107,55 +116,53 @@ export default function News() {
 
   return (
     <>
-      <style>{`.row-h:hover td{background:rgba(255,255,255,0.025)!important} select option{background:#18181b;color:#f4f4f5}`}</style>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="flex flex-col gap-4">
         <PageHeader title="News" subtitle={`${total} news items`}
-          action={isAdmin ? <button onClick={openCreate} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', background: D.green, color: '#fff', fontWeight: 600, fontSize: 13, border: 'none', borderRadius: 8, cursor: 'pointer' }}><Plus size={15} /> Create News</button> : undefined}
+          action={isAdmin ? <button onClick={openCreate} className="flex items-center gap-[7px] px-4 py-[9px] bg-brand hover:bg-brand-hover text-white font-semibold text-[13px] rounded-lg cursor-pointer transition-colors"><Plus size={15} /> Create News</button> : undefined}
         />
 
         {/* Toolbar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: D.surface, border: `1px solid ${D.border}`, borderRadius: 10, padding: '10px 14px', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 11, color: D.textMuted }}>Show</span>
-            <select value={perPage} onChange={e => setPerPage(Number(e.target.value))} style={{ background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 6, color: D.text, fontSize: 12, padding: '4px 8px', outline: 'none' }}>{[10,25,50].map(n => <option key={n} value={n}>{n}</option>)}</select>
-            <span style={{ fontSize: 11, color: D.textSubtle }}>entries</span>
+        <div className="flex items-center gap-2.5 bg-surface border border-line rounded-[10px] px-3.5 py-2.5 flex-wrap justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-fg-muted">Show</span>
+            <select value={perPage} onChange={e => setPerPage(Number(e.target.value))} className="bg-surface2 border border-line rounded-md text-fg text-xs px-2 py-1 outline-none">{[10, 25, 50].map(n => <option key={n} value={n}>{n}</option>)}</select>
+            <span className="text-[11px] text-fg-subtle">entries</span>
           </div>
-          <span style={{ fontSize: 11, color: D.textSubtle }}>{idx + 1}–{Math.min(idx + perPage, total)} of {total}</span>
+          <span className="text-[11px] text-fg-subtle">{idx + 1}–{Math.min(idx + perPage, total)} of {total}</span>
         </div>
 
         {/* Desktop table */}
-        <div className="hidden md:block" style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 12, overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead><tr style={{ borderBottom: `1px solid ${D.border}` }}>
+        <div className="hidden md:block bg-surface border border-line rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead><tr className="border-b border-line">
                 {['#', 'Date', 'Title', 'Description', 'Status', 'By', ...(isAdmin ? ['Actions'] : [])].map(h => (
-                  <th key={h} style={{ padding: '12px 14px', textAlign: 'left', fontSize: 10, color: D.textSubtle, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>{h}</th>
+                  <th key={h} className="px-3.5 py-3 text-left text-[10px] text-fg-subtle font-bold uppercase tracking-[0.08em] whitespace-nowrap">{h}</th>
                 ))}
               </tr></thead>
               <tbody>
                 {current.length === 0
-                  ? <tr><td colSpan={isAdmin ? 7 : 6} style={{ padding: '40px', textAlign: 'center', color: D.textSubtle, fontSize: 13 }}>No news available.</td></tr>
+                  ? <tr><td colSpan={isAdmin ? 7 : 6} className="p-10 text-center text-fg-subtle text-[13px]">No news available.</td></tr>
                   : current.map((n, i) => (
-                  <tr key={n.id} className="row-h" style={{ borderBottom: `1px solid rgba(39,39,42,0.5)` }}>
-                    <td style={{ padding: '11px 14px', fontSize: 12, color: D.textSubtle }}>{idx + i + 1}</td>
-                    <td style={{ padding: '11px 14px', fontSize: 11, color: D.textSubtle, whiteSpace: 'nowrap' }}>
+                  <tr key={n.id} className="group border-b border-line/50">
+                    <td className="px-3.5 py-[11px] text-xs text-fg-subtle group-hover:bg-white/[0.025]">{idx + i + 1}</td>
+                    <td className="px-3.5 py-[11px] text-[11px] text-fg-subtle whitespace-nowrap group-hover:bg-white/[0.025]">
                       <div>{fmtDate(n.createdAt)}</div>
-                      <div style={{ color: D.textSubtle, marginTop: 2 }}>Upd: {fmtDate(n.updatedAt)}</div>
+                      <div className="text-fg-subtle mt-0.5">Upd: {fmtDate(n.updatedAt)}</div>
                     </td>
-                    <td style={{ padding: '11px 14px', fontSize: 13, color: D.text, fontWeight: 500, maxWidth: 160 }}>{n.title}</td>
-                    <td style={{ padding: '11px 14px', maxWidth: 280 }}>
-                      <p style={{ fontSize: 12, color: D.textMuted, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', margin: 0 }}>{n.description}</p>
-                      <button onClick={() => openView(n)} style={{ fontSize: 11, color: D.greenLight, background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginTop: 2 }}>Read more</button>
+                    <td className="px-3.5 py-[11px] text-[13px] text-fg font-medium max-w-[160px] group-hover:bg-white/[0.025]">{n.title}</td>
+                    <td className="px-3.5 py-[11px] max-w-[280px] group-hover:bg-white/[0.025]">
+                      <p className="text-xs text-fg-muted overflow-hidden [display:-webkit-box] [-webkit-line-clamp:3] [-webkit-box-orient:vertical]">{n.description}</p>
+                      <button onClick={() => openView(n)} className="text-[11px] text-brand-light bg-transparent border-none cursor-pointer p-0 mt-0.5">Read more</button>
                     </td>
-                    <td style={{ padding: '11px 14px' }}><NewsStatusBadge s={n.status} /></td>
-                    <td style={{ padding: '11px 14px', fontSize: 12, color: D.textMuted }}>{n.createdBy}</td>
+                    <td className="px-3.5 py-[11px] group-hover:bg-white/[0.025]"><NewsStatusBadge s={n.status} /></td>
+                    <td className="px-3.5 py-[11px] text-xs text-fg-muted group-hover:bg-white/[0.025]">{n.createdBy}</td>
                     {isAdmin && (
-                      <td style={{ padding: '11px 14px' }}>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button onClick={() => openView(n)} title="View" style={{ width: 30, height: 30, borderRadius: 7, background: D.greenDim, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Eye size={13} style={{ color: D.greenLight }} /></button>
-                          <button onClick={() => openEdit(n)} title="Edit" style={{ width: 30, height: 30, borderRadius: 7, background: D.blueDim, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Edit2 size={13} style={{ color: D.blue }} /></button>
-                          <button onClick={() => openDelete(n)} title="Delete" style={{ width: 30, height: 30, borderRadius: 7, background: D.redDim, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Trash2 size={13} style={{ color: D.red }} /></button>
+                      <td className="px-3.5 py-[11px] group-hover:bg-white/[0.025]">
+                        <div className="flex gap-1.5">
+                          <button onClick={() => openView(n)} title="View" className="w-[30px] h-[30px] rounded-[7px] bg-brand-dim flex items-center justify-center cursor-pointer"><Eye size={13} className="text-brand-light" /></button>
+                          <button onClick={() => openEdit(n)} title="Edit" className="w-[30px] h-[30px] rounded-[7px] bg-info-dim flex items-center justify-center cursor-pointer"><Edit2 size={13} className="text-info" /></button>
+                          <button onClick={() => openDelete(n)} title="Delete" className="w-[30px] h-[30px] rounded-[7px] bg-danger-dim flex items-center justify-center cursor-pointer"><Trash2 size={13} className="text-danger" /></button>
                         </div>
                       </td>
                     )}
@@ -167,24 +174,24 @@ export default function News() {
         </div>
 
         {/* Mobile cards */}
-        <div className="md:hidden" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="md:hidden flex flex-col gap-2">
           {current.length === 0
-            ? <div style={{ padding: 32, textAlign: 'center', background: D.surface, border: `1px solid ${D.border}`, borderRadius: 12 }}><p style={{ color: D.textSubtle, fontSize: 13 }}>No news available.</p></div>
+            ? <div className="p-8 text-center bg-surface border border-line rounded-xl"><p className="text-fg-subtle text-[13px]">No news available.</p></div>
             : current.map((n, i) => (
-            <div key={n.id} style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 10, padding: '12px 14px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <span style={{ fontSize: 11, color: D.textSubtle }}>#{idx + i + 1}</span>
+            <div key={n.id} className="bg-surface border border-line rounded-[10px] px-3.5 py-3">
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-[11px] text-fg-subtle">#{idx + i + 1}</span>
                 <NewsStatusBadge s={n.status} />
               </div>
-              <p style={{ fontSize: 13, fontWeight: 600, color: D.text, marginBottom: 4 }}>{n.title}</p>
-              <p style={{ fontSize: 12, color: D.textMuted, marginBottom: 8, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{n.description}</p>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, borderTop: `1px solid ${D.border}` }}>
-                <span style={{ fontSize: 11, color: D.textSubtle }}>By {n.createdBy} · {format(new Date(n.createdAt), 'dd MMM')}</span>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button onClick={() => openView(n)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: D.greenDim, border: 'none', borderRadius: 6, cursor: 'pointer', color: D.greenLight, fontSize: 12, fontWeight: 600 }}><Eye size={12} /> View</button>
+              <p className="text-[13px] font-semibold text-fg mb-1">{n.title}</p>
+              <p className="text-xs text-fg-muted mb-2 overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical]">{n.description}</p>
+              <div className="flex justify-between items-center pt-2 border-t border-line">
+                <span className="text-[11px] text-fg-subtle">By {n.createdBy} · {format(new Date(n.createdAt), 'dd MMM')}</span>
+                <div className="flex gap-1.5">
+                  <button onClick={() => openView(n)} className="flex items-center gap-[5px] px-2.5 py-[5px] bg-brand-dim border-none rounded-md cursor-pointer text-brand-light text-xs font-semibold"><Eye size={12} /> View</button>
                   {isAdmin && <>
-                    <button onClick={() => openEdit(n)} style={{ width: 28, height: 28, borderRadius: 6, background: D.blueDim, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Edit2 size={12} style={{ color: D.blue }} /></button>
-                    <button onClick={() => openDelete(n)} style={{ width: 28, height: 28, borderRadius: 6, background: D.redDim, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Trash2 size={12} style={{ color: D.red }} /></button>
+                    <button onClick={() => openEdit(n)} className="w-7 h-7 rounded-md bg-info-dim flex items-center justify-center cursor-pointer"><Edit2 size={12} className="text-info" /></button>
+                    <button onClick={() => openDelete(n)} className="w-7 h-7 rounded-md bg-danger-dim flex items-center justify-center cursor-pointer"><Trash2 size={12} className="text-danger" /></button>
                   </>}
                 </div>
               </div>
@@ -197,41 +204,41 @@ export default function News() {
 
       {/* Create modal */}
       {modal === 'create' && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }} onClick={closeModal}>
-          <div onClick={e => e.stopPropagation()} style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 14, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${D.border}` }}>
-              <p style={{ fontSize: 15, fontWeight: 700, color: D.text }}>Create News</p>
-              <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={18} style={{ color: D.textMuted }} /></button>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75" onClick={closeModal}>
+          <div onClick={e => e.stopPropagation()} className="w-full max-w-[480px] max-h-[90vh] overflow-y-auto bg-surface border border-line rounded-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-line">
+              <p className="text-[15px] font-bold text-fg">Create News</p>
+              <button onClick={closeModal} className="bg-transparent border-none cursor-pointer p-1"><X size={18} className="text-fg-muted" /></button>
             </div>
-            <div style={{ padding: 20 }}><NewsForm formData={formData} setFormData={setFormData} onSave={handleCreate} label="Create News" actionLoading={actionLoading} onCancel={closeModal} /></div>
+            <div className="p-5"><NewsForm formData={formData} setFormData={setFormData} onSave={handleCreate} label="Create News" actionLoading={actionLoading} onCancel={closeModal} /></div>
           </div>
         </div>
       )}
 
       {/* Edit modal */}
       {modal === 'edit' && selected && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }} onClick={closeModal}>
-          <div onClick={e => e.stopPropagation()} style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 14, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${D.border}` }}>
-              <p style={{ fontSize: 15, fontWeight: 700, color: D.text }}>Edit News</p>
-              <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={18} style={{ color: D.textMuted }} /></button>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75" onClick={closeModal}>
+          <div onClick={e => e.stopPropagation()} className="w-full max-w-[480px] max-h-[90vh] overflow-y-auto bg-surface border border-line rounded-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-line">
+              <p className="text-[15px] font-bold text-fg">Edit News</p>
+              <button onClick={closeModal} className="bg-transparent border-none cursor-pointer p-1"><X size={18} className="text-fg-muted" /></button>
             </div>
-            <div style={{ padding: 20 }}><NewsForm formData={formData} setFormData={setFormData} onSave={handleUpdate} label="Save Changes" actionLoading={actionLoading} onCancel={closeModal} /></div>
+            <div className="p-5"><NewsForm formData={formData} setFormData={setFormData} onSave={handleUpdate} label="Save Changes" actionLoading={actionLoading} onCancel={closeModal} /></div>
           </div>
         </div>
       )}
 
       {/* Delete modal */}
       {modal === 'delete' && selected && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }} onClick={closeModal}>
-          <div onClick={e => e.stopPropagation()} style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 14, width: '100%', maxWidth: 380 }}>
-            <div style={{ padding: 24, textAlign: 'center' }}>
-              <div style={{ width: 48, height: 48, borderRadius: '50%', background: D.redDim, border: `1px solid ${D.redBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}><Trash2 size={22} style={{ color: D.red }} /></div>
-              <p style={{ fontSize: 15, fontWeight: 700, color: D.text, marginBottom: 8 }}>Delete News</p>
-              <p style={{ fontSize: 13, color: D.textMuted, marginBottom: 20 }}>Are you sure you want to delete "<strong style={{ color: D.text }}>{selected.title}</strong>"? This action cannot be undone.</p>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button onClick={handleDelete} disabled={actionLoading} style={{ flex: 1, padding: '9px 0', background: D.red, color: '#fff', fontWeight: 600, fontSize: 13, border: 'none', borderRadius: 8, cursor: 'pointer', opacity: actionLoading ? 0.6 : 1 }}>{actionLoading ? 'Deleting…' : 'Delete'}</button>
-                <button onClick={closeModal} style={{ flex: 1, padding: '9px 0', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, cursor: 'pointer', color: D.textMuted, fontSize: 13, fontWeight: 600 }}>Cancel</button>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75" onClick={closeModal}>
+          <div onClick={e => e.stopPropagation()} className="w-full max-w-[380px] bg-surface border border-line rounded-2xl">
+            <div className="p-6 text-center">
+              <div className="w-12 h-12 rounded-full bg-danger-dim border border-danger-border flex items-center justify-center mx-auto mb-3.5"><Trash2 size={22} className="text-danger" /></div>
+              <p className="text-[15px] font-bold text-fg mb-2">Delete News</p>
+              <p className="text-[13px] text-fg-muted mb-5">Are you sure you want to delete "<strong className="text-fg">{selected.title}</strong>"? This action cannot be undone.</p>
+              <div className="flex gap-2.5">
+                <button onClick={handleDelete} disabled={actionLoading} className="flex-1 py-[9px] bg-danger text-white font-semibold text-[13px] rounded-lg cursor-pointer disabled:opacity-60">{actionLoading ? 'Deleting…' : 'Delete'}</button>
+                <button onClick={closeModal} className="flex-1 py-[9px] bg-surface2 border border-line rounded-lg cursor-pointer text-fg-muted text-[13px] font-semibold">Cancel</button>
               </div>
             </div>
           </div>
@@ -240,26 +247,26 @@ export default function News() {
 
       {/* View modal */}
       {modal === 'view' && selected && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }} onClick={closeModal}>
-          <div onClick={e => e.stopPropagation()} style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 14, width: '100%', maxWidth: 560, maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${D.border}` }}>
-              <p style={{ fontSize: 15, fontWeight: 700, color: D.text }}>{selected.title}</p>
-              <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={18} style={{ color: D.textMuted }} /></button>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75" onClick={closeModal}>
+          <div onClick={e => e.stopPropagation()} className="w-full max-w-[560px] max-h-[90vh] overflow-y-auto bg-surface border border-line rounded-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-line">
+              <p className="text-[15px] font-bold text-fg">{selected.title}</p>
+              <button onClick={closeModal} className="bg-transparent border-none cursor-pointer p-1"><X size={18} className="text-fg-muted" /></button>
             </div>
-            <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, padding: 12 }}>
+            <div className="p-5 flex flex-col gap-3.5">
+              <div className="grid grid-cols-2 gap-2.5 bg-surface2 border border-line rounded-lg p-3">
                 {[['Status', null], ['By', selected.createdBy], ['Created', fmtDate(selected.createdAt)], ['Updated', fmtDate(selected.updatedAt)]].map(([l, v]) => (
                   <div key={String(l)}>
-                    <p style={{ fontSize: 10, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{l}</p>
-                    {l === 'Status' ? <NewsStatusBadge s={selected.status} /> : <p style={{ fontSize: 12, color: D.text }}>{v}</p>}
+                    <p className="text-[10px] text-fg-subtle font-semibold uppercase mb-1">{l}</p>
+                    {l === 'Status' ? <NewsStatusBadge s={selected.status} /> : <p className="text-xs text-fg">{v}</p>}
                   </div>
                 ))}
               </div>
-              <div style={{ background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, padding: 14 }}>
-                <p style={{ fontSize: 11, color: D.textSubtle, fontWeight: 600, textTransform: 'uppercase', marginBottom: 8 }}>Description</p>
-                <p style={{ fontSize: 13, color: D.textMuted, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{selected.description}</p>
+              <div className="bg-surface2 border border-line rounded-lg p-3.5">
+                <p className="text-[11px] text-fg-subtle font-semibold uppercase mb-2">Description</p>
+                <p className="text-[13px] text-fg-muted leading-[1.7] whitespace-pre-wrap">{selected.description}</p>
               </div>
-              <button onClick={closeModal} style={{ width: '100%', padding: '9px 0', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 8, cursor: 'pointer', color: D.textMuted, fontSize: 13, fontWeight: 600 }}>Close</button>
+              <button onClick={closeModal} className="w-full py-[9px] bg-surface2 border border-line rounded-lg cursor-pointer text-fg-muted text-[13px] font-semibold">Close</button>
             </div>
           </div>
         </div>

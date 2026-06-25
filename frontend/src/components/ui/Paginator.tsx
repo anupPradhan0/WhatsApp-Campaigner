@@ -1,6 +1,6 @@
 
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { D } from '../../theme/tokens';
+import { cn } from '../../lib/utils';
 
 interface PaginatorProps {
   page: number;
@@ -19,30 +19,25 @@ export const Paginator = ({ page, total, onChange }: PaginatorProps) => {
   });
 
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-      background: D.surface, border: `1px solid ${D.border}`,
-      borderRadius: 10, padding: '12px 16px',
-    }}>
+    <div className="flex items-center justify-center gap-1.5 bg-surface border border-line rounded-[10px] px-4 py-3">
       <button
         onClick={() => onChange(page - 1)}
         disabled={page === 1}
-        style={{ padding: '5px 7px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 6, cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1, display: 'flex' }}
+        className="flex px-[7px] py-[5px] bg-surface2 border border-line rounded-md cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
       >
-        <ChevronLeft size={15} style={{ color: D.textMuted }} />
+        <ChevronLeft size={15} className="text-fg-muted" />
       </button>
 
       {pages.map(p => (
         <button
           key={p}
           onClick={() => onChange(p)}
-          style={{
-            width: 32, height: 32, borderRadius: 6, fontSize: 12, fontWeight: 600,
-            border: `1px solid ${page === p ? D.green : D.border}`,
-            background: page === p ? D.green : D.surface2,
-            color: page === p ? '#fff' : D.textMuted,
-            cursor: 'pointer',
-          }}
+          className={cn(
+            "w-8 h-8 rounded-md text-xs font-semibold border cursor-pointer",
+            page === p
+              ? "border-brand bg-brand text-white"
+              : "border-line bg-surface2 text-fg-muted"
+          )}
         >
           {p}
         </button>
@@ -51,9 +46,9 @@ export const Paginator = ({ page, total, onChange }: PaginatorProps) => {
       <button
         onClick={() => onChange(page + 1)}
         disabled={page === total}
-        style={{ padding: '5px 7px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 6, cursor: page === total ? 'not-allowed' : 'pointer', opacity: page === total ? 0.4 : 1, display: 'flex' }}
+        className="flex px-[7px] py-[5px] bg-surface2 border border-line rounded-md cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
       >
-        <ChevronRight size={15} style={{ color: D.textMuted }} />
+        <ChevronRight size={15} className="text-fg-muted" />
       </button>
     </div>
   );

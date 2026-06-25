@@ -6,7 +6,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, getErrorMessage } from '../api/client';
-import { D, inp, onFocusGreen, onBlurBorder } from '../theme/tokens';
+import { cn } from '../lib/utils';
+import { fieldCls } from '../theme/classes';
 import { Spinner } from '../components/ui/Spinner';
 import { PageHeader } from '../components/ui/PageHeader';
 
@@ -19,38 +20,68 @@ interface CreatorData {
   image?: string;
 }
 
+type Tone = 'brand' | 'brand-light' | 'info' | 'violet' | 'warning';
+
+// Icon color + faint background ("${accent}22"/"${accent}1a") per accent tone.
+const toneIcon: Record<Tone, string> = {
+  'brand': 'text-brand',
+  'brand-light': 'text-brand-light',
+  'info': 'text-info',
+  'violet': 'text-violet',
+  'warning': 'text-warning',
+};
+const toneBox: Record<Tone, string> = {
+  'brand': 'bg-brand/[0.13]',
+  'brand-light': 'bg-brand-light/[0.13]',
+  'info': 'bg-info/[0.13]',
+  'violet': 'bg-violet/[0.13]',
+  'warning': 'bg-warning/[0.13]',
+};
+const toneBoxLink: Record<Tone, string> = {
+  'brand': 'bg-brand/10',
+  'brand-light': 'bg-brand-light/10',
+  'info': 'bg-info/10',
+  'violet': 'bg-violet/10',
+  'warning': 'bg-warning/10',
+};
+const toneHoverBorder: Record<Tone, string> = {
+  'brand': 'hover:border-brand',
+  'brand-light': 'hover:border-brand-light',
+  'info': 'hover:border-info',
+  'violet': 'hover:border-violet',
+  'warning': 'hover:border-warning',
+};
+
 const SectionCard = ({ children }: { children: React.ReactNode }) => (
-  <div style={{ background: D.surface, border: `1px solid ${D.border}`, borderRadius: 12, overflow: 'hidden' }}>
+  <div className="bg-surface border border-line rounded-xl overflow-hidden">
     {children}
   </div>
 );
 
-const SectionHead = ({ icon: Icon, title, accent = D.green }: { icon: React.FC<{ size?: number; color?: string }>; title: string; accent?: string }) => (
-  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 20px', borderBottom: `1px solid ${D.border}`, background: D.surface2 }}>
-    <div style={{ width: 30, height: 30, borderRadius: 8, background: `${accent}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-      <Icon size={15} color={accent} />
+const SectionHead = ({ icon: Icon, title, accent = 'brand' }: { icon: React.FC<{ size?: number }>; title: string; accent?: Tone }) => (
+  <div className="flex items-center gap-2.5 px-5 py-3.5 border-b border-line bg-surface2">
+    <div className={cn("w-[30px] h-[30px] rounded-lg flex items-center justify-center shrink-0", toneBox[accent], toneIcon[accent])}>
+      <Icon size={15} />
     </div>
-    <p style={{ fontSize: 13, fontWeight: 700, color: D.text }}>{title}</p>
+    <p className="text-[13px] font-bold text-fg">{title}</p>
   </div>
 );
 
-const ContactLink = ({ href, icon: Icon, label, value, accent }: { href: string; icon: React.FC<{ size?: number; color?: string }>; label: string; value: string; accent: string }) => (
-  <a href={href} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 9, textDecoration: 'none', transition: 'border-color 0.15s' }}
-    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = accent; }}
-    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = D.border; }}>
-    <div style={{ width: 34, height: 34, borderRadius: 8, background: `${accent}1a`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-      <Icon size={16} color={accent} />
+const ContactLink = ({ href, icon: Icon, label, value, accent }: { href: string; icon: React.FC<{ size?: number }>; label: string; value: string; accent: Tone }) => (
+  <a href={href} className={cn("flex items-center gap-3 px-4 py-3 bg-surface2 border border-line rounded-[9px] no-underline transition-colors", toneHoverBorder[accent])}>
+    <div className={cn("w-[34px] h-[34px] rounded-lg flex items-center justify-center shrink-0", toneBoxLink[accent], toneIcon[accent])}>
+      <Icon size={16} />
     </div>
-    <div style={{ flex: 1, minWidth: 0 }}>
-      <p style={{ fontSize: 10, fontWeight: 700, color: D.textSubtle, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 }}>{label}</p>
-      <p style={{ fontSize: 13, fontWeight: 600, color: D.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</p>
+    <div className="flex-1 min-w-0">
+      <p className="text-[10px] font-bold text-fg-subtle uppercase tracking-[0.07em] mb-0.5">{label}</p>
+      <p className="text-[13px] font-semibold text-fg overflow-hidden text-ellipsis whitespace-nowrap">{value}</p>
     </div>
-    <ExternalLink size={13} style={{ color: D.textSubtle, flexShrink: 0 }} />
+    <ExternalLink size={13} className="text-fg-subtle shrink-0" />
   </a>
 );
 
 const FLabel = ({ children }: { children: React.ReactNode }) => (
-  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: D.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>{children}</label>
+  <label className="block text-[11px] font-bold text-fg-muted uppercase tracking-[0.07em] mb-1.5">{children}</label>
 );
 
 const Support = () => {
@@ -93,149 +124,146 @@ const Support = () => {
 
   if (loading) return <Spinner label="Loading support info…" />;
 
-  const roleAccent: Record<string, string> = { admin: D.blue, reseller: D.greenLight, user: D.amber };
-  const statusColor = (s: string) => s === 'active' ? D.greenLight : D.red;
+  // role/status badge text color + faint ("${color}22") background per tone.
+  const roleBadge: Record<string, string> = {
+    admin: 'text-info bg-info/[0.13]',
+    reseller: 'text-brand-light bg-brand-light/[0.13]',
+    user: 'text-warning bg-warning/[0.13]',
+  };
+  const roleBadgeFallback = 'text-fg-muted bg-fg-muted/[0.13]';
+  const statusBadge = (s: string) => s === 'active' ? 'text-brand-light bg-brand-light/[0.13]' : 'text-danger bg-danger/[0.13]';
 
   return (
-    <>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        <PageHeader title="Support & Help" subtitle="Get assistance from your creator or platform support" />
+    <div className="flex flex-col gap-5">
+      <PageHeader title="Support & Help" subtitle="Get assistance from your creator or platform support" />
 
-        {error && (
-          <div style={{ padding: '10px 14px', background: D.redDim, border: `1px solid ${D.redBorder}`, borderRadius: 8 }}>
-            <p style={{ fontSize: 13, color: D.red }}>{error}</p>
+      {error && (
+        <div className="px-3.5 py-2.5 bg-danger-dim border border-danger-border rounded-lg">
+          <p className="text-[13px] text-danger">{error}</p>
+        </div>
+      )}
+
+      {/* Creator contact */}
+      {creatorData && (
+        <SectionCard>
+          <SectionHead icon={User} title="Your Account Manager" accent="info" />
+          <div className="p-5 flex flex-col gap-3.5">
+            <div className="flex items-center gap-3.5">
+              <div className={cn("w-14 h-14 rounded-xl border border-line overflow-hidden shrink-0 flex items-center justify-center", creatorData.image ? "bg-transparent" : "bg-brand-dim")}>
+                {creatorData.image
+                  ? <img src={creatorData.image} alt={creatorData.companyName} className="w-full h-full object-cover" />
+                  : <span className="text-[22px] font-bold text-brand-light">{creatorData.companyName.charAt(0).toUpperCase()}</span>
+                }
+              </div>
+              <div>
+                <p className="text-[15px] font-bold text-fg">{creatorData.companyName}</p>
+                <div className="flex gap-1.5 mt-[5px] flex-wrap">
+                  <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-[20px] uppercase", roleBadge[creatorData.role] || roleBadgeFallback)}>
+                    {creatorData.role}
+                  </span>
+                  <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-[20px] uppercase", statusBadge(creatorData.status))}>
+                    {creatorData.status}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <ContactLink href={`mailto:${creatorData.email}`} icon={Mail} label="Email" value={creatorData.email} accent="info" />
+              <ContactLink href={`tel:${creatorData.number}`} icon={Phone} label="Phone" value={creatorData.number} accent="brand-light" />
+            </div>
+            <div className="px-3.5 py-2.5 bg-brand-dim border border-brand-border rounded-lg">
+              <p className="text-xs text-fg-muted leading-[1.6]">
+                Contact your <strong className="text-fg">{creatorData.role}</strong> for account, credits, or campaign queries.
+              </p>
+            </div>
           </div>
-        )}
+        </SectionCard>
+      )}
 
-        {/* Creator contact */}
-        {creatorData && (
-          <SectionCard>
-            <SectionHead icon={User} title="Your Account Manager" accent={D.blue} />
-            <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div style={{ width: 56, height: 56, borderRadius: 12, background: creatorData.image ? 'transparent' : D.greenDim, border: `1px solid ${D.border}`, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {creatorData.image
-                    ? <img src={creatorData.image} alt={creatorData.companyName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <span style={{ fontSize: 22, fontWeight: 700, color: D.greenLight }}>{creatorData.companyName.charAt(0).toUpperCase()}</span>
-                  }
-                </div>
-                <div>
-                  <p style={{ fontSize: 15, fontWeight: 700, color: D.text }}>{creatorData.companyName}</p>
-                  <div style={{ display: 'flex', gap: 6, marginTop: 5, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, textTransform: 'uppercase', color: roleAccent[creatorData.role] || D.textMuted, background: `${roleAccent[creatorData.role] || D.textMuted}22` }}>
-                      {creatorData.role}
-                    </span>
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, textTransform: 'uppercase', color: statusColor(creatorData.status), background: `${statusColor(creatorData.status)}22` }}>
-                      {creatorData.status}
-                    </span>
-                  </div>
-                </div>
+      {/* Platform support */}
+      <SectionCard>
+        <SectionHead icon={Shield} title="Platform Support" accent="violet" />
+        <div className="p-5 flex flex-col gap-3">
+          <ContactLink href="mailto:hello@prominds.digital" icon={Mail} label="Platform Email" value="hello@prominds.digital" accent="violet" />
+          <ContactLink href="tel:+919876543210" icon={Phone} label="Support Hotline · Mon–Sat 9AM–6PM" value="+91 98765 43210" accent="brand-light" />
+          <div className="border-t border-line pt-3.5">
+            <p className="text-xs font-bold text-fg-muted mb-2.5 uppercase tracking-[0.07em]">File a Formal Complaint</p>
+            <div className="flex items-start gap-2.5 px-3.5 py-3 bg-surface2 border border-line rounded-[9px]">
+              <CheckCircle2 size={15} className="text-brand-light shrink-0 mt-px" />
+              <div className="flex-1">
+                <p className="text-[13px] font-semibold text-fg mb-1">Submit via Complaints System</p>
+                <p className="text-xs text-fg-muted leading-[1.6] mb-2.5">For issues requiring formal tracking and admin response.</p>
+                <button onClick={() => navigate('/complaints')} className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand text-white font-semibold text-[13px] border-none rounded-[7px] cursor-pointer">
+                  <MessageSquare size={13} /> Go to Complaints
+                </button>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <ContactLink href={`mailto:${creatorData.email}`} icon={Mail} label="Email" value={creatorData.email} accent={D.blue} />
-                <ContactLink href={`tel:${creatorData.number}`} icon={Phone} label="Phone" value={creatorData.number} accent={D.greenLight} />
-              </div>
-              <div style={{ padding: '10px 14px', background: D.greenDim, border: `1px solid ${D.greenBorder}`, borderRadius: 8 }}>
-                <p style={{ fontSize: 12, color: D.textMuted, lineHeight: 1.6 }}>
-                  Contact your <strong style={{ color: D.text }}>{creatorData.role}</strong> for account, credits, or campaign queries.
+            </div>
+          </div>
+        </div>
+      </SectionCard>
+
+      {/* Quick tips */}
+      <SectionCard>
+        <SectionHead icon={HelpCircle} title="Quick Help Tips" accent="warning" />
+        <div className="p-5">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-2.5">
+            {[
+              { title: 'Account & Credits', desc: `Contact your ${creatorData?.role || 'creator'} for balance, credits, or account status issues.` },
+              { title: 'Technical Issues', desc: 'Reach out to platform support for bugs, errors, or technical problems.' },
+              { title: 'Campaign Help', desc: 'Check the Documentation page for guides on creating and managing campaigns.' },
+              { title: 'Formal Complaints', desc: 'Use the Complaints section for issues requiring formal tracking.' },
+            ].map(t => (
+              <div key={t.title} className="px-3.5 py-3 bg-surface2 border border-line rounded-[9px]">
+                <p className="text-xs font-bold text-fg mb-[5px] flex items-center gap-1.5">
+                  <CheckCircle2 size={12} className="text-brand-light" /> {t.title}
                 </p>
+                <p className="text-xs text-fg-muted leading-[1.6]">{t.desc}</p>
               </div>
-            </div>
-          </SectionCard>
-        )}
-
-        {/* Platform support */}
-        <SectionCard>
-          <SectionHead icon={Shield} title="Platform Support" accent={D.purple} />
-          <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <ContactLink href="mailto:hello@prominds.digital" icon={Mail} label="Platform Email" value="hello@prominds.digital" accent={D.purple} />
-            <ContactLink href="tel:+919876543210" icon={Phone} label="Support Hotline · Mon–Sat 9AM–6PM" value="+91 98765 43210" accent={D.greenLight} />
-            <div style={{ borderTop: `1px solid ${D.border}`, paddingTop: 14 }}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: D.textMuted, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.07em' }}>File a Formal Complaint</p>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 9 }}>
-                <CheckCircle2 size={15} style={{ color: D.greenLight, flexShrink: 0, marginTop: 1 }} />
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: D.text, marginBottom: 4 }}>Submit via Complaints System</p>
-                  <p style={{ fontSize: 12, color: D.textMuted, lineHeight: 1.6, marginBottom: 10 }}>For issues requiring formal tracking and admin response.</p>
-                  <button onClick={() => navigate('/complaints')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: D.green, color: '#fff', fontWeight: 600, fontSize: 13, border: 'none', borderRadius: 7, cursor: 'pointer' }}>
-                    <MessageSquare size={13} /> Go to Complaints
-                  </button>
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
-        </SectionCard>
+        </div>
+      </SectionCard>
 
-        {/* Quick tips */}
-        <SectionCard>
-          <SectionHead icon={HelpCircle} title="Quick Help Tips" accent={D.amber} />
-          <div style={{ padding: 20 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
-              {[
-                { title: 'Account & Credits', desc: `Contact your ${creatorData?.role || 'creator'} for balance, credits, or account status issues.` },
-                { title: 'Technical Issues', desc: 'Reach out to platform support for bugs, errors, or technical problems.' },
-                { title: 'Campaign Help', desc: 'Check the Documentation page for guides on creating and managing campaigns.' },
-                { title: 'Formal Complaints', desc: 'Use the Complaints section for issues requiring formal tracking.' },
-              ].map(t => (
-                <div key={t.title} style={{ padding: '12px 14px', background: D.surface2, border: `1px solid ${D.border}`, borderRadius: 9 }}>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: D.text, marginBottom: 5, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <CheckCircle2 size={12} style={{ color: D.greenLight }} /> {t.title}
-                  </p>
-                  <p style={{ fontSize: 12, color: D.textMuted, lineHeight: 1.6 }}>{t.desc}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </SectionCard>
-
-        {/* Support form */}
-        <SectionCard>
-          <SectionHead icon={Send} title="Send Support Request" />
-          <form onSubmit={handleSubmit} style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
-              <div>
-                <FLabel>Your Name *</FLabel>
-                <input type="text" name="name" value={supportForm.name} onChange={handleChange} placeholder="Full name" required disabled={submitting} style={inp} onFocus={onFocusGreen} onBlur={onBlurBorder} />
-              </div>
-              <div>
-                <FLabel>Email *</FLabel>
-                <input type="email" name="email" value={supportForm.email} onChange={handleChange} placeholder="you@example.com" required disabled={submitting} style={inp} onFocus={onFocusGreen} onBlur={onBlurBorder} />
-              </div>
-              <div>
-                <FLabel>Phone *</FLabel>
-                <input type="tel" name="number" value={supportForm.number} onChange={handleChange} placeholder="+91 98765 43210" required disabled={submitting} style={inp} onFocus={onFocusGreen} onBlur={onBlurBorder} />
-              </div>
-              <div>
-                <FLabel>Subject *</FLabel>
-                <input type="text" name="subject" value={supportForm.subject} onChange={handleChange} placeholder="Brief subject" required disabled={submitting} style={inp} onFocus={onFocusGreen} onBlur={onBlurBorder} />
-              </div>
+      {/* Support form */}
+      <SectionCard>
+        <SectionHead icon={Send} title="Send Support Request" />
+        <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-3.5">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3.5">
+            <div>
+              <FLabel>Your Name *</FLabel>
+              <input type="text" name="name" value={supportForm.name} onChange={handleChange} placeholder="Full name" required disabled={submitting} className={cn(fieldCls, "placeholder:text-fg-subtle")} />
             </div>
             <div>
-              <FLabel>Message *</FLabel>
-              <textarea name="message" value={supportForm.message} onChange={handleChange} placeholder="Describe your issue in detail…" rows={5} required disabled={submitting}
-                style={{ ...inp, resize: 'vertical' as const, lineHeight: 1.6 }}
-                onFocus={onFocusGreen} onBlur={onBlurBorder}
-              />
+              <FLabel>Email *</FLabel>
+              <input type="email" name="email" value={supportForm.email} onChange={handleChange} placeholder="you@example.com" required disabled={submitting} className={cn(fieldCls, "placeholder:text-fg-subtle")} />
             </div>
             <div>
-              <button type="submit" disabled={submitting} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 24px', background: D.green, color: '#fff', fontWeight: 600, fontSize: 14, border: 'none', borderRadius: 8, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.6 : 1 }}>
-                {submitting ? (
-                  <><div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', animation: 'spin 0.7s linear infinite' }} /> Sending…</>
-                ) : (
-                  <><Send size={14} /> Send Request</>
-                )}
-              </button>
+              <FLabel>Phone *</FLabel>
+              <input type="tel" name="number" value={supportForm.number} onChange={handleChange} placeholder="+91 98765 43210" required disabled={submitting} className={cn(fieldCls, "placeholder:text-fg-subtle")} />
             </div>
-          </form>
-        </SectionCard>
-      </div>
-
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        select option { background: #18181b; color: #f4f4f5; }
-        ::placeholder { color: ${D.textSubtle}; }
-      `}</style>
-    </>
+            <div>
+              <FLabel>Subject *</FLabel>
+              <input type="text" name="subject" value={supportForm.subject} onChange={handleChange} placeholder="Brief subject" required disabled={submitting} className={cn(fieldCls, "placeholder:text-fg-subtle")} />
+            </div>
+          </div>
+          <div>
+            <FLabel>Message *</FLabel>
+            <textarea name="message" value={supportForm.message} onChange={handleChange} placeholder="Describe your issue in detail…" rows={5} required disabled={submitting}
+              className={cn(fieldCls, "resize-y leading-[1.6] placeholder:text-fg-subtle")}
+            />
+          </div>
+          <div>
+            <button type="submit" disabled={submitting} className={cn("inline-flex items-center gap-2 px-6 py-2.5 bg-brand text-white font-semibold text-sm border-none rounded-lg", submitting ? "cursor-not-allowed opacity-60" : "cursor-pointer")}>
+              {submitting ? (
+                <><span className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Sending…</>
+              ) : (
+                <><Send size={14} /> Send Request</>
+              )}
+            </button>
+          </div>
+        </form>
+      </SectionCard>
+    </div>
   );
 };
 

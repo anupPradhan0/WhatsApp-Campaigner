@@ -40,7 +40,7 @@ A comprehensive full-stack WhatsApp campaign management system built with the ME
 - **User Management** - Complete user and reseller administration dashboard
 - **Complaint System** - Built-in ticketing for complaint handling and resolution
 - **Business Profiles** - Account and business profile management capabilities
-- **News & Reviews** - Integrated news feed and user review system
+- **News Feed** - Platform announcements managed by admins
 
 ### 🔒 Technical Features
 
@@ -158,7 +158,6 @@ A comprehensive full-stack WhatsApp campaign management system built with the ME
 - `complaints` - Support tickets and resolutions
 - `transactions` - Credit transactions and history
 - `news` - Platform announcements
-- `reviews` - User feedback and ratings
 
 **Queue topology (RabbitMQ):**
 - `campaign.exchange` (direct, durable) — all campaign publishes
@@ -297,23 +296,20 @@ IDEMPOTENCY_TTL_SECONDS=600      # How long a cached Idempotency-Key response st
 
 # JWT Configuration
 JWT_SECRET=your_super_secret_jwt_key_here_minimum_32_characters_long
-JWT_EXPIRE=7d
 
-# Cloudinary Configuration
+# Cloudinary (media storage)
 CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
 CLOUDINARY_API_KEY=your_cloudinary_api_key
 CLOUDINARY_API_SECRET=your_cloudinary_api_secret
 
-# Cloudinary
-CLOUDINARY_URL=cloudinary://<ApiKey>:<SecretKey>@<CloudName>
-CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
-CLOUDINARY_API_KEY=your_cloudinary_api_key
-CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+# Support email (nodemailer) — the /api/support form sends to EMAIL_RECEIVER
+EMAIL_USER=your_smtp_user@example.com
+EMAIL_PASS=your_smtp_app_password
+EMAIL_RECEIVER=support@yourcompany.com
 
-# Rate Limiting
-RATE_LIMIT_WINDOW_MS=15 * 50 * 1000
-RATE_LIMIT_MAX_REQUESTS=127
-
+# Rate Limiting (both optional — must be plain integers, not expressions)
+RATE_LIMIT_WINDOW_MS=900000      # 15 minutes in ms
+RATE_LIMIT_MAX_REQUESTS=100
 ```
 
 ### Frontend Configuration
@@ -405,7 +401,7 @@ pnpm --filter ./frontend run preview
 3. **Environment Variables**
    - Add all variables from backend `.env`
    - Set `NODE_ENV=production`
-   - Update `FRONTEND_URL` to Vercel domain
+   - Set `CORS_ORIGIN` to your Vercel domain
 
 4. **Deploy**
    - Auto-deploys on push to main
@@ -452,129 +448,143 @@ vercel --prod
 
 ## 📁 Project Structure
 
+The backend follows a layered architecture (**routes → middleware → controllers → services → repositories → models**); the frontend is a Vite + React SPA. Only representative files are shown.
+
 ```
 WhatsApp-Campaigner/
 ├── backend/
 │   ├── src/
-│   │   ├── app.ts                    # Application entry point
-│   │   ├── config/
-│   │   │   ├── db.ts                 # Database configuration
-│   │   │   └── cloudinary.ts         # Cloudinary setup
-│   │   ├── models/
-│   │   │   ├── User.ts               # User model & schema
-│   │   │   ├── Campaign.ts           # Campaign model
-│   │   │   ├── Complaint.ts          # Complaint model
-│   │   │   ├── Transaction.ts        # Transaction model
-│   │   │   └── Business.ts           # Business model
-│   │   ├── controllers/
-│   │   │   ├── authController.ts     # Authentication logic
-│   │   │   ├── campaignController.ts # Campaign CRUD
-│   │   │   ├── userController.ts     # User management
-│   │   │   ├── complaintController.ts# Complaint handling
-│   │   │   └── dashboardController.ts# Dashboard data
-│   │   ├── routes/
-│   │   │   ├── authRoutes.ts         # Auth endpoints
-│   │   │   ├── campaignRoutes.ts     # Campaign endpoints
-│   │   │   ├── userRoutes.ts         # User endpoints
-│   │   │   └── complaintRoutes.ts    # Complaint endpoints
-│   │   ├── middleware/
-│   │   │   ├── auth.ts               # JWT verification
-│   │   │   ├── roleCheck.ts          # Role-based access
-│   │   │   └── errorHandler.ts       # Global error handler
-│   │   └── utils/
-│   │       ├── generateToken.ts      # JWT generation
-│   │       └── validators.ts         # Input validation
-│   ├── dist/                         # Compiled output
+│   │   ├── app.ts                 # Express app + route mounting
+│   │   ├── server.ts              # Entry point (DB/Redis/RabbitMQ + worker bootstrap)
+│   │   ├── config/                # env, database, redis, rabbitmq
+│   │   ├── models/                # user, campaign, complaint, transaction, news
+│   │   ├── routes/                # auth, user, campaign, transaction, news,
+│   │   │                          #   complaint, dashboard, support
+│   │   ├── controllers/           # one per route group (incl. export, dashboard)
+│   │   ├── services/              # business logic (auth, campaign, transaction,
+│   │   │                          #   user, complaint, support, whatsapp-gateway*)
+│   │   ├── repositories/          # data-access layer (Mongoose queries)
+│   │   ├── middleware/            # auth guards, validation, rate-limit,
+│   │   │                          #   idempotency, role checks, upload
+│   │   ├── queue/                 # RabbitMQ topology, producer, consumer
+│   │   ├── jobs/                  # node-cron cleanup scheduler
+│   │   ├── validation/            # Zod request schemas
+│   │   └── utils/                 # tokens, hashing, cookies, cloudinary, upload
+│   ├── public/uploads/            # transient local upload dir (pre-Cloudinary)
 │   ├── package.json
-│   ├── tsconfig.json
-│   └── .env
+│   └── tsconfig.json
 │
 ├── frontend/
 │   ├── src/
-│   │   ├── main.tsx                  # App entry point
-│   │   ├── App.tsx                   # Root component
-│   │   ├── pages/
-│   │   │   ├── Dashboard.tsx         # Main dashboard
-│   │   │   ├── SendWhatsApp.tsx      # Campaign creation
-│   │   │   ├── Credit.tsx            # Credit management
-│   │   │   ├── ManageReseller.tsx    # Reseller admin
-│   │   │   ├── ManageUser.tsx        # User admin
-│   │   │   ├── WhatsAppReport.tsx    # Campaign reports
-│   │   │   ├── AllCampaign.tsx       # Campaign list
-│   │   │   ├── News.tsx              # News feed
-│   │   │   ├── Review.tsx            # Reviews page
-│   │   │   ├── Complaints.tsx        # Complaints system
-│   │   │   └── ManageBusiness.tsx    # Business settings
-│   │   ├── components/
-│   │   │   ├── Navbar.tsx            # Top navigation
-│   │   │   ├── Sidebar.tsx           # Side navigation
-│   │   │   ├── ProtectedRoute.tsx    # Auth guard
-│   │   │   └── common/               # Reusable components
-│   │   ├── context/
-│   │   │   └── AuthContext.tsx       # Auth state management
-│   │   ├── hooks/
-│   │   │   └── useAuth.ts            # Auth custom hook
-│   │   ├── services/
-│   │   │   └── api.ts                # API client
-│   │   ├── types/
-│   │   │   └── index.ts              # TypeScript definitions
-│   │   └── styles/
-│   │       └── index.css             # Global styles
-│   ├── public/                       # Static assets
-│   ├── dist/                         # Production build
+│   │   ├── main.tsx               # App entry point
+│   │   ├── App.tsx                # Routes + providers + ErrorBoundary
+│   │   ├── pages/                 # Dashboard, SendWhatsapp, AllCampaigns,
+│   │   │                          #   WhatsAppReports, ManageUser, ManageReseller,
+│   │   │                          #   ManageBusiness, CreditReports, News,
+│   │   │                          #   Complaints, Support, TreeView, Documentation,
+│   │   │                          #   Login, NotFound
+│   │   ├── components/            # layout/, auth/ (ProtectedRoute), ui/ (shadcn)
+│   │   ├── hooks/                 # useDashboard, useCampaigns, useBusiness,
+│   │   │                          #   useUserManagement
+│   │   ├── api/client.ts          # Axios instance (cookies + 401 handling)
+│   │   ├── lib/                   # queryClient, queryKeys, utils
+│   │   ├── constants/Roles.ts     # role → menu config
+│   │   └── theme/tokens.ts        # shared design tokens
+│   ├── public/                    # static assets
 │   ├── package.json
-│   ├── tsconfig.json
 │   ├── vite.config.ts
-│   ├── tailwind.config.js
-│   └── .env
+│   └── tailwind.config.ts
 │
-├── screenshots/                      # Application screenshots
+├── docker-compose.yml             # MongoDB + RabbitMQ + Redis
+├── doc/backend.md                 # async send pipeline & shared-state details
+├── screenshots/
 ├── README.md
-├── LICENSE
-└── .gitignore
+└── LICENSE
 ```
+
+> \* `whatsapp-gateway.service.ts` is currently a **stub** that simulates sending. Swap in a real provider (Meta Cloud API, Twilio, Gupshup, …) without changing the rest of the pipeline.
 
 ---
 
 ## 📡 API Documentation
 
-### Authentication Endpoints
+> 🔒 = requires authentication (JWT sent via HTTP-only cookie or `Authorization: Bearer <token>`).
+> Reads/aggregations are served from `/api/dashboard/*`; writes live on their resource routers.
+
+### Authentication — `/api/auth`
 
 ```
-POST   /api/auth/login           User login
-POST   /api/auth/logout          User logout
-GET    /api/auth/profile         Get user profile
-PUT    /api/auth/profile         Update user profile
+POST   /api/auth/register          Public self-registration (always creates a USER)
+POST   /api/auth/login             Log in (sets JWT cookie)
+POST   /api/auth/logout            Log out (revokes the token)                🔒
+GET    /api/auth/bootstrap-status  Whether any users exist yet
+POST   /api/auth/bootstrap-admin   Create the first admin (only on an empty DB)
+PUT    /api/auth/update-profile    Update your own profile                    🔒
 ```
 
-### Campaign Endpoints
+### Campaigns — `/api/campaigns`
 
 ```
-GET    /api/campaigns            Get all campaigns
-POST   /api/campaigns            Create new campaign
-GET    /api/campaigns/:id        Get campaign by ID
-PUT    /api/campaigns/:id        Update campaign
-DELETE /api/campaigns/:id        Delete campaign
-GET    /api/campaigns/reports    Get campaign reports
+POST   /api/campaigns              Create + queue a campaign (multipart: media + fields)  🔒
+PUT    /api/campaigns/stats/:campaignId   Update a campaign's send status               🔒
 ```
 
-### User Management Endpoints
+### User Management — `/api/user` (admin / reseller) 🔒
 
 ```
-GET    /api/users                Get all users (Admin)
-GET    /api/users/:id            Get user by ID
-PUT    /api/users/:id            Update user
-DELETE /api/users/:id            Delete user
-POST   /api/users/credits        Add credits
+POST   /api/user/create                   Create a managed user or reseller
+PUT    /api/user/update/:userId           Update a managed account
+DELETE /api/user/delete/:userId           Soft-delete an account
+PUT    /api/user/freeze/:userId           Freeze (deactivate) an account
+PUT    /api/user/unfreeze/:userId         Reactivate an account
+PUT    /api/user/change-password/:userId  Reset a managed account's password
+PUT    /api/user/change-own-password      Change your own password
 ```
 
-### Complaint Endpoints
+### Credits / Transactions — `/api/transaction` 🔒
 
 ```
-GET    /api/complaints           Get all complaints
-POST   /api/complaints           Create complaint
-PUT    /api/complaints/:id       Update complaint status
-GET    /api/complaints/:id       Get complaint details
+POST   /api/transaction/credit     Credit balance to a managed account
+POST   /api/transaction/debit      Debit balance from a managed account
+```
+
+### Complaints — `/api/complaints` 🔒
+
+```
+POST   /api/complaints/create              Raise a complaint
+PUT    /api/complaints/update/:complaintId Update status / add an admin response
+DELETE /api/complaints/delete/:complaintId Delete a complaint
+```
+
+### News — `/api/news` (admin) 🔒
+
+```
+POST   /api/news/create            Publish a news item
+PUT    /api/news/update/:newsId    Edit a news item
+DELETE /api/news/delete/:newsId    Remove a news item
+```
+
+### Support — `/api/support`
+
+```
+POST   /api/support                Send a support message (emails the team)
+```
+
+### Dashboard reads & reports — `/api/dashboard` 🔒
+
+```
+GET    /api/dashboard/home                       Dashboard stats
+GET    /api/dashboard/manage-business            Your business profile
+GET    /api/dashboard/manage-user                Managed users
+GET    /api/dashboard/manage-reseller            Managed resellers
+GET    /api/dashboard/tree-view                  Downline tree
+GET    /api/dashboard/transaction                Transaction history
+GET    /api/dashboard/news                        News feed
+GET    /api/dashboard/complaints                  Complaints (scoped by role)
+GET    /api/dashboard/whatsapp-reports            Campaign delivery reports
+GET    /api/dashboard/all-campaigns               All campaigns
+GET    /api/dashboard/export-campaign/:campaignId Export a campaign's recipients to Excel
+GET    /api/dashboard/support                     Support page data
 ```
 
 ---
@@ -670,7 +680,7 @@ pnpm --filter ./backend run build
 ```
 
 #### CORS Errors
-- Verify `FRONTEND_URL` in backend `.env`
+- Verify `CORS_ORIGIN` in backend `.env` matches your frontend origin exactly
 - Check CORS middleware allows your origin
 - Ensure `credentials: true` in frontend API calls
 
@@ -687,11 +697,12 @@ pnpm --filter ./backend run build
 ### Manual Testing
 
 ```bash
-# Backend health check
-curl http://localhost:8080/api/health
+# Check whether the instance has been bootstrapped yet
+curl http://localhost:8080/api/auth/bootstrap-status
 
-# Test authentication
+# Test authentication (use -c to capture the auth cookie)
 curl -X POST http://localhost:8080/api/auth/login \
+  -c cookies.txt \
   -H "Content-Type: application/json" \
   -d '{"email":"test@example.com","password":"password123"}'
 ```
