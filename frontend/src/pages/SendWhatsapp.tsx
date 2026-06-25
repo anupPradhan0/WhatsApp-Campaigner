@@ -182,7 +182,7 @@ const SendWhatsapp = () => {
 
       {/* Loading overlay */}
       {loading && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999]">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999]">
           <div className="bg-surface border border-line rounded-2xl px-10 py-8 flex flex-col items-center gap-4">
             <div className="w-10 h-10 rounded-full border-[3px] border-line border-t-brand animate-spin" style={{ animationDuration: '0.8s' }} />
             <p className="text-fg-muted text-sm font-medium">Creating campaign…</p>
@@ -192,7 +192,7 @@ const SendWhatsapp = () => {
 
       {/* Success modal */}
       {success && !loading && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999] p-4" onClick={() => setSuccess('')}>
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] p-4" onClick={() => setSuccess('')}>
           <div className="bg-surface border border-line rounded-2xl px-10 py-9 max-w-[360px] w-full text-center [animation:fadeIn_0.2s_ease]" onClick={e => e.stopPropagation()}>
             <div className="w-14 h-14 rounded-full bg-brand-dim border border-brand-border flex items-center justify-center mx-auto mb-5">
               <CheckCircle2 size={26} className="text-brand-light" />

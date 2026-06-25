@@ -173,8 +173,8 @@ export default function WhatsAppReports() {
 
       {/* Details modal */}
       {selected && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75" onClick={() => setSelected(null)}>
-          <div onClick={e => e.stopPropagation()} className="w-full max-w-[620px] max-h-[90vh] overflow-y-auto bg-surface border border-line rounded-[14px]">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80" onClick={() => setSelected(null)}>
+          <div onClick={e => e.stopPropagation()} className="w-full max-w-[620px] max-h-[90vh] overflow-y-auto bg-surface border border-brand-border shadow-[0_0_0_1px_rgba(22,163,74,0.08),0_24px_64px_-16px_rgba(0,0,0,0.85)] rounded-[14px]">
             <div className="flex items-center justify-between px-5 py-[18px] border-b border-line">
               <p className="text-base font-bold text-fg">Campaign Details</p>
               <div className="flex gap-2">

@@ -99,19 +99,8 @@ select option {
     --color-card: var(--card);
     --color-foreground: var(--foreground);
     --color-background: var(--background);
-    --radius-sm: calc(var(--radius) * 0.6);
-    --radius-md: calc(var(--radius) * 0.8);
-    --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) * 1.4);
-    --radius-2xl: calc(var(--radius) * 1.8);
-    --radius-3xl: calc(var(--radius) * 2.2);
-    --radius-4xl: calc(var(--radius) * 2.6);
-}
-
-  /* Brand palette — mirrors src/theme/tokens.ts so pages use semantic
-     Tailwind utilities (bg-surface, text-subtle, bg-brand-dim, …) instead of
-     inline hex. Generates bg-*/text-*/border-* utilities for each. */
-  @theme {
+    /* Brand palette — mirrors src/theme/tokens.ts so pages use semantic
+       utilities (bg-surface, text-fg-muted, bg-brand-dim, …) instead of inline hex. */
     --color-bg: #0a0a0c;
     --color-surface: #111113;
     --color-surface2: #18181b;
@@ -134,7 +123,14 @@ select option {
     --color-danger: #f87171;
     --color-danger-dim: rgba(248, 113, 113, 0.1);
     --color-danger-border: rgba(248, 113, 113, 0.3);
-  }
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
 
   :root {
     /* Dark green SaaS theme — always-dark */

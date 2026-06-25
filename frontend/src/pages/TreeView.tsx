@@ -150,8 +150,8 @@ export default function TreeView() {
 
       {/* Details modal */}
       {selected && (
-        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-[9999] p-4" onClick={() => setSelected(null)}>
-          <div onClick={e => e.stopPropagation()} className="bg-surface border border-line rounded-[14px] w-full max-w-[520px] max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] p-4" onClick={() => setSelected(null)}>
+          <div onClick={e => e.stopPropagation()} className="bg-surface border border-brand-border shadow-[0_0_0_1px_rgba(22,163,74,0.08),0_24px_64px_-16px_rgba(0,0,0,0.85)] rounded-[14px] w-full max-w-[520px] max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-5 py-4 border-b border-line">
               <div className="flex items-center gap-2.5">
                 {(() => { const rs = roleStyle(selected.role); return <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center", rs.dim)}><rs.Icon size={18} className={rs.color} /></div>; })()}

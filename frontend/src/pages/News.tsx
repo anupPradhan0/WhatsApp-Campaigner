@@ -204,8 +204,8 @@ export default function News() {
 
       {/* Create modal */}
       {modal === 'create' && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75" onClick={closeModal}>
-          <div onClick={e => e.stopPropagation()} className="w-full max-w-[480px] max-h-[90vh] overflow-y-auto bg-surface border border-line rounded-2xl">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80" onClick={closeModal}>
+          <div onClick={e => e.stopPropagation()} className="w-full max-w-[480px] max-h-[90vh] overflow-y-auto bg-surface border border-brand-border shadow-[0_0_0_1px_rgba(22,163,74,0.08),0_24px_64px_-16px_rgba(0,0,0,0.85)] rounded-2xl">
             <div className="flex items-center justify-between px-5 py-4 border-b border-line">
               <p className="text-[15px] font-bold text-fg">Create News</p>
               <button onClick={closeModal} className="bg-transparent border-none cursor-pointer p-1"><X size={18} className="text-fg-muted" /></button>
@@ -217,8 +217,8 @@ export default function News() {
 
       {/* Edit modal */}
       {modal === 'edit' && selected && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75" onClick={closeModal}>
-          <div onClick={e => e.stopPropagation()} className="w-full max-w-[480px] max-h-[90vh] overflow-y-auto bg-surface border border-line rounded-2xl">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80" onClick={closeModal}>
+          <div onClick={e => e.stopPropagation()} className="w-full max-w-[480px] max-h-[90vh] overflow-y-auto bg-surface border border-brand-border shadow-[0_0_0_1px_rgba(22,163,74,0.08),0_24px_64px_-16px_rgba(0,0,0,0.85)] rounded-2xl">
             <div className="flex items-center justify-between px-5 py-4 border-b border-line">
               <p className="text-[15px] font-bold text-fg">Edit News</p>
               <button onClick={closeModal} className="bg-transparent border-none cursor-pointer p-1"><X size={18} className="text-fg-muted" /></button>
@@ -230,8 +230,8 @@ export default function News() {
 
       {/* Delete modal */}
       {modal === 'delete' && selected && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75" onClick={closeModal}>
-          <div onClick={e => e.stopPropagation()} className="w-full max-w-[380px] bg-surface border border-line rounded-2xl">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80" onClick={closeModal}>
+          <div onClick={e => e.stopPropagation()} className="w-full max-w-[380px] bg-surface border border-brand-border shadow-[0_0_0_1px_rgba(22,163,74,0.08),0_24px_64px_-16px_rgba(0,0,0,0.85)] rounded-2xl">
             <div className="p-6 text-center">
               <div className="w-12 h-12 rounded-full bg-danger-dim border border-danger-border flex items-center justify-center mx-auto mb-3.5"><Trash2 size={22} className="text-danger" /></div>
               <p className="text-[15px] font-bold text-fg mb-2">Delete News</p>
@@ -247,8 +247,8 @@ export default function News() {
 
       {/* View modal */}
       {modal === 'view' && selected && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75" onClick={closeModal}>
-          <div onClick={e => e.stopPropagation()} className="w-full max-w-[560px] max-h-[90vh] overflow-y-auto bg-surface border border-line rounded-2xl">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80" onClick={closeModal}>
+          <div onClick={e => e.stopPropagation()} className="w-full max-w-[560px] max-h-[90vh] overflow-y-auto bg-surface border border-brand-border shadow-[0_0_0_1px_rgba(22,163,74,0.08),0_24px_64px_-16px_rgba(0,0,0,0.85)] rounded-2xl">
             <div className="flex items-center justify-between px-5 py-4 border-b border-line">
               <p className="text-[15px] font-bold text-fg">{selected.title}</p>
               <button onClick={closeModal} className="bg-transparent border-none cursor-pointer p-1"><X size={18} className="text-fg-muted" /></button>
