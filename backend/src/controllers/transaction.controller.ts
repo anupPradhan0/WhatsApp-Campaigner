@@ -65,7 +65,10 @@ export async function creditBalance(
         });
         return;
       }
-      if (error.message === "Only admin or reseller can credit balance") {
+      if (
+        error.message === "Only admin or reseller can credit balance" ||
+        error.message === "You can only credit accounts that you manage"
+      ) {
         res.status(403).json({
           success: false,
           message: error.message,
@@ -134,7 +137,10 @@ export async function debitBalance(
         });
         return;
       }
-      if (error.message === "Only admin or reseller can debit balance") {
+      if (
+        error.message === "Only admin or reseller can debit balance" ||
+        error.message === "You can only debit accounts that you manage"
+      ) {
         res.status(403).json({
           success: false,
           message: error.message,

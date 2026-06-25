@@ -63,6 +63,31 @@ export async function saveUser(
   return user.save(session ? { session } : {});
 }
 
+/**
+ * Atomically adjust a user's balance by `delta` (negative to debit), optionally
+ * guarded by `minBalance` so a debit cannot drive the balance below the amount
+ * being removed. Returns the updated document, or `null` if no document matched
+ * — i.e. the user was missing or the guard failed (insufficient funds).
+ *
+ * This is a single `$inc` so concurrent credits/debits cannot lose updates the
+ * way read-modify-write (`user.balance -= x; user.save()`) can.
+ */
+export async function adjustUserBalance(
+  id: string | mongoose.Types.ObjectId,
+  delta: number,
+  options?: { minBalance?: number; session?: ClientSession }
+): Promise<IUser | null> {
+  const filter: FilterQuery<IUser> = { _id: id };
+  if (options?.minBalance !== undefined) {
+    filter.balance = { $gte: options.minBalance };
+  }
+  return User.findOneAndUpdate(
+    filter,
+    { $inc: { balance: delta } },
+    { new: true, session: options?.session }
+  );
+}
+
 export async function findUsers(filter: FilterQuery<IUser>): Promise<IUser[]> {
   return User.find(filter).exec();
 }

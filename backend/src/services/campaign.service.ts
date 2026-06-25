@@ -12,6 +12,7 @@ import {
 import {
   findUserById,
   saveUser,
+  adjustUserBalance,
 } from "../repositories/user.repository.js";
 import { createTransactions } from "../repositories/transaction.repository.js";
 import { publishCampaignJob } from "../queue/campaign.producer.js";
@@ -123,8 +124,18 @@ export async function createCampaignForUser(
     let balanceAfter = user.balance;
 
     if (user.role !== UserRole.ADMIN) {
-      user.balance -= actualNumberCount;
-      balanceAfter = user.balance;
+      // Atomic, guarded debit: a concurrent campaign cannot drive the balance
+      // negative, and we never lose updates the way `user.balance -= x` +
+      // `save()` could. If the balance dropped below the cost since we read it,
+      // the guard fails and the whole transaction rolls back.
+      const debited = await adjustUserBalance(user._id, -actualNumberCount, {
+        minBalance: actualNumberCount,
+        session,
+      });
+      if (!debited) {
+        throw new Error("INSUFFICIENT_BALANCE");
+      }
+      balanceAfter = debited.balance;
     }
 
     const transactionDocs = await createTransactions(

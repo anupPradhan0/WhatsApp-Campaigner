@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { UserRole } from "../models/user.model.js";
 
 const objectIdString = z.string().min(24).max(24);
 
@@ -8,13 +7,14 @@ export const loginBodySchema = z.object({
   password: z.string().min(1),
 });
 
+// Public self-registration. `role` and `balance` are intentionally NOT accepted
+// from the client — they are forced to USER / 0 server-side. Privileged accounts
+// and credit assignment go through admin/reseller-only flows.
 export const registrationBodySchema = z.object({
   companyName: z.string().min(1).max(200),
   email: z.string().email(),
   password: z.string().min(1),
   number: z.coerce.number().int().positive(),
-  role: z.nativeEnum(UserRole),
-  balance: z.coerce.number().finite().nonnegative().optional().default(0),
 });
 
 export const bootstrapAdminBodySchema = z.object({

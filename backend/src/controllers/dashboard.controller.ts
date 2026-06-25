@@ -382,15 +382,23 @@ const complaints = async (req: Request, res: Response) => {
     const userId = user._id;
     const userRole = user.role;
 
-    // Determine which complaints to fetch
-    // Admin sees all complaints, regular users see only their own
-    // Admin, Reseller, and User all see all complaints
-    const queryFilter =
-      userRole === UserRole.ADMIN ||
-      userRole === UserRole.RESELLER ||
-      userRole === UserRole.USER
-        ? {}
-        : { createdBy: userId };
+    // Scope complaints by role so users cannot read each other's tickets:
+    // - Admin: every complaint in the system
+    // - Reseller: their own plus complaints raised by accounts they manage
+    // - User: only their own
+    let queryFilter: Record<string, unknown>;
+    if (userRole === UserRole.ADMIN) {
+      queryFilter = {};
+    } else if (userRole === UserRole.RESELLER) {
+      const downlineIds = [
+        userId,
+        ...(user.allUsers ?? []),
+        ...(user.allReseller ?? []),
+      ];
+      queryFilter = { createdBy: { $in: downlineIds } };
+    } else {
+      queryFilter = { createdBy: userId };
+    }
 
     // Fetch complaints
     const allComplaints = await Complaint.find(queryFilter)

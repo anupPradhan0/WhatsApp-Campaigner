@@ -30,14 +30,16 @@ export async function registerUser(
 
   const hashedPassword = await hashPassword(body.password);
 
+  // Self-registration always creates a plain, zero-balance USER. Role and
+  // balance are never taken from the request — privilege escalation guard.
   const user = await insertUser({
     companyName: body.companyName,
     email: body.email.toLowerCase().trim(),
     password: hashedPassword,
     number: body.number,
     image: imagePath,
-    balance: body.balance,
-    role: body.role,
+    balance: 0,
+    role: UserRole.USER,
   });
 
   const token = generateToken(user);

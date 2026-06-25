@@ -4,12 +4,28 @@ import { UserRole } from "../models/user.model.js";
 import type { ITransaction } from "../models/transaction.model.js";
 import {
   findUserById,
-  saveUser,
+  adjustUserBalance,
+  updateOneUser,
 } from "../repositories/user.repository.js";
 import {
   createTransactions,
   createTransaction,
 } from "../repositories/transaction.repository.js";
+
+/**
+ * A reseller may only move credits to/from accounts in their own downline
+ * (the users and sub-resellers they created). Admins are unrestricted.
+ * Without this check any reseller could credit or drain any account by id.
+ */
+function managesAccount(
+  sender: IUser,
+  targetId: mongoose.Types.ObjectId
+): boolean {
+  const inUsers = sender.allUsers?.some((id) => id.equals(targetId)) ?? false;
+  const inResellers =
+    sender.allReseller?.some((id) => id.equals(targetId)) ?? false;
+  return inUsers || inResellers;
+}
 
 export interface CreditBalanceResult {
   sender: IUser;
@@ -49,20 +65,40 @@ export async function creditBalanceService(
       throw new Error("Only admin or reseller can credit balance");
     }
 
-    const senderBalanceBefore = sender.balance;
-    const receiverBalanceBefore = receiver.balance;
-
-    if (sender.role === UserRole.RESELLER) {
-      if (sender.balance < amount) {
-        throw new Error("Insufficient balance");
-      }
-      sender.balance -= amount;
+    if (
+      sender.role === UserRole.RESELLER &&
+      !managesAccount(sender, receiver._id)
+    ) {
+      throw new Error("You can only credit accounts that you manage");
     }
 
-    const senderBalanceAfter = sender.balance;
+    let senderBalanceBefore = sender.balance;
+    let senderBalanceAfter = sender.balance;
 
-    receiver.balance += amount;
-    const receiverBalanceAfter = receiver.balance;
+    // A reseller funds the credit from their own balance (atomically, guarded
+    // so it cannot go negative); an admin mints new credits.
+    if (sender.role === UserRole.RESELLER) {
+      const updatedSender = await adjustUserBalance(sender._id, -amount, {
+        minBalance: amount,
+        session,
+      });
+      if (!updatedSender) {
+        throw new Error("Insufficient balance");
+      }
+      senderBalanceAfter = updatedSender.balance;
+      senderBalanceBefore = senderBalanceAfter + amount;
+      sender.balance = senderBalanceAfter;
+    }
+
+    const updatedReceiver = await adjustUserBalance(receiver._id, amount, {
+      session,
+    });
+    if (!updatedReceiver) {
+      throw new Error("Receiver not found");
+    }
+    const receiverBalanceBefore = updatedReceiver.balance - amount;
+    const receiverBalanceAfter = updatedReceiver.balance;
+    receiver.balance = receiverBalanceAfter;
 
     const debitTransactionDoc = await createTransactions(
       [
@@ -97,13 +133,18 @@ export async function creditBalanceService(
     const debitTransaction = debitTransactionDoc[0];
     const creditTransaction = creditTransactionDoc[0];
 
-    sender.allTransaction.push(debitTransaction._id as mongoose.Types.ObjectId);
-    receiver.allTransaction.push(
-      creditTransaction._id as mongoose.Types.ObjectId
+    // Link the transactions atomically — never re-save the whole user document,
+    // which would clobber the atomic balance updates above with a stale value.
+    await updateOneUser(
+      { _id: sender._id },
+      { $push: { allTransaction: debitTransaction._id } },
+      { session }
     );
-
-    await saveUser(sender, session);
-    await saveUser(receiver, session);
+    await updateOneUser(
+      { _id: receiver._id },
+      { $push: { allTransaction: creditTransaction._id } },
+      { session }
+    );
 
     await session.commitTransaction();
 
@@ -145,21 +186,41 @@ export async function debitBalanceService(
       throw new Error("Only admin or reseller can debit balance");
     }
 
-    if (receiver.balance < amount) {
+    if (
+      sender.role === UserRole.RESELLER &&
+      !managesAccount(sender, receiver._id)
+    ) {
+      throw new Error("You can only debit accounts that you manage");
+    }
+
+    // Remove credits from the receiver atomically, guarded so the balance
+    // cannot go negative under concurrent debits.
+    const updatedReceiver = await adjustUserBalance(receiver._id, -amount, {
+      minBalance: amount,
+      session,
+    });
+    if (!updatedReceiver) {
       throw new Error("Insufficient balance in receiver account");
     }
+    const receiverBalanceBefore = updatedReceiver.balance + amount;
+    const receiverBalanceAfter = updatedReceiver.balance;
+    receiver.balance = receiverBalanceAfter;
 
-    const senderBalanceBefore = sender.balance;
-    const receiverBalanceBefore = receiver.balance;
+    let senderBalanceBefore = sender.balance;
+    let senderBalanceAfter = sender.balance;
 
-    receiver.balance -= amount;
-    const receiverBalanceAfter = receiver.balance;
-
+    // A reseller reclaims the debited credits into their own balance.
     if (sender.role === UserRole.RESELLER) {
-      sender.balance += amount;
+      const updatedSender = await adjustUserBalance(sender._id, amount, {
+        session,
+      });
+      if (!updatedSender) {
+        throw new Error("Sender not found");
+      }
+      senderBalanceAfter = updatedSender.balance;
+      senderBalanceBefore = senderBalanceAfter - amount;
+      sender.balance = senderBalanceAfter;
     }
-
-    const senderBalanceAfter = sender.balance;
 
     const creditTransactionDoc = await createTransactions(
       [
@@ -194,13 +255,18 @@ export async function debitBalanceService(
     const creditTransaction = creditTransactionDoc[0];
     const debitTransaction = debitTransactionDoc[0];
 
-    sender.allTransaction.push(
-      creditTransaction._id as mongoose.Types.ObjectId
+    // Link the transactions atomically; do not re-save the user documents,
+    // which would clobber the atomic balance updates above.
+    await updateOneUser(
+      { _id: sender._id },
+      { $push: { allTransaction: creditTransaction._id } },
+      { session }
     );
-    receiver.allTransaction.push(debitTransaction._id as mongoose.Types.ObjectId);
-
-    await saveUser(sender, session);
-    await saveUser(receiver, session);
+    await updateOneUser(
+      { _id: receiver._id },
+      { $push: { allTransaction: debitTransaction._id } },
+      { session }
+    );
 
     await session.commitTransaction();
 
