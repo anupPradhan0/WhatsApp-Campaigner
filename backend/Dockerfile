@@ -49,6 +49,6 @@ WORKDIR /app
 COPY --from=build /app/out ./
 
 # The app reads PORT from the environment (default 3000). Dokploy maps this.
-EXPOSE 3000
+EXPOSE 3050
 
 CMD ["node", "dist/server.js"]
