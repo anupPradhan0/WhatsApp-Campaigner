@@ -1,8 +1,15 @@
 import axios, { AxiosError } from "axios";
 
+// Resolve the API base URL:
+// - If VITE_API_URL is provided (build arg), use it.
+// - Otherwise in development talk to the local backend.
+// - In production fall back to a RELATIVE base ("") so requests go to the same
+//   origin the app is served from (e.g. https://wap.prominds.digital/api/...).
+//   This makes a same-domain deploy work with no build-time configuration and
+//   avoids cross-origin/CORS entirely.
 const baseURL =
   import.meta.env.VITE_API_URL?.replace(/\/+$/, "") ||
-  "http://localhost:8080";
+  (import.meta.env.DEV ? "http://localhost:8080" : "");
 
 /**
  * Shared Axios instance for the WhatsApp Campaigner backend.
