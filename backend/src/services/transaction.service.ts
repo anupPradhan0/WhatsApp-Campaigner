@@ -11,6 +11,7 @@ import {
   createTransactions,
   createTransaction,
 } from "../repositories/transaction.repository.js";
+import { canManageAccounts } from "../utils/role-hierarchy.utils.js";
 
 /**
  * A reseller may only move credits to/from accounts in their own downline
@@ -61,7 +62,7 @@ export async function creditBalanceService(
       throw new Error("Receiver not found");
     }
 
-    if (sender.role !== UserRole.ADMIN && sender.role !== UserRole.RESELLER) {
+    if (!canManageAccounts(sender.role)) {
       throw new Error("Only admin or reseller can credit balance");
     }
 
@@ -182,7 +183,7 @@ export async function debitBalanceService(
       throw new Error("Receiver not found");
     }
 
-    if (sender.role !== UserRole.ADMIN && sender.role !== UserRole.RESELLER) {
+    if (!canManageAccounts(sender.role)) {
       throw new Error("Only admin or reseller can debit balance");
     }
 

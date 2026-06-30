@@ -18,7 +18,10 @@ import { PageHeader } from '../components/ui/PageHeader';
 
 const ManageUser = () => {
   const userRole = getUserRole();
-  const isAdminOrReseller = userRole === UserRole.ADMIN || userRole === UserRole.RESELLER;
+  const isAdminOrReseller =
+    userRole === UserRole.SUPER_ADMIN ||
+    userRole === UserRole.ADMIN ||
+    userRole === UserRole.RESELLER;
 
   const {
     loading, error, success, actionLoading,

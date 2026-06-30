@@ -1,6 +1,10 @@
 import type { Request, Response } from "express";
 import type { IUser } from "../models/user.model.js";
 import { UserRole } from "../models/user.model.js";
+import {
+  canManageAccounts,
+  isSuperAdmin,
+} from "../utils/role-hierarchy.utils.js";
 import mongoose from "mongoose";
 import Campaign from "../models/campaign.model.js";
 import Transaction from "../models/transaction.model.js";
@@ -383,13 +387,16 @@ const complaints = async (req: Request, res: Response) => {
     const userRole = user.role;
 
     // Scope complaints by role so users cannot read each other's tickets:
-    // - Admin: every complaint in the system
-    // - Reseller: their own plus complaints raised by accounts they manage
+    // - Super admin: every complaint in the system (global, no restriction)
+    // - Admin / Reseller: their own plus complaints raised by accounts they manage
     // - User: only their own
     let queryFilter: Record<string, unknown>;
-    if (userRole === UserRole.ADMIN) {
+    if (isSuperAdmin(userRole)) {
       queryFilter = {};
-    } else if (userRole === UserRole.RESELLER) {
+    } else if (
+      userRole === UserRole.ADMIN ||
+      userRole === UserRole.RESELLER
+    ) {
       const downlineIds = [
         userId,
         ...(user.allUsers ?? []),
@@ -463,28 +470,33 @@ const manageReseller = async (req: Request, res: Response) => {
     const userId = user._id;
     const userRole = user.role;
 
-    // Check if user is admin or reseller
-    if (userRole !== UserRole.ADMIN && userRole !== UserRole.RESELLER) {
+    // Only account managers (super_admin / admin / reseller) may list resellers.
+    if (!canManageAccounts(userRole)) {
       return res.status(403).json({
         success: false,
         message: "Only admin and reseller can access this section.",
       });
     }
 
-    // Get current user with populated allReseller array
-    const currentUser = await User.findById(userId)
-      .populate("allReseller")
-      .lean();
+    // Super admin sees every reseller in the system; admins and resellers see
+    // only the resellers they personally created.
+    let resellers: any[];
+    if (isSuperAdmin(userRole)) {
+      resellers = await User.find({ role: UserRole.RESELLER }).lean();
+    } else {
+      const currentUser = await User.findById(userId)
+        .populate("allReseller")
+        .lean();
 
-    if (!currentUser) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found.",
-      });
+      if (!currentUser) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found.",
+        });
+      }
+
+      resellers = currentUser.allReseller as any[];
     }
-
-    // Get all resellers created by this admin/reseller
-    const resellers = currentUser.allReseller as any[];
 
     // Format reseller data
     const formattedResellers = resellers.map((reseller: any) => ({
@@ -539,26 +551,33 @@ const manageUser = async (req: Request, res: Response) => {
     const userId = user._id;
     const userRole = user.role;
 
-    // Check if user is admin or reseller
-    if (userRole !== UserRole.ADMIN && userRole !== UserRole.RESELLER) {
+    // Only account managers (super_admin / admin / reseller) may list users.
+    if (!canManageAccounts(userRole)) {
       return res.status(403).json({
         success: false,
         message: "Only admin and reseller can access this section.",
       });
     }
 
-    // Get current user with populated allUsers array
-    const currentUser = await User.findById(userId).populate("allUsers").lean();
+    // Super admin sees every end-user in the system; admins and resellers see
+    // only the users they personally created.
+    let users: any[];
+    if (isSuperAdmin(userRole)) {
+      users = await User.find({ role: UserRole.USER }).lean();
+    } else {
+      const currentUser = await User.findById(userId)
+        .populate("allUsers")
+        .lean();
 
-    if (!currentUser) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found.",
-      });
+      if (!currentUser) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found.",
+        });
+      }
+
+      users = currentUser.allUsers as any[];
     }
-
-    // Get all users created by this admin/reseller
-    const users = currentUser.allUsers as any[];
 
     // Format user data
     const formattedUsers = users.map((user: any) => ({
@@ -817,8 +836,8 @@ const allCampaigns = async (req: Request, res: Response) => {
       });
     }
 
-    // Check if user is admin or reseller
-    if (user.role !== UserRole.ADMIN && user.role !== UserRole.RESELLER) {
+    // Check if user can manage accounts (super_admin / admin / reseller)
+    if (!canManageAccounts(user.role)) {
       return res.status(403).json({
         success: false,
         message: "Access denied. Admin or Reseller privileges required.",
@@ -827,12 +846,12 @@ const allCampaigns = async (req: Request, res: Response) => {
 
     let filter: any = {};
 
-    // If reseller, fetch campaigns from direct children only
-    if (user.role === UserRole.RESELLER) {
+    // Super admin sees every campaign in the system. Admins and resellers are
+    // scoped to their own direct children only.
+    if (!isSuperAdmin(user.role)) {
       const directChildrenIds = [...user.allReseller, ...user.allUsers];
       filter = { createdBy: { $in: directChildrenIds } };
     }
-    // If admin, no filter - get all campaigns
 
     // Fetch latest 50 campaigns
     const campaigns = await Campaign.find(filter)
@@ -864,10 +883,9 @@ const allCampaigns = async (req: Request, res: Response) => {
 
     return res.status(200).json({
       success: true,
-      message:
-        user.role === UserRole.ADMIN
-          ? "All campaigns fetched successfully."
-          : "Reseller's children campaigns fetched successfully.",
+      message: isSuperAdmin(user.role)
+        ? "All campaigns fetched successfully."
+        : "Downline campaigns fetched successfully.",
       data: {
         totalCampaigns: formattedCampaigns.length,
         campaigns: formattedCampaigns,

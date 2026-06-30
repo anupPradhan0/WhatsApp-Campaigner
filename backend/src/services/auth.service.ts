@@ -113,7 +113,7 @@ export async function bootstrapAdmin(
     number: body.number,
     image: imagePath,
     balance: 0,
-    role: UserRole.ADMIN,
+    role: UserRole.SUPER_ADMIN,
   });
 
   const token = generateToken(user);

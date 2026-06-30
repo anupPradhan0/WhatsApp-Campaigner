@@ -10,6 +10,10 @@ import {
   updateUserById,
 } from "../repositories/user.repository.js";
 import { hashPassword } from "../utils/hash-password.utils.js";
+import {
+  canCreateRole,
+  canManageAccounts,
+} from "../utils/role-hierarchy.utils.js";
 import type {
   ChangeOwnPasswordBody,
   ChangePasswordBody,
@@ -37,12 +41,19 @@ export async function createManagedUser(
   }
 
   const creator = await findUserById(creatorId);
-  if (
-    !creator ||
-    (creator.role !== UserRole.ADMIN && creator.role !== UserRole.RESELLER)
-  ) {
+  if (!creator || !canManageAccounts(creator.role)) {
     const err = new Error("FORBIDDEN_ROLE") as Error & { code: string };
     err.code = "FORBIDDEN_ROLE";
+    throw err;
+  }
+
+  // Enforce the multi-tenant hierarchy: a creator may only assign roles strictly
+  // below their own (super_admin → admin → reseller → user). super_admin itself
+  // can never be created here — it is bootstrap-only.
+  const targetRole = body.role ?? UserRole.USER;
+  if (!canCreateRole(creator.role, targetRole)) {
+    const err = new Error("ROLE_NOT_ALLOWED") as Error & { code: string };
+    err.code = "ROLE_NOT_ALLOWED";
     throw err;
   }
 
@@ -56,13 +67,13 @@ export async function createManagedUser(
     image: imagePath,
     balance: body.balance,
     userID: creatorId,
-    role: body.role ?? UserRole.USER,
+    role: targetRole,
     status: UserStatus.ACTIVE,
   });
 
-  if (body.role === UserRole.RESELLER) {
+  if (targetRole === UserRole.RESELLER) {
     creator.allReseller.push(newUser._id as mongoose.Types.ObjectId);
-  } else if (body.role === UserRole.USER) {
+  } else if (targetRole === UserRole.USER) {
     creator.allUsers.push(newUser._id as mongoose.Types.ObjectId);
   }
 
@@ -76,10 +87,7 @@ export async function softDeleteUser(
   targetUserId: string
 ): Promise<void> {
   const admin = await findUserById(actorId);
-  if (
-    !admin ||
-    (admin.role !== UserRole.ADMIN && admin.role !== UserRole.RESELLER)
-  ) {
+  if (!admin || !canManageAccounts(admin.role)) {
     const err = new Error("FORBIDDEN_ROLE") as Error & { code: string };
     err.code = "FORBIDDEN_ROLE";
     throw err;
@@ -108,10 +116,7 @@ export async function freezeUserAccount(
   targetUserId: string
 ): Promise<void> {
   const admin = await findUserById(actorId);
-  if (
-    !admin ||
-    (admin.role !== UserRole.ADMIN && admin.role !== UserRole.RESELLER)
-  ) {
+  if (!admin || !canManageAccounts(admin.role)) {
     const err = new Error("FORBIDDEN_FREEZE") as Error & { code: string };
     err.code = "FORBIDDEN_FREEZE";
     throw err;
@@ -139,10 +144,7 @@ export async function unfreezeUserAccount(
   targetUserId: string
 ): Promise<void> {
   const admin = await findUserById(actorId);
-  if (
-    !admin ||
-    (admin.role !== UserRole.ADMIN && admin.role !== UserRole.RESELLER)
-  ) {
+  if (!admin || !canManageAccounts(admin.role)) {
     const err = new Error("FORBIDDEN_UNFREEZE") as Error & { code: string };
     err.code = "FORBIDDEN_UNFREEZE";
     throw err;
@@ -165,11 +167,9 @@ export async function updateManagedUser(
   body: UpdateUserBody
 ): Promise<IUser> {
   const isOwner = authenticatedUser._id.toString() === targetUserId;
-  const isAdminOrReseller =
-    authenticatedUser.role === UserRole.ADMIN ||
-    authenticatedUser.role === UserRole.RESELLER;
+  const isManager = canManageAccounts(authenticatedUser.role);
 
-  if (!isOwner && !isAdminOrReseller) {
+  if (!isOwner && !isManager) {
     const err = new Error("FORBIDDEN_UPDATE") as Error & { code: string };
     err.code = "FORBIDDEN_UPDATE";
     throw err;
@@ -235,10 +235,7 @@ export async function changeUserPasswordByAdmin(
     throw err;
   }
 
-  if (
-    currentUser.role !== UserRole.ADMIN &&
-    currentUser.role !== UserRole.RESELLER
-  ) {
+  if (!canManageAccounts(currentUser.role)) {
     const err = new Error("FORBIDDEN_PASSWORD") as Error & { code: string };
     err.code = "FORBIDDEN_PASSWORD";
     throw err;
@@ -251,32 +248,40 @@ export async function changeUserPasswordByAdmin(
     throw err;
   }
 
-  if (targetUser.role === UserRole.ADMIN) {
+  if (
+    targetUser.role === UserRole.ADMIN ||
+    targetUser.role === UserRole.SUPER_ADMIN
+  ) {
     const err = new Error("CANNOT_CHANGE_ADMIN_PW") as Error & { code: string };
     err.code = "CANNOT_CHANGE_ADMIN_PW";
     throw err;
   }
 
-  const manager = await findUserById(currentUserId, {
-    select: "allReseller allUsers role",
-  });
-  if (!manager) {
-    const err = new Error("AUTH_USER_NOT_FOUND") as Error & { code: string };
-    err.code = "AUTH_USER_NOT_FOUND";
-    throw err;
-  }
+  // The super admin has global authority and can reset any non-admin password
+  // without an ownership relationship; everyone else may only touch their own
+  // direct downline.
+  if (currentUser.role !== UserRole.SUPER_ADMIN) {
+    const manager = await findUserById(currentUserId, {
+      select: "allReseller allUsers role",
+    });
+    if (!manager) {
+      const err = new Error("AUTH_USER_NOT_FOUND") as Error & { code: string };
+      err.code = "AUTH_USER_NOT_FOUND";
+      throw err;
+    }
 
-  const isInResellerList = manager.allReseller.some(
-    (id) => id.toString() === targetUserId
-  );
-  const isInUserList = manager.allUsers.some(
-    (id) => id.toString() === targetUserId
-  );
+    const isInResellerList = manager.allReseller.some(
+      (id) => id.toString() === targetUserId
+    );
+    const isInUserList = manager.allUsers.some(
+      (id) => id.toString() === targetUserId
+    );
 
-  if (!isInResellerList && !isInUserList) {
-    const err = new Error("NOT_YOUR_USER") as Error & { code: string };
-    err.code = "NOT_YOUR_USER";
-    throw err;
+    if (!isInResellerList && !isInUserList) {
+      const err = new Error("NOT_YOUR_USER") as Error & { code: string };
+      err.code = "NOT_YOUR_USER";
+      throw err;
+    }
   }
 
   targetUser.password = await hashPassword(body.password);

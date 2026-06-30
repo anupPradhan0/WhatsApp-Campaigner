@@ -7,7 +7,7 @@ import {
   BarChart3, Megaphone,
   Newspaper, GitBranch, AlertCircle, Building2,
 } from 'lucide-react';
-import { menuConfig, type MenuSection } from '../../constants/Roles';
+import { menuConfig, UserRole, type MenuSection } from '../../constants/Roles';
 import { getUserRole } from '../../utils/Auth';
 import { cn } from '../../lib/utils';
 
@@ -39,10 +39,14 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
   const getFilteredMenuSections = (): MenuSection[] => {
     if (!userRole) return [];
+    // Super admin sits at the top of the hierarchy and sees every menu item.
+    const isSuperAdmin = userRole === UserRole.SUPER_ADMIN;
     return menuConfig
       .map(section => ({
         ...section,
-        items: section.items.filter(item => item.allowedRoles.includes(userRole)),
+        items: section.items.filter(
+          item => isSuperAdmin || item.allowedRoles.includes(userRole)
+        ),
       }))
       .filter(section => section.items.length > 0);
   };

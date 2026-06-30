@@ -29,6 +29,11 @@ function mapUserServiceError(err: unknown): { status: number; message: string } 
         status: 403,
         message: "Only admins and resellers can create users.",
       };
+    case "ROLE_NOT_ALLOWED":
+      return {
+        status: 403,
+        message: "You are not allowed to create an account with this role.",
+      };
     case "FORBIDDEN_FREEZE":
       return {
         status: 403,

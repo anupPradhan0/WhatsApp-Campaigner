@@ -18,7 +18,11 @@ import { PageHeader } from '../components/ui/PageHeader';
 
 const ManageReseller = () => {
   const userRole = getUserRole();
-  const isAdminOrReseller = userRole === UserRole.ADMIN || userRole === UserRole.RESELLER;
+  const isSuperAdmin = userRole === UserRole.SUPER_ADMIN;
+  const isAdminOrReseller =
+    isSuperAdmin ||
+    userRole === UserRole.ADMIN ||
+    userRole === UserRole.RESELLER;
 
   const {
     loading, error, success, actionLoading,
@@ -169,6 +173,7 @@ const ManageReseller = () => {
                 <FInput label="Password *" type="password" placeholder="Enter password" value={createForm.password} onChange={e => setCreateForm(f => ({ ...f, password: e.target.value }))} />
                 <FInput label="Phone Number *" type="tel" placeholder="10-digit number" maxLength={10} value={createForm.number} onChange={e => setCreateForm(f => ({ ...f, number: e.target.value }))} />
                 <FSelect label="Role *" value={createForm.role} onChange={e => setCreateForm(f => ({ ...f, role: e.target.value }))}>
+                  {isSuperAdmin && <option value="admin">Admin</option>}
                   <option value="reseller">Reseller</option>
                   <option value="user">User</option>
                 </FSelect>

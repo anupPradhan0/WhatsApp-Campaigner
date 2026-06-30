@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
-import { UserRole } from "../models/user.model.js";
+import { canManageAccounts } from "../utils/role-hierarchy.utils.js";
 
 function hasAuthority(req: Request, res: Response, next: NextFunction): void {
   if (!req.user) {
@@ -10,10 +10,7 @@ function hasAuthority(req: Request, res: Response, next: NextFunction): void {
     return;
   }
 
-  if (
-    req.user.role === UserRole.ADMIN ||
-    req.user.role === UserRole.RESELLER
-  ) {
+  if (canManageAccounts(req.user.role)) {
     next();
     return;
   }

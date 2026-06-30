@@ -10,7 +10,10 @@ function isAdmin(req: Request, res: Response, next: NextFunction): void {
       });
       return;
     }
-    if (req.user.role === UserRole.ADMIN) {
+    if (
+      req.user.role === UserRole.ADMIN ||
+      req.user.role === UserRole.SUPER_ADMIN
+    ) {
       next();
       return;
     }
