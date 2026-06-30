@@ -9,7 +9,10 @@ import {
   deleteComplaintById,
   findComplaintById,
 } from "../repositories/complaint.repository.js";
-import { updateOneUser } from "../repositories/user.repository.js";
+import {
+  findUserById,
+  updateOneUser,
+} from "../repositories/user.repository.js";
 import type {
   CreateComplaintBody,
   UpdateComplaintBody,
@@ -99,12 +102,36 @@ export async function deleteComplaintWithLink(
 
 export async function updateComplaintAdmin(
   adminUserId: Types.ObjectId,
+  adminRole: UserRole,
   complaintId: string,
   body: UpdateComplaintBody
 ): Promise<void> {
   const complaint = await findComplaintById(complaintId);
   if (!complaint) {
     throw new Error("NOT_FOUND");
+  }
+
+  // The super admin (God mode) can act on every ticket. A regular admin may only
+  // respond to / resolve complaints raised by accounts in their own downline
+  // (themselves plus the resellers and users they manage) — the same scope they
+  // see in the complaint list.
+  if (adminRole !== UserRole.SUPER_ADMIN) {
+    const admin = await findUserById(adminUserId, {
+      select: "allUsers allReseller",
+    });
+    if (!admin) {
+      throw new Error("NOT_FOUND");
+    }
+
+    const downlineIds = new Set([
+      adminUserId.toString(),
+      ...(admin.allUsers ?? []).map((id) => id.toString()),
+      ...(admin.allReseller ?? []).map((id) => id.toString()),
+    ]);
+
+    if (!downlineIds.has(complaint.createdBy.toString())) {
+      throw new Error("FORBIDDEN");
+    }
   }
 
   if (body.status !== undefined) {

@@ -152,13 +152,20 @@ export async function updateComplaint(
     }
 
     try {
-      await updateComplaintAdmin(userId, complaintId, body);
+      await updateComplaintAdmin(userId, userRole, complaintId, body);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "";
       if (msg === "NOT_FOUND") {
         res.status(404).json({
           success: false,
           message: "Complaint not found.",
+        });
+        return;
+      }
+      if (msg === "FORBIDDEN") {
+        res.status(403).json({
+          success: false,
+          message: "You can only update complaints from accounts you manage.",
         });
         return;
       }
