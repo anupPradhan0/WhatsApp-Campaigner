@@ -29,8 +29,15 @@ export async function findUserByNumber(number: number): Promise<IUser | null> {
   return User.findOne({ number });
 }
 
-export async function estimatedUserCount(): Promise<number> {
-  return User.estimatedDocumentCount();
+/**
+ * Exact, efficient check for whether ANY user exists. Backed by `findOne`
+ * with an `_id`-only projection, so it stops at the first match instead of
+ * scanning the whole collection — and unlike `estimatedDocumentCount()` it is
+ * accurate, which matters for the one-time bootstrap guard.
+ */
+export async function userExists(): Promise<boolean> {
+  const found = await User.exists({});
+  return found !== null;
 }
 
 export async function insertUser(

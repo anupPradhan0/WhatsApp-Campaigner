@@ -2,7 +2,7 @@ import type { Types } from "mongoose";
 import type { IUser } from "../models/user.model.js";
 import { UserRole, UserStatus } from "../models/user.model.js";
 import {
-  estimatedUserCount,
+  userExists,
   findUserByEmail,
   findUserByEmailWithPassword,
   insertUser,
@@ -82,19 +82,33 @@ export async function loginUser(
 }
 
 export async function getBootstrapStatus(): Promise<{ hasUsers: boolean }> {
-  const count = await estimatedUserCount();
-  return { hasUsers: count > 0 };
+  return { hasUsers: await userExists() };
+}
+
+function bootstrapDisabledError(): Error & { code: string } {
+  const err = new Error("BOOTSTRAP_DISABLED") as Error & { code: string };
+  err.code = "BOOTSTRAP_DISABLED";
+  return err;
+}
+
+/** Mongo duplicate-key error (e.g. the unique single-super-admin index fired). */
+function isDuplicateKeyError(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    (err as { code?: number }).code === 11000
+  );
 }
 
 export async function bootstrapAdmin(
   body: BootstrapAdminBody,
   imagePath: string
 ): Promise<{ user: IUser; token: string }> {
-  const userCount = await estimatedUserCount();
-  if (userCount > 0) {
-    const err = new Error("BOOTSTRAP_DISABLED") as Error & { code: string };
-    err.code = "BOOTSTRAP_DISABLED";
-    throw err;
+  // Friendly early rejection. The real guarantee is the unique partial index
+  // on `role: super_admin`, which makes a concurrent second bootstrap fail
+  // atomically at the database even if both requests pass this check.
+  if (await userExists()) {
+    throw bootstrapDisabledError();
   }
 
   const existingUser = await findUserByEmail(body.email);
@@ -106,15 +120,24 @@ export async function bootstrapAdmin(
 
   const hashedPassword = await hashPassword(body.password);
 
-  const user = await insertUser({
-    companyName: body.companyName,
-    email: body.email.toLowerCase().trim(),
-    password: hashedPassword,
-    number: body.number,
-    image: imagePath,
-    balance: 0,
-    role: UserRole.SUPER_ADMIN,
-  });
+  let user: IUser;
+  try {
+    user = await insertUser({
+      companyName: body.companyName,
+      email: body.email.toLowerCase().trim(),
+      password: hashedPassword,
+      number: body.number,
+      image: imagePath,
+      balance: 0,
+      role: UserRole.SUPER_ADMIN,
+    });
+  } catch (err) {
+    // Lost the race: another bootstrap created the super admin first.
+    if (isDuplicateKeyError(err)) {
+      throw bootstrapDisabledError();
+    }
+    throw err;
+  }
 
   const token = generateToken(user);
 

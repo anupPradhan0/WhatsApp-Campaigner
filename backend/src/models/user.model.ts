@@ -144,6 +144,19 @@ const userSchema = new Schema<IUser>(
 userSchema.index({ role: 1, status: 1 });
 userSchema.index({ status: 1, createdAt: -1 });
 
+// Hard guarantee that at most one super admin can ever exist. The partial
+// filter scopes the uniqueness to super_admin docs only, so it never affects
+// admins/resellers/users. A concurrent second bootstrap insert fails with a
+// duplicate-key error, which the bootstrap flow maps to "bootstrap disabled".
+userSchema.index(
+  { role: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { role: UserRole.SUPER_ADMIN },
+    name: "unique_super_admin",
+  }
+);
+
 const User = model<IUser>("User", userSchema);
 
 export default User;
