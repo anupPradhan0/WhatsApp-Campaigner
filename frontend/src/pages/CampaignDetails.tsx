@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
   ArrowLeft, Download, Loader2, AlertCircle, Users,
@@ -51,7 +51,12 @@ const Stat = ({ icon, label, value, color }: { icon: React.ReactNode; label: str
 export default function CampaignDetails() {
   const { campaignId = '' } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [page, setPage] = useState(1);
+
+  const fromAllCampaigns = location.pathname.startsWith('/all-campaign');
+  const backTo = fromAllCampaigns ? '/all-campaign' : '/whatsapp-report';
+  const backLabel = fromAllCampaigns ? 'Back to All Campaigns' : 'Back to Reports';
 
   const { detail, userData, loading, error } = useCampaignDetail(campaignId);
   const { numbers, countryCode, total, totalPages, fetching, error: numbersError } = useCampaignNumbers(campaignId, page);
@@ -79,8 +84,8 @@ export default function CampaignDetails() {
   if (error || !detail) {
     return (
       <div className="flex flex-col gap-4">
-        <button onClick={() => navigate('/whatsapp-report')} className="flex items-center gap-1.5 text-fg-muted text-[13px] bg-transparent border-none cursor-pointer p-0 w-fit">
-          <ArrowLeft size={15} /> Back to Reports
+        <button onClick={() => navigate(backTo)} className="flex items-center gap-1.5 text-fg-muted text-[13px] bg-transparent border-none cursor-pointer p-0 w-fit">
+          <ArrowLeft size={15} /> {backLabel}
         </button>
         <div className="p-8 text-center bg-surface border border-danger-border rounded-xl">
           <AlertCircle size={22} className="text-danger mx-auto mb-2" />
@@ -104,8 +109,8 @@ export default function CampaignDetails() {
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <button onClick={() => navigate('/whatsapp-report')} className="flex items-center gap-1.5 text-fg-muted text-xs bg-transparent border-none cursor-pointer p-0 mb-2 hover:text-fg">
-            <ArrowLeft size={14} /> Back to Reports
+          <button onClick={() => navigate(backTo)} className="flex items-center gap-1.5 text-fg-muted text-xs bg-transparent border-none cursor-pointer p-0 mb-2 hover:text-fg">
+            <ArrowLeft size={14} /> {backLabel}
           </button>
           <div className="flex items-center gap-2.5 flex-wrap">
             <h1 className="text-xl font-bold text-fg m-0 leading-[1.3]">{detail.campaignName}</h1>

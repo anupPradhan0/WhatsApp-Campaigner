@@ -15,6 +15,7 @@ import Campaign, {
   DeliveryStatus,
 } from "../models/campaign.model.js";
 import { pathParam } from "../utils/route-params.utils.js";
+import { userCanViewCampaign } from "../utils/campaign-access.utils.js";
 import Transaction from "../models/transaction.model.js";
 import User from "../models/user.model.js";
 import News from "../models/news.model.js";
@@ -1110,20 +1111,6 @@ const campaignDetails = async (req: Request, res: Response) => {
       });
     }
 
-    // Ownership: the campaign must belong to the requesting user.
-    const currentUser = await User.findById(user._id)
-      .select("allCampaign")
-      .lean();
-    const hasCampaign = currentUser?.allCampaign?.some(
-      (cId) => cId.toString() === campaignId
-    );
-    if (!hasCampaign) {
-      return res.status(403).json({
-        success: false,
-        message: "You do not have permission to view this campaign.",
-      });
-    }
-
     // Pull meta + per-status counts without loading the full number list.
     const [details] = await Campaign.aggregate([
       { $match: { _id: new mongoose.Types.ObjectId(campaignId) } },
@@ -1175,8 +1162,22 @@ const campaignDetails = async (req: Request, res: Response) => {
       });
     }
 
+    // Own campaign, super admin, or a campaign created by the user's downline.
+    const canView = await userCanViewCampaign(
+      user,
+      campaignId,
+      details.createdBy
+    );
+    if (!canView) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have permission to view this campaign.",
+      });
+    }
+
+    // The "User Information" card shows the campaign's creator.
     const creator = await User.findById(details.createdBy)
-      .select("companyName")
+      .select("companyName email number role status createdAt")
       .lean();
 
     return res.status(200).json({
@@ -1204,12 +1205,12 @@ const campaignDetails = async (req: Request, res: Response) => {
         },
       },
       userData: {
-        companyName: user.companyName,
-        email: user.email,
-        number: user.number,
-        role: user.role,
-        status: user.status,
-        createdAt: user.createdAt,
+        companyName: creator?.companyName || user.companyName,
+        email: creator?.email || user.email,
+        number: creator?.number ?? user.number,
+        role: creator?.role || user.role,
+        status: creator?.status || user.status,
+        createdAt: creator?.createdAt || user.createdAt,
       },
     });
   } catch (error: unknown) {
@@ -1243,19 +1244,6 @@ const campaignNumbers = async (req: Request, res: Response) => {
       });
     }
 
-    const currentUser = await User.findById(user._id)
-      .select("allCampaign")
-      .lean();
-    const hasCampaign = currentUser?.allCampaign?.some(
-      (cId) => cId.toString() === campaignId
-    );
-    if (!hasCampaign) {
-      return res.status(403).json({
-        success: false,
-        message: "You do not have permission to view this campaign.",
-      });
-    }
-
     const DEFAULT_LIMIT = 20;
     const pageRaw = parseInt(String(req.query.page ?? "1"), 10);
     const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1;
@@ -1274,6 +1262,7 @@ const campaignNumbers = async (req: Request, res: Response) => {
       countryCode: 1,
       status: 1,
       numberCount: 1,
+      createdBy: 1,
       mobileNumbers: { $slice: [skip, limit] },
       deliveryResults: { $slice: [skip, limit] },
     }).lean();
@@ -1282,6 +1271,18 @@ const campaignNumbers = async (req: Request, res: Response) => {
       return res.status(404).json({
         success: false,
         message: "Campaign not found.",
+      });
+    }
+
+    const canView = await userCanViewCampaign(
+      user,
+      campaignId,
+      campaign.createdBy
+    );
+    if (!canView) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have permission to view this campaign.",
       });
     }
 

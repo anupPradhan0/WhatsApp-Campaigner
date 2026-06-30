@@ -49,6 +49,7 @@ function App() {
               <Route path="/whatsapp-report"element={wrapped(WhatsAppReportsPage)} />
               <Route path="/whatsapp-report/:campaignId" element={wrapped(CampaignDetailsPage)} />
               <Route path="/all-campaign"   element={wrapped(AllCampaignPage)} />
+              <Route path="/all-campaign/:campaignId" element={wrapped(CampaignDetailsPage)} />
               <Route path="/news"           element={wrapped(NewsPage)} />
               <Route path="/tree-view"      element={wrapped(TreeViewPage)} />
               <Route path="/complaints"     element={wrapped(ComplaintsPage)} />

@@ -4,8 +4,8 @@ import Campaign, {
   CampaignStats,
   DeliveryStatus,
 } from "../models/campaign.model.js";
-import User from "../models/user.model.js";
 import { pathParam } from "../utils/route-params.utils.js";
+import { userCanViewCampaign } from "../utils/campaign-access.utils.js";
 
 /** Best-effort per-number status for campaigns sent before per-number tracking. */
 function fallbackStatus(campaignStatus?: string): DeliveryStatus {
@@ -48,14 +48,20 @@ export async function exportCampaignToExcel(
       });
     }
 
-    const currentUser = await User.findById(user._id)
-      .select("allCampaign")
-      .lean();
-    const hasCampaign = currentUser?.allCampaign?.some(
-      (cId) => cId.toString() === campaignId
-    );
+    // createdBy is populated to { _id, companyName } here, so authorize on its id.
+    const createdByRef = campaign.createdBy as unknown as
+      | { _id: { toString(): string } }
+      | { toString(): string };
+    const creatorId =
+      createdByRef &&
+      typeof createdByRef === "object" &&
+      "_id" in createdByRef
+        ? createdByRef._id
+        : campaign.createdBy;
 
-    if (!hasCampaign) {
+    const canView = await userCanViewCampaign(user, campaignId, creatorId);
+
+    if (!canView) {
       return res.status(403).json({
         success: false,
         message: "You do not have permission to export this campaign.",
