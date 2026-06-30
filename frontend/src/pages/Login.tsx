@@ -272,7 +272,7 @@ export default function Login() {
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_40%,rgba(22,163,74,0.12)_0%,transparent_70%)]" />
 
           {/* content */}
-          <div className="relative z-[1] flex flex-col h-full px-12 py-10">
+          <div className="relative z-[1] flex flex-col items-center justify-center text-center h-full px-12 py-10 gap-9">
             {/* logo */}
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-[10px] bg-[linear-gradient(135deg,#16a34a,#15803d)] flex items-center justify-center shadow-[0_0_20px_rgba(22,163,74,0.4)]">
@@ -285,7 +285,7 @@ export default function Login() {
             </div>
 
             {/* headline */}
-            <div className="mt-auto mb-12">
+            <div>
               <p className="text-[#4ade80] text-xs font-semibold tracking-[0.1em] uppercase mb-3.5">
                 WhatsApp Marketing Platform
               </p>
@@ -293,13 +293,13 @@ export default function Login() {
                 Reach millions.<br />
                 <span className="text-[#4ade80]">Drive results.</span>
               </h1>
-              <p className="text-[#6b7280] text-[15px] leading-[1.6] max-w-[380px]">
+              <p className="text-[#6b7280] text-[15px] leading-[1.6] max-w-[380px] mx-auto">
                 The all-in-one WhatsApp campaign platform for businesses that want to grow faster and connect deeper with their customers.
               </p>
             </div>
 
             {/* stats row */}
-            <div className="flex gap-0 mb-8 rounded-xl overflow-hidden border border-white/[0.07]">
+            <div className="flex gap-0 w-full rounded-xl overflow-hidden border border-white/[0.07]">
               {stats.map(({ label, value, icon: Icon }, i) => (
                 <div
                   key={label}
@@ -316,7 +316,7 @@ export default function Login() {
             </div>
 
             {/* features */}
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-2 gap-2.5 w-full">
               {features.map(({ icon: Icon, text }) => (
                 <div
                   key={text}
@@ -330,7 +330,7 @@ export default function Login() {
               ))}
             </div>
 
-            <p className="text-[#374151] text-xs mt-8">
+            <p className="text-[#374151] text-xs">
               © {new Date().getFullYear()} WhatsApp Campaign Manager
             </p>
           </div>
