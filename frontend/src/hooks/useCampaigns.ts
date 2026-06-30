@@ -13,6 +13,7 @@ export interface Campaign {
   mobileNumberCount: number;
   createdAt: string;
   image: string;
+  profileImage?: string | null;
   userData?: {
     companyName: string;
     email: string;

@@ -22,6 +22,7 @@ export const createCampaignBodySchema = z.object({
   countryCode: z.string().regex(/^\+\d{1,4}$/),
   fileUrl: z.string().url().optional(),
   mediaType: z.nativeEnum(MediaType).optional(),
+  profileImageUrl: z.string().url().optional(),
 });
 
 export const campaignStatsBodySchema = z.object({

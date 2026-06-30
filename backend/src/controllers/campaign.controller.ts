@@ -25,12 +25,16 @@ export async function createCampaign(
     }
 
     const body = req.body as CreateCampaignBody;
-    const media = req.file?.path ?? req.body.fileUrl ?? "";
+    // With upload.fields the file URLs are set on the body by the cloudinary
+    // middleware (req.file is no longer populated).
+    const media = req.body.fileUrl ?? "";
+    const profileImage = req.body.profileImageUrl ?? "";
 
     const result = await createCampaignForUser(
       req.user._id,
       body,
-      typeof media === "string" ? media : ""
+      typeof media === "string" ? media : "",
+      typeof profileImage === "string" ? profileImage : ""
     );
 
     const {
@@ -58,6 +62,7 @@ export async function createCampaign(
         linkButton: newCampaign.linkButton,
         media: newCampaign.media,
         mediaType: newCampaign.mediaType,
+        profileImage: newCampaign.profileImage,
         mobileNumberEntryType: newCampaign.mobileNumberEntryType,
         requestedNumberCount,
         actualNumberCount,

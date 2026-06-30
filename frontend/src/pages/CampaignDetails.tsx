@@ -181,6 +181,26 @@ export default function CampaignDetails() {
         )}
       </Card>
 
+      {/* Profile picture */}
+      {detail.profileImage && (
+        <Card title="Campaign Profile Picture">
+          <div className="flex items-center gap-4 flex-wrap">
+            <img
+              src={detail.profileImage}
+              alt="Campaign profile"
+              className="w-24 h-24 rounded-full object-cover border border-line bg-surface2"
+              onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+            />
+            <button
+              onClick={() => downloadImage(detail.profileImage!, `${detail.campaignName}-profile`)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-dim border border-brand-border rounded-[7px] cursor-pointer text-brand-light text-xs font-semibold"
+            >
+              <Download size={12} /> Download Profile Picture
+            </button>
+          </div>
+        </Card>
+      )}
+
       {/* Media */}
       {detail.image && (
         <Card title="Media">

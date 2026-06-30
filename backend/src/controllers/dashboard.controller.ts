@@ -919,6 +919,7 @@ const whatsAppReports = async (req: Request, res: Response) => {
       mobileNumberCount: campaign.mobileNumbers?.length || 0,
       createdAt: campaign.createdAt,
       image: campaign.media?.url || campaign.media || null,
+      profileImage: campaign.profileImage || null,
       status: campaign.status,
       statusMessage: campaign.statusMessage,
     }));
@@ -992,6 +993,7 @@ const allCampaigns = async (req: Request, res: Response) => {
       mobileNumberCount: campaign.mobileNumbers?.length || 0,
       createdAt: campaign.createdAt,
       image: campaign.media?.url || campaign.media || null,
+      profileImage: campaign.profileImage || null,
       status: campaign.status,
       statusMessage: campaign.statusMessage,
       userData: {
@@ -1126,6 +1128,7 @@ const campaignDetails = async (req: Request, res: Response) => {
           phoneButton: 1,
           linkButton: 1,
           createdBy: 1,
+          profileImage: 1,
           image: { $ifNull: ["$media.url", "$media"] },
           mobileNumberCount: {
             $cond: [
@@ -1191,6 +1194,7 @@ const campaignDetails = async (req: Request, res: Response) => {
         mobileNumberCount: details.mobileNumberCount,
         createdAt: details.createdAt,
         image: details.image || null,
+        profileImage: details.profileImage || null,
         mediaType: details.mediaType || null,
         countryCode: details.countryCode,
         status: details.status,

@@ -49,6 +49,7 @@ export interface ICampaign extends Document {
   linkButton?: ILinkButton;
   media?: string;
   mediaType?: MediaType;
+  profileImage?: string;
   createdBy: mongoose.Types.ObjectId;
   mobileNumberEntryType: MobileNumberEntryType;
   mobileNumbers: string[];
@@ -160,6 +161,11 @@ const campaignSchema = new Schema<ICampaign>(
     mediaType: {
       type: String,
       enum: Object.values(MediaType),
+    },
+    // Optional campaign profile picture (always an image), separate from the
+    // main media attachment.
+    profileImage: {
+      type: String,
     },
     createdBy: {
       type: Schema.Types.ObjectId,

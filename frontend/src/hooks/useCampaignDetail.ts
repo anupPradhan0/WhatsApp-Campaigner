@@ -11,6 +11,7 @@ export interface CampaignDetail {
   mobileNumberCount: number;
   createdAt: string;
   image: string | null;
+  profileImage: string | null;
   mediaType: string | null;
   countryCode: string;
   status: string;

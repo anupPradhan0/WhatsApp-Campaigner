@@ -113,7 +113,12 @@ export default function AllCampaigns() {
                   : paginated.map((c, i) => (
                     <tr key={c.campaignId} className="group border-b border-[rgba(39,39,42,0.5)]">
                       <td className="px-3.5 py-[11px] text-xs text-fg-subtle group-hover:bg-white/[0.025]">{idx + i + 1}</td>
-                      <td className="px-3.5 py-[11px] text-[13px] text-fg font-medium max-w-[150px] overflow-hidden text-ellipsis whitespace-nowrap group-hover:bg-white/[0.025]">{c.campaignName}</td>
+                      <td className="px-3.5 py-[11px] group-hover:bg-white/[0.025]">
+                        <div className="flex items-center gap-2 max-w-[170px]">
+                          {c.profileImage && <img src={c.profileImage} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0 border border-line" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />}
+                          <span className="text-[13px] text-fg font-medium overflow-hidden text-ellipsis whitespace-nowrap">{c.campaignName}</span>
+                        </div>
+                      </td>
                       <td className="px-3.5 py-[11px] max-w-[200px] group-hover:bg-white/[0.025]">
                         <p className="text-xs text-fg-muted overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] m-0">{trunc(stripHtml(c.message))}</p>
                         {c.message.length > 80 && <button onClick={() => openDetails(c.campaignId)} className="text-[11px] text-brand-light bg-transparent border-none cursor-pointer p-0 mt-0.5">more</button>}
@@ -157,7 +162,10 @@ export default function AllCampaigns() {
                     <span className="text-[11px] font-semibold text-info bg-info-dim px-[7px] py-0.5 rounded-[20px]">{c.mobileNumberCount}</span>
                   </div>
                 </div>
-                <p className="text-[13px] font-semibold text-fg mb-0.5 overflow-hidden text-ellipsis whitespace-nowrap">{c.campaignName}</p>
+                <div className="flex items-center gap-2 mb-0.5">
+                  {c.profileImage && <img src={c.profileImage} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0 border border-line" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />}
+                  <p className="text-[13px] font-semibold text-fg overflow-hidden text-ellipsis whitespace-nowrap">{c.campaignName}</p>
+                </div>
                 <p className="text-[11px] text-fg-subtle mb-1.5">By: {c.createdBy} · {format(new Date(c.createdAt), 'dd MMM')}</p>
                 <p className="text-xs text-fg-muted mb-2 overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical]">{trunc(stripHtml(c.message), 80)}</p>
                 <div className="flex justify-end gap-1.5 pt-2 border-t border-line">

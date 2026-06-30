@@ -20,7 +20,10 @@ router.post(
   "/",
   isLoggedIn,
   idempotencyMiddleware("campaigns.create"),
-  upload.single("image"),
+  upload.fields([
+    { name: "image", maxCount: 1 },
+    { name: "profileImage", maxCount: 1 },
+  ]),
   uploadCampaignFileToCloudinary,
   validateBody(createCampaignBodySchema),
   createCampaign

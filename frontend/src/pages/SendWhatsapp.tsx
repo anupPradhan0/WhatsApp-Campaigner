@@ -4,7 +4,7 @@ import type { FormEvent, ChangeEvent } from 'react';
 import { toast } from 'sonner';
 import 'react-quill-new/dist/quill.snow.css';
 import { api, getErrorMessage } from '../api/client';
-import { Send, Phone, Link2, ImageIcon, Users, X, CheckCircle2, Hash, Upload, FileSpreadsheet } from 'lucide-react';
+import { Send, Phone, Link2, ImageIcon, Users, X, CheckCircle2, Hash, Upload, FileSpreadsheet, UserCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { fieldCls } from '../theme/classes';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -57,7 +57,8 @@ const SendWhatsapp = () => {
   });
   const [importing, setImporting] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [fileType, setFileType] = useState<'image' | 'video' | 'pdf' | null>(null);
+  const [fileType, setFileType] = useState<'image' | 'video' | null>(null);
+  const [profileImage, setProfileImage] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
 
@@ -69,17 +70,26 @@ const SendWhatsapp = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleFileUpload = (e: ChangeEvent<HTMLInputElement>, type: 'image' | 'video' | 'pdf') => {
+  const handleFileUpload = (e: ChangeEvent<HTMLInputElement>, type: 'image' | 'video') => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) { toast.error('File size exceeds 5 MB limit'); return; }
     const valid: Record<string, string[]> = {
       image: ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'],
       video: ['video/mp4', 'video/quicktime', 'video/webm'],
-      pdf: ['application/pdf'],
     };
     if (!valid[type].includes(file.type)) { toast.error(`Invalid ${type} file type`); return; }
     setSelectedFile(file); setFileType(type);
+  };
+
+  const handleProfileUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file after removing
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error('Profile picture exceeds 5 MB limit'); return; }
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) { toast.error('Profile picture must be an image (JPG, PNG, GIF, WebP)'); return; }
+    setProfileImage(file);
   };
 
   const handleRecipientsImport = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -147,13 +157,14 @@ const SendWhatsapp = () => {
         data.append('linkButtonUrl', formData.linkButtonUrl);
       }
       if (selectedFile) data.append('image', selectedFile);
+      if (profileImage) data.append('profileImage', profileImage);
 
       const { data: result } = await api.post<{ success: boolean; message?: string; errors?: string[] }>('/api/campaigns', data);
 
       if (result.success) {
         setSuccess('Campaign created successfully!');
         setFormData({ campaignName: '', message: '', phoneButtonText: '', phoneButtonNumber: '', linkButtonText: '', linkButtonUrl: '', mobileNumberEntryType: 'manual', mobileNumbers: '', countryCode: '+91', numberCount: '' });
-        setSelectedFile(null); setFileType(null);
+        setSelectedFile(null); setFileType(null); setProfileImage(null);
       } else {
         toast.error(result.errors?.[0] || result.message || 'Failed to create campaign');
       }
@@ -262,18 +273,43 @@ const SendWhatsapp = () => {
             )}
             <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(180px,1fr))]">
               {[
-                { type: 'image' as const, label: 'Image', hint: 'JPG, PNG, GIF, WebP', disabled: false, accept: 'image/*' },
-                { type: 'video' as const, label: 'Video', hint: 'MP4, MOV, WebM', disabled: false, accept: 'video/mp4,video/quicktime,video/webm' },
-                { type: 'pdf' as const, label: 'PDF', hint: 'PDF document', disabled: false, accept: 'application/pdf' },
-              ].map(({ type, label, disabled, accept }) => (
+                { type: 'image' as const, label: 'Image', hint: 'JPG, PNG, GIF, WebP', accept: 'image/*' },
+                { type: 'video' as const, label: 'Video', hint: 'MP4, MOV, WebM', accept: 'video/mp4,video/quicktime,video/webm' },
+              ].map(({ type, label, accept }) => (
                 <div key={type}>
-                  <label className={cn("block text-[11px] font-semibold uppercase tracking-[0.07em] mb-1.5", disabled ? "text-fg-subtle" : "text-fg-muted")}>
+                  <label className="block text-[11px] font-semibold uppercase tracking-[0.07em] mb-1.5 text-fg-muted">
                     {label}
-                    {disabled && <span className="ml-1.5 text-[10px] text-fg-subtle font-normal normal-case tracking-normal">· soon</span>}
                   </label>
-                  <input type="file" accept={accept} onChange={e => handleFileUpload(e, type)} disabled={disabled || loading || (selectedFile !== null && fileType !== type)} className={cn(fieldCls, "file-input px-3 py-2 text-xs", disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer")} />
+                  <input type="file" accept={accept} onChange={e => handleFileUpload(e, type)} disabled={loading || (selectedFile !== null && fileType !== type)} className={cn(fieldCls, "file-input px-3 py-2 text-xs cursor-pointer")} />
                 </div>
               ))}
+            </div>
+
+            {/* Campaign profile picture (optional) */}
+            <div className="mt-5 pt-5 border-t border-line">
+              <div className="flex items-center gap-2 mb-1">
+                <UserCircle size={15} className="text-brand-light" />
+                <p className="text-[12px] font-semibold text-fg uppercase tracking-[0.06em]">Profile Picture</p>
+                <span className="text-[10px] text-fg-subtle font-normal normal-case tracking-normal">· optional</span>
+              </div>
+              <p className="text-[11px] text-fg-subtle mb-3">Attach a profile picture for this campaign (image only).</p>
+
+              {profileImage ? (
+                <div className="flex items-center justify-between gap-2.5 px-3.5 py-2.5 bg-brand-dim border border-brand-border rounded-lg">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <img src={URL.createObjectURL(profileImage)} alt="Profile preview" className="w-9 h-9 rounded-full object-cover flex-shrink-0 border border-brand-border" />
+                    <div className="min-w-0">
+                      <p className="text-[13px] text-fg overflow-hidden text-ellipsis whitespace-nowrap">{profileImage.name}</p>
+                      <p className="text-[11px] text-fg-muted">{(profileImage.size / 1024 / 1024).toFixed(2)} MB</p>
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => setProfileImage(null)} className="bg-transparent border-none cursor-pointer p-0.5 flex-shrink-0">
+                    <X size={14} className="text-danger" />
+                  </button>
+                </div>
+              ) : (
+                <input type="file" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp" onChange={handleProfileUpload} disabled={loading} className={cn(fieldCls, "file-input px-3 py-2 text-xs cursor-pointer")} />
+              )}
             </div>
           </SectionCard>
 

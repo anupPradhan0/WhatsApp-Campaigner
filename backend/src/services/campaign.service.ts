@@ -46,7 +46,8 @@ export interface CreateCampaignResult {
 export async function createCampaignForUser(
   creatorId: Types.ObjectId,
   body: CreateCampaignBody,
-  mediaPath: string
+  mediaPath: string,
+  profileImagePath = ""
 ): Promise<CreateCampaignResult> {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -102,6 +103,7 @@ export async function createCampaignForUser(
       createdBy: creatorId,
       media: mediaPath || undefined,
       mediaType: mediaPath ? body.mediaType : undefined,
+      profileImage: profileImagePath || undefined,
       status: CampaignStats.PENDING,
       statusMessage: "Campaign is in the pending state.",
     };
