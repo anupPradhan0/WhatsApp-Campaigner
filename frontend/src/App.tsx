@@ -18,6 +18,7 @@ import ManageResellerPage from './pages/ManageReseller';
 import ManageUserPage from './pages/ManageUser';
 import TreeViewPage from './pages/TreeView';
 import WhatsAppReportsPage from './pages/WhatsAppReports';
+import CampaignDetailsPage from './pages/CampaignDetails';
 import AllCampaignPage from './pages/AllCampaigns';
 import DocumentationPage from './pages/Documentation';
 import SupportPage from './pages/Support';
@@ -44,6 +45,7 @@ function App() {
               <Route path="/manage-reseller"element={wrapped(ManageResellerPage)} />
               <Route path="/manage-users"   element={wrapped(ManageUserPage)} />
               <Route path="/whatsapp-report"element={wrapped(WhatsAppReportsPage)} />
+              <Route path="/whatsapp-report/:campaignId" element={wrapped(CampaignDetailsPage)} />
               <Route path="/all-campaign"   element={wrapped(AllCampaignPage)} />
               <Route path="/news"           element={wrapped(NewsPage)} />
               <Route path="/tree-view"      element={wrapped(TreeViewPage)} />

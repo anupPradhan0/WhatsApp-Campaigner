@@ -11,6 +11,8 @@ import {
   treeView,
   whatsAppReports,
   allCampaigns,
+  campaignDetails,
+  campaignNumbers,
   support,
 } from "../controllers/dashboard.controller.js";
 import { exportCampaignToExcel } from "../controllers/export.controller.js";
@@ -35,6 +37,18 @@ router.get(
   exportCampaignToExcel
 );
 router.get("/all-campaigns", isLoggedIn, allCampaigns);
+router.get(
+  "/campaign/:campaignId",
+  isLoggedIn,
+  validateParams(campaignIdParamSchema),
+  campaignDetails
+);
+router.get(
+  "/campaign/:campaignId/numbers",
+  isLoggedIn,
+  validateParams(campaignIdParamSchema),
+  campaignNumbers
+);
 router.get("/support", isLoggedIn, support);
 
 export default router;

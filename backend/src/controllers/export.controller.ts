@@ -1,8 +1,19 @@
 import type { Request, Response } from "express";
 import ExcelJS from "exceljs";
-import Campaign from "../models/campaign.model.js";
+import Campaign, {
+  CampaignStats,
+  DeliveryStatus,
+} from "../models/campaign.model.js";
 import User from "../models/user.model.js";
 import { pathParam } from "../utils/route-params.utils.js";
+
+/** Best-effort per-number status for campaigns sent before per-number tracking. */
+function fallbackStatus(campaignStatus?: string): DeliveryStatus {
+  if (campaignStatus === CampaignStats.DELIVERED)
+    return DeliveryStatus.DELIVERED;
+  if (campaignStatus === CampaignStats.FAILED) return DeliveryStatus.FAILED;
+  return DeliveryStatus.PENDING;
+}
 
 export async function exportCampaignToExcel(
   req: Request,
@@ -63,6 +74,7 @@ export async function exportCampaignToExcel(
       { header: "Link Button URL", key: "linkButtonUrl", width: 40 },
       { header: "Country Code", key: "countryCode", width: 15 },
       { header: "Phone Number", key: "phoneNumber", width: 20 },
+      { header: "Delivery Status", key: "deliveryStatus", width: 18 },
       { header: "Created By", key: "createdBy", width: 25 },
       { header: "Created Date", key: "createdDate", width: 15 },
       { header: "Media URL", key: "mediaUrl", width: 80 },
@@ -97,7 +109,12 @@ export async function exportCampaignToExcel(
         : "Unknown";
     const createdDate = formatDate(campaign.createdAt);
 
-    for (const phoneNumber of campaign.mobileNumbers) {
+    const deliveryResults = campaign.deliveryResults ?? [];
+    const fallback = fallbackStatus(campaign.status);
+
+    campaign.mobileNumbers.forEach((phoneNumber, i) => {
+      const result = deliveryResults[i];
+      const deliveryStatus = (result?.status ?? fallback).toUpperCase();
       worksheet.addRow({
         campaignName: campaign.campaignName,
         message: campaign.message,
@@ -107,12 +124,13 @@ export async function exportCampaignToExcel(
         linkButtonUrl: campaign.linkButton?.url ?? "",
         countryCode: campaign.countryCode,
         phoneNumber,
+        deliveryStatus,
         createdDate,
         mediaUrl:
           "Please check the All Campaigns or WhatsApp Report section to download media.",
         createdBy: createdByName,
       });
-    }
+    });
 
     worksheet.eachRow((row, rowNumber) => {
       if (rowNumber > 1 && rowNumber % 2 === 0) {

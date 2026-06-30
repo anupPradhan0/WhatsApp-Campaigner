@@ -18,6 +18,20 @@ export enum MobileNumberEntryType {
   UPLOAD = "upload",
 }
 
+/** Per-recipient delivery outcome, recorded by the send worker. */
+export enum DeliveryStatus {
+  PENDING = "pending",
+  DELIVERED = "delivered",
+  FAILED = "failed",
+}
+
+export interface IDeliveryResult {
+  number: string;
+  status: DeliveryStatus;
+  error?: string;
+  sentAt?: Date;
+}
+
 export interface IPhoneButton {
   text: string;
   number: string;
@@ -44,6 +58,7 @@ export interface ICampaign extends Document {
   updatedAt: Date;
   status: CampaignStats;
   statusMessage?: string;
+  deliveryResults: IDeliveryResult[];
 }
 
 const PhoneButtonSchema = new Schema(
@@ -89,6 +104,29 @@ const LinkButtonSchema = new Schema(
           ),
         message: "Please provide a valid URL",
       },
+    },
+  },
+  { _id: false }
+);
+
+const DeliveryResultSchema = new Schema<IDeliveryResult>(
+  {
+    number: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    status: {
+      type: String,
+      enum: Object.values(DeliveryStatus),
+      default: DeliveryStatus.PENDING,
+    },
+    error: {
+      type: String,
+      trim: true,
+    },
+    sentAt: {
+      type: Date,
     },
   },
   { _id: false }
@@ -165,6 +203,10 @@ const campaignSchema = new Schema<ICampaign>(
     numberCount: {
       type: Number,
       default: 0,
+    },
+    deliveryResults: {
+      type: [DeliveryResultSchema],
+      default: [],
     },
   },
   {

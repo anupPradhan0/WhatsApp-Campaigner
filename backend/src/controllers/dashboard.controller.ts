@@ -6,7 +6,11 @@ import {
   isSuperAdmin,
 } from "../utils/role-hierarchy.utils.js";
 import mongoose from "mongoose";
-import Campaign from "../models/campaign.model.js";
+import Campaign, {
+  CampaignStats,
+  DeliveryStatus,
+} from "../models/campaign.model.js";
+import { pathParam } from "../utils/route-params.utils.js";
 import Transaction from "../models/transaction.model.js";
 import User from "../models/user.model.js";
 import News from "../models/news.model.js";
@@ -957,6 +961,260 @@ const support = async (req: Request, res: Response): Promise<Response> => {
   }
 };
 
+/**
+ * Map a campaign-level status to a per-number status. Used as a best-effort
+ * fallback for campaigns sent before per-recipient tracking existed (their
+ * deliveryResults array is empty).
+ */
+function deriveFallbackStatus(campaignStatus?: string): DeliveryStatus {
+  if (campaignStatus === CampaignStats.DELIVERED)
+    return DeliveryStatus.DELIVERED;
+  if (campaignStatus === CampaignStats.FAILED) return DeliveryStatus.FAILED;
+  return DeliveryStatus.PENDING;
+}
+
+/** GET /api/dashboard/campaign/:campaignId — full details for one campaign. */
+const campaignDetails = async (req: Request, res: Response) => {
+  try {
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required. User not found.",
+      });
+    }
+
+    const campaignId = pathParam(req.params.campaignId);
+    if (!campaignId) {
+      return res.status(400).json({
+        success: false,
+        message: "Campaign ID is required.",
+      });
+    }
+
+    // Ownership: the campaign must belong to the requesting user.
+    const currentUser = await User.findById(user._id)
+      .select("allCampaign")
+      .lean();
+    const hasCampaign = currentUser?.allCampaign?.some(
+      (cId) => cId.toString() === campaignId
+    );
+    if (!hasCampaign) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have permission to view this campaign.",
+      });
+    }
+
+    // Pull meta + per-status counts without loading the full number list.
+    const [details] = await Campaign.aggregate([
+      { $match: { _id: new mongoose.Types.ObjectId(campaignId) } },
+      {
+        $project: {
+          campaignName: 1,
+          message: 1,
+          createdAt: 1,
+          status: 1,
+          statusMessage: 1,
+          countryCode: 1,
+          mediaType: 1,
+          phoneButton: 1,
+          linkButton: 1,
+          createdBy: 1,
+          image: { $ifNull: ["$media.url", "$media"] },
+          mobileNumberCount: {
+            $cond: [
+              { $gt: ["$numberCount", 0] },
+              "$numberCount",
+              { $size: { $ifNull: ["$mobileNumbers", []] } },
+            ],
+          },
+          delivered: {
+            $size: {
+              $filter: {
+                input: { $ifNull: ["$deliveryResults", []] },
+                cond: { $eq: ["$$this.status", DeliveryStatus.DELIVERED] },
+              },
+            },
+          },
+          failed: {
+            $size: {
+              $filter: {
+                input: { $ifNull: ["$deliveryResults", []] },
+                cond: { $eq: ["$$this.status", DeliveryStatus.FAILED] },
+              },
+            },
+          },
+          tracked: { $size: { $ifNull: ["$deliveryResults", []] } },
+        },
+      },
+    ]);
+
+    if (!details) {
+      return res.status(404).json({
+        success: false,
+        message: "Campaign not found.",
+      });
+    }
+
+    const creator = await User.findById(details.createdBy)
+      .select("companyName")
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      message: "Campaign details fetched successfully.",
+      data: {
+        campaignId: details._id,
+        campaignName: details.campaignName,
+        message: details.message,
+        createdBy: creator?.companyName || user.companyName,
+        mobileNumberCount: details.mobileNumberCount,
+        createdAt: details.createdAt,
+        image: details.image || null,
+        mediaType: details.mediaType || null,
+        countryCode: details.countryCode,
+        status: details.status,
+        statusMessage: details.statusMessage,
+        phoneButton: details.phoneButton || null,
+        linkButton: details.linkButton || null,
+        delivery: {
+          delivered: details.delivered,
+          failed: details.failed,
+          tracked: details.tracked,
+          total: details.mobileNumberCount,
+        },
+      },
+      userData: {
+        companyName: user.companyName,
+        email: user.email,
+        number: user.number,
+        role: user.role,
+        status: user.status,
+        createdAt: user.createdAt,
+      },
+    });
+  } catch (error: unknown) {
+    console.error("Error in campaignDetails controller:", error);
+    return res.status(500).json({
+      success: false,
+      message: "An internal server error occurred in campaignDetails controller.",
+    });
+  }
+};
+
+/**
+ * GET /api/dashboard/campaign/:campaignId/numbers?page=&limit=
+ * Paginated list of recipient numbers with their per-number delivery status.
+ */
+const campaignNumbers = async (req: Request, res: Response) => {
+  try {
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required. User not found.",
+      });
+    }
+
+    const campaignId = pathParam(req.params.campaignId);
+    if (!campaignId) {
+      return res.status(400).json({
+        success: false,
+        message: "Campaign ID is required.",
+      });
+    }
+
+    const currentUser = await User.findById(user._id)
+      .select("allCampaign")
+      .lean();
+    const hasCampaign = currentUser?.allCampaign?.some(
+      (cId) => cId.toString() === campaignId
+    );
+    if (!hasCampaign) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have permission to view this campaign.",
+      });
+    }
+
+    const DEFAULT_LIMIT = 20;
+    const pageRaw = parseInt(String(req.query.page ?? "1"), 10);
+    const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1;
+    const limitRaw = parseInt(
+      String(req.query.limit ?? String(DEFAULT_LIMIT)),
+      10
+    );
+    const limit =
+      Number.isFinite(limitRaw) && limitRaw > 0 && limitRaw <= 100
+        ? limitRaw
+        : DEFAULT_LIMIT;
+    const skip = (page - 1) * limit;
+
+    // Slice both arrays server-side so we never pull the full (up to 100k) list.
+    const campaign = await Campaign.findById(campaignId, {
+      countryCode: 1,
+      status: 1,
+      numberCount: 1,
+      mobileNumbers: { $slice: [skip, limit] },
+      deliveryResults: { $slice: [skip, limit] },
+    }).lean();
+
+    if (!campaign) {
+      return res.status(404).json({
+        success: false,
+        message: "Campaign not found.",
+      });
+    }
+
+    const total = campaign.numberCount || campaign.mobileNumbers?.length || 0;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+
+    const slicedNumbers = campaign.mobileNumbers ?? [];
+    const slicedResults = campaign.deliveryResults ?? [];
+    const fallback = deriveFallbackStatus(campaign.status);
+
+    const numbers = slicedNumbers.map((number, i) => {
+      const result = slicedResults[i];
+      if (result) {
+        return {
+          serial: skip + i + 1,
+          number: result.number ?? number,
+          status: result.status,
+          error: result.error ?? null,
+          sentAt: result.sentAt ?? null,
+        };
+      }
+      return {
+        serial: skip + i + 1,
+        number,
+        status: fallback,
+        error: null,
+        sentAt: null,
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Campaign numbers fetched successfully.",
+      data: {
+        countryCode: campaign.countryCode,
+        numbers,
+        total,
+        page,
+        limit,
+        totalPages,
+      },
+    });
+  } catch (error: unknown) {
+    console.error("Error in campaignNumbers controller:", error);
+    return res.status(500).json({
+      success: false,
+      message: "An internal server error occurred in campaignNumbers controller.",
+    });
+  }
+};
+
 export {
   businessDetails,
   dashboard,
@@ -968,5 +1226,7 @@ export {
   treeView,
   whatsAppReports,
   allCampaigns,
+  campaignDetails,
+  campaignNumbers,
   support,
 };

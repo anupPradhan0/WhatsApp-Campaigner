@@ -2,7 +2,9 @@ import type { Channel, ConsumeMessage } from "amqplib";
 import { env } from "../config/env.js";
 import {
   CampaignStats,
+  DeliveryStatus,
   type ICampaign,
+  type IDeliveryResult,
 } from "../models/campaign.model.js";
 import { findCampaignById } from "../repositories/campaign.repository.js";
 import { sendOneMessage } from "../services/whatsapp-gateway.service.js";
@@ -120,11 +122,27 @@ async function processCampaignJob(payload: CampaignJobPayload): Promise<void> {
 
   let sent = 0;
   let failed = 0;
+  // Record the per-recipient outcome so the report page can show delivered/failed
+  // for each number. Order mirrors campaign.mobileNumbers.
+  const results: IDeliveryResult[] = [];
   for (const number of campaign.mobileNumbers) {
     try {
       const ok = await sendOneMessage(campaign, number);
-      if (ok) sent += 1;
-      else failed += 1;
+      if (ok) {
+        sent += 1;
+        results.push({
+          number,
+          status: DeliveryStatus.DELIVERED,
+          sentAt: new Date(),
+        });
+      } else {
+        failed += 1;
+        results.push({
+          number,
+          status: DeliveryStatus.FAILED,
+          sentAt: new Date(),
+        });
+      }
     } catch (err) {
       // Transient: propagate so the whole job retries.
       console.error(
@@ -134,6 +152,8 @@ async function processCampaignJob(payload: CampaignJobPayload): Promise<void> {
       throw err;
     }
   }
+
+  campaign.deliveryResults = results;
 
   const total = campaign.mobileNumbers.length;
   if (failed === 0) {
