@@ -140,7 +140,10 @@ export async function updateComplaint(
     const complaintId = pathParam(req.params.complaintId);
     const body = req.body as UpdateComplaintBody;
 
-    if (userRole !== UserRole.ADMIN) {
+    if (
+      userRole !== UserRole.ADMIN &&
+      userRole !== UserRole.SUPER_ADMIN
+    ) {
       res.status(403).json({
         success: false,
         message: "Only admin can update complaints.",

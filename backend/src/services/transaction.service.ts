@@ -1,6 +1,5 @@
 import mongoose, { type ClientSession } from "mongoose";
 import type { IUser } from "../models/user.model.js";
-import { UserRole } from "../models/user.model.js";
 import type { ITransaction } from "../models/transaction.model.js";
 import {
   findUserById,
@@ -11,12 +10,16 @@ import {
   createTransactions,
   createTransaction,
 } from "../repositories/transaction.repository.js";
-import { canManageAccounts } from "../utils/role-hierarchy.utils.js";
+import {
+  canManageAccounts,
+  isSuperAdmin,
+} from "../utils/role-hierarchy.utils.js";
 
 /**
- * A reseller may only move credits to/from accounts in their own downline
- * (the users and sub-resellers they created). Admins are unrestricted.
- * Without this check any reseller could credit or drain any account by id.
+ * Admins and resellers may only move credits to/from accounts in their own
+ * downline (the users and sub-resellers they created). Only the super admin is
+ * unrestricted. Without this check any manager could credit or drain any
+ * account by id.
  */
 function managesAccount(
   sender: IUser,
@@ -67,7 +70,7 @@ export async function creditBalanceService(
     }
 
     if (
-      sender.role === UserRole.RESELLER &&
+      !isSuperAdmin(sender.role) &&
       !managesAccount(sender, receiver._id)
     ) {
       throw new Error("You can only credit accounts that you manage");
@@ -76,9 +79,10 @@ export async function creditBalanceService(
     let senderBalanceBefore = sender.balance;
     let senderBalanceAfter = sender.balance;
 
-    // A reseller funds the credit from their own balance (atomically, guarded
-    // so it cannot go negative); an admin mints new credits.
-    if (sender.role === UserRole.RESELLER) {
+    // Admins and resellers fund the credit from their own balance (atomically,
+    // guarded so it cannot go negative). Only the super admin mints brand-new
+    // credits without debiting anyone.
+    if (!isSuperAdmin(sender.role)) {
       const updatedSender = await adjustUserBalance(sender._id, -amount, {
         minBalance: amount,
         session,
@@ -188,7 +192,7 @@ export async function debitBalanceService(
     }
 
     if (
-      sender.role === UserRole.RESELLER &&
+      !isSuperAdmin(sender.role) &&
       !managesAccount(sender, receiver._id)
     ) {
       throw new Error("You can only debit accounts that you manage");
@@ -210,8 +214,9 @@ export async function debitBalanceService(
     let senderBalanceBefore = sender.balance;
     let senderBalanceAfter = sender.balance;
 
-    // A reseller reclaims the debited credits into their own balance.
-    if (sender.role === UserRole.RESELLER) {
+    // Admins and resellers reclaim the debited credits into their own balance.
+    // The super admin simply burns them (no sender balance to return to).
+    if (!isSuperAdmin(sender.role)) {
       const updatedSender = await adjustUserBalance(sender._id, amount, {
         session,
       });

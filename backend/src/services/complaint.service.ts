@@ -73,7 +73,8 @@ export async function deleteComplaintWithLink(
     }
 
     const isCreator = complaint.createdBy.toString() === userId.toString();
-    const isAdmin = userRole === UserRole.ADMIN;
+    const isAdmin =
+      userRole === UserRole.ADMIN || userRole === UserRole.SUPER_ADMIN;
 
     if (!isCreator && !isAdmin) {
       throw new Error("FORBIDDEN");

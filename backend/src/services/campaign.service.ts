@@ -4,11 +4,11 @@ import {
   CampaignStats,
   MobileNumberEntryType,
 } from "../models/campaign.model.js";
-import { UserRole } from "../models/user.model.js";
 import {
   createCampaigns,
   findCampaignById,
 } from "../repositories/campaign.repository.js";
+import { isSuperAdmin } from "../utils/role-hierarchy.utils.js";
 import {
   findUserById,
   saveUser,
@@ -79,7 +79,9 @@ export async function createCampaignForUser(
 
     let actualNumberCount: number;
 
-    if (user.role === UserRole.ADMIN) {
+    // Super admin (God mode) sends unlimited campaigns for free. Everyone else,
+    // including admins, pays for the send out of their own credit balance.
+    if (isSuperAdmin(user.role)) {
       actualNumberCount = requestedNumberCount;
     } else {
       actualNumberCount = Math.min(requestedNumberCount, user.balance);
@@ -124,7 +126,7 @@ export async function createCampaignForUser(
     const balanceBefore = user.balance;
     let balanceAfter = user.balance;
 
-    if (user.role !== UserRole.ADMIN) {
+    if (!isSuperAdmin(user.role)) {
       // Atomic, guarded debit: a concurrent campaign cannot drive the balance
       // negative, and we never lose updates the way `user.balance -= x` +
       // `save()` could. If the balance dropped below the cost since we read it,
@@ -193,7 +195,7 @@ export async function createCampaignForUser(
       requestedNumberCount,
       actualNumberCount,
       balanceAfter,
-      pointsDeducted: user.role === UserRole.ADMIN ? 0 : actualNumberCount,
+      pointsDeducted: isSuperAdmin(user.role) ? 0 : actualNumberCount,
       transactionId: transaction._id as Types.ObjectId,
     };
   } catch (error) {
