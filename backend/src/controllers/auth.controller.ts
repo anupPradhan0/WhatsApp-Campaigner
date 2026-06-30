@@ -139,7 +139,7 @@ export async function bootstrapAdminHandler(
 
     return res.status(201).json({
       success: true,
-      message: "Admin account created successfully.",
+      message: "Super admin account created successfully.",
       user: {
         companyName: user.companyName,
         email: user.email,

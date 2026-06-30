@@ -16,7 +16,7 @@ export enum UserStatus {
 export interface IUser extends Document {
   _id: mongoose.Types.ObjectId;
   companyName: string;
-  /** Admin or reseller that created this account; unset for bootstrap admin and self-registration. */
+  /** Admin or reseller that created this account; unset for the bootstrap super admin and self-registration. */
   userID?: mongoose.Types.ObjectId;
   email: string;
   image: string;

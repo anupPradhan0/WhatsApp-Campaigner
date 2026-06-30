@@ -207,7 +207,7 @@ export default function Login() {
         if (data.token) localStorage.setItem('token', data.token);
         navigate('/home');
       } else {
-        setBootstrapError(data.message || 'Failed to create admin account.');
+        setBootstrapError(data.message || 'Failed to create super admin account.');
       }
     } catch (err) {
       setBootstrapError(axios.isAxiosError(err) && err.response?.data?.message
@@ -441,7 +441,7 @@ export default function Login() {
                       <div>
                         <p className="text-[13px] font-semibold text-[#f59e0b]">First-time setup</p>
                         <p className="text-xs text-fg-muted mt-0.5 leading-4">
-                          No accounts found. Create your super admin to get started.
+                          No accounts found. Create the one super admin account to get started.
                         </p>
                       </div>
                     </div>
@@ -449,7 +449,7 @@ export default function Login() {
                       color="amber"
                       onClick={() => { setShowBootstrapForm(true); setShowSignUp(false); setError(''); setBootstrapError(''); }}
                     >
-                      Create Admin Account
+                      Create Super Admin Account
                     </PrimaryButton>
                   </div>
                 )}
@@ -464,10 +464,10 @@ export default function Login() {
                 <div className="mb-7 flex justify-between items-start">
                   <div>
                     <h2 className="text-2xl font-medium text-fg tracking-[-0.1px] leading-[30px]">
-                      Create Admin Account
+                      Create Super Admin Account
                     </h2>
                     <p className="text-sm text-fg-muted mt-1">
-                      This account will have full system access.
+                      This is the single super admin account and will have full system access.
                     </p>
                   </div>
                   <span className="text-[11px] font-semibold text-[#f59e0b] bg-[rgba(245,158,11,0.08)] border border-[rgba(245,158,11,0.25)] rounded-[20px] px-2.5 py-1 shrink-0 mt-1">
@@ -554,7 +554,7 @@ export default function Login() {
                     />
                   </div>
                   <PrimaryButton type="submit" loading={bootstrapLoading}>
-                    {bootstrapLoading ? 'Creating account…' : 'Create Admin Account'}
+                    {bootstrapLoading ? 'Creating account…' : 'Create Super Admin Account'}
                   </PrimaryButton>
                 </form>
               </>
