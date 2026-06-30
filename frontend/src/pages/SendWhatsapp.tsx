@@ -3,8 +3,9 @@ import ReactQuill from 'react-quill-new';
 import type { FormEvent, ChangeEvent } from 'react';
 import { toast } from 'sonner';
 import 'react-quill-new/dist/quill.snow.css';
+import { useNavigate } from 'react-router-dom';
 import { api, getErrorMessage } from '../api/client';
-import { Send, Phone, Link2, ImageIcon, Users, X, CheckCircle2, Hash, Upload, FileSpreadsheet, UserCircle } from 'lucide-react';
+import { Send, Phone, Link2, ImageIcon, Users, X, Hash, Upload, FileSpreadsheet, UserCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { fieldCls } from '../theme/classes';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -48,6 +49,7 @@ const FieldInput = ({ label, ...props }: { label: string } & React.InputHTMLAttr
 );
 
 const SendWhatsapp = () => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState<CampaignForm>({
     campaignName: '', message: '',
     phoneButtonText: '', phoneButtonNumber: '',
@@ -60,7 +62,6 @@ const SendWhatsapp = () => {
   const [fileType, setFileType] = useState<'image' | 'video' | null>(null);
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState('');
 
   const modules = { toolbar: [['bold', 'italic'], [{ list: 'ordered' }, { list: 'bullet' }], ['blockquote'], ['link']] };
   const formats = ['bold', 'italic', 'list', 'blockquote', 'link'];
@@ -136,7 +137,7 @@ const SendWhatsapp = () => {
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault(); setSuccess('');
+    e.preventDefault();
     if (!formData.campaignName || !formData.message || !formData.mobileNumbers) {
       toast.error('Campaign name, message, and mobile numbers are required'); return;
     }
@@ -162,9 +163,10 @@ const SendWhatsapp = () => {
       const { data: result } = await api.post<{ success: boolean; message?: string; errors?: string[] }>('/api/campaigns', data);
 
       if (result.success) {
-        setSuccess('Campaign created successfully!');
         setFormData({ campaignName: '', message: '', phoneButtonText: '', phoneButtonNumber: '', linkButtonText: '', linkButtonUrl: '', mobileNumberEntryType: 'manual', mobileNumbers: '', countryCode: '+91', numberCount: '' });
         setSelectedFile(null); setFileType(null); setProfileImage(null);
+        toast.success('Campaign created successfully!');
+        navigate('/whatsapp-report');
       } else {
         toast.error(result.errors?.[0] || result.message || 'Failed to create campaign');
       }
@@ -178,7 +180,6 @@ const SendWhatsapp = () => {
   return (
     <>
       <style>{`
-        @keyframes fadeIn { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
         .ql-toolbar.ql-snow { background: #18181b !important; border: 1px solid #27272a !important; border-bottom: none !important; border-radius: 8px 8px 0 0 !important; }
         .ql-container.ql-snow { background: #111113 !important; border: 1px solid #27272a !important; border-radius: 0 0 8px 8px !important; font-size: 14px !important; color: #f4f4f5 !important; }
         .ql-editor { min-height: 140px; color: #f4f4f5 !important; }
@@ -197,20 +198,6 @@ const SendWhatsapp = () => {
           <div className="bg-surface border border-line rounded-2xl px-10 py-8 flex flex-col items-center gap-4">
             <div className="w-10 h-10 rounded-full border-[3px] border-line border-t-brand animate-spin" style={{ animationDuration: '0.8s' }} />
             <p className="text-fg-muted text-sm font-medium">Creating campaign…</p>
-          </div>
-        </div>
-      )}
-
-      {/* Success modal */}
-      {success && !loading && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] p-4" onClick={() => setSuccess('')}>
-          <div className="bg-surface border border-line rounded-2xl px-10 py-9 max-w-[360px] w-full text-center [animation:fadeIn_0.2s_ease]" onClick={e => e.stopPropagation()}>
-            <div className="w-14 h-14 rounded-full bg-brand-dim border border-brand-border flex items-center justify-center mx-auto mb-5">
-              <CheckCircle2 size={26} className="text-brand-light" />
-            </div>
-            <p className="text-lg font-bold text-fg mb-2">Campaign Sent!</p>
-            <p className="text-[13px] text-fg-muted mb-7 leading-[1.6]">{success}</p>
-            <button onClick={() => setSuccess('')} className="w-full py-2.5 bg-brand text-white font-semibold text-sm border-none rounded-lg cursor-pointer">Done</button>
           </div>
         </div>
       )}

@@ -71,33 +71,6 @@ export async function exportCampaignToExcel(
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Campaign Data");
 
-    worksheet.columns = [
-      { header: "Campaign Name", key: "campaignName", width: 30 },
-      { header: "Message", key: "message", width: 100 },
-      { header: "Phone Button Text", key: "phoneButtonText", width: 20 },
-      { header: "Phone Button Number", key: "phoneButtonNumber", width: 20 },
-      { header: "Link Button Text", key: "linkButtonText", width: 20 },
-      { header: "Link Button URL", key: "linkButtonUrl", width: 40 },
-      { header: "Country Code", key: "countryCode", width: 15 },
-      { header: "Phone Number", key: "phoneNumber", width: 20 },
-      { header: "Delivery Status", key: "deliveryStatus", width: 18 },
-      { header: "Created By", key: "createdBy", width: 25 },
-      { header: "Created Date", key: "createdDate", width: 15 },
-      { header: "Media URL", key: "mediaUrl", width: 80 },
-    ];
-
-    worksheet.getRow(1).font = { bold: true, size: 12 };
-    worksheet.getRow(1).fill = {
-      type: "pattern",
-      pattern: "solid",
-      fgColor: { argb: "FF22C55E" },
-    };
-    worksheet.getRow(1).alignment = {
-      vertical: "middle",
-      horizontal: "center",
-    };
-    worksheet.getRow(1).height = 25;
-
     const formatDate = (dateString: string | Date): string => {
       const date = new Date(dateString);
       const year = date.getFullYear();
@@ -117,26 +90,72 @@ export async function exportCampaignToExcel(
 
     const deliveryResults = campaign.deliveryResults ?? [];
     const fallback = fallbackStatus(campaign.status);
+    const mediaNote = campaign.media
+      ? "Please check the All Campaigns or WhatsApp Report section to download media."
+      : "";
 
-    campaign.mobileNumbers.forEach((phoneNumber, i) => {
-      const result = deliveryResults[i];
-      const deliveryStatus = (result?.status ?? fallback).toUpperCase();
-      worksheet.addRow({
-        campaignName: campaign.campaignName,
-        message: campaign.message,
-        phoneButtonText: campaign.phoneButton?.text ?? "",
-        phoneButtonNumber: campaign.phoneButton?.number ?? "",
-        linkButtonText: campaign.linkButton?.text ?? "",
-        linkButtonUrl: campaign.linkButton?.url ?? "",
-        countryCode: campaign.countryCode,
-        phoneNumber,
-        deliveryStatus,
-        createdDate,
-        mediaUrl:
-          "Please check the All Campaigns or WhatsApp Report section to download media.",
-        createdBy: createdByName,
-      });
-    });
+    // Build every row first, then keep only the columns that have at least one
+    // non-empty value — so fields that are empty for the whole campaign (e.g. no
+    // phone button, no link button, no media) are dropped from the sheet.
+    const rows: Record<string, string>[] = campaign.mobileNumbers.map(
+      (phoneNumber, i) => {
+        const result = deliveryResults[i];
+        const deliveryStatus = (result?.status ?? fallback).toUpperCase();
+        return {
+          campaignName: campaign.campaignName,
+          message: campaign.message,
+          phoneButtonText: campaign.phoneButton?.text ?? "",
+          phoneButtonNumber: campaign.phoneButton?.number ?? "",
+          linkButtonText: campaign.linkButton?.text ?? "",
+          linkButtonUrl: campaign.linkButton?.url ?? "",
+          countryCode: campaign.countryCode,
+          phoneNumber,
+          deliveryStatus,
+          createdBy: createdByName,
+          createdDate,
+          mediaUrl: mediaNote,
+        };
+      }
+    );
+
+    const allColumns = [
+      { header: "Campaign Name", key: "campaignName", width: 30 },
+      { header: "Message", key: "message", width: 100 },
+      { header: "Phone Button Text", key: "phoneButtonText", width: 20 },
+      { header: "Phone Button Number", key: "phoneButtonNumber", width: 20 },
+      { header: "Link Button Text", key: "linkButtonText", width: 20 },
+      { header: "Link Button URL", key: "linkButtonUrl", width: 40 },
+      { header: "Country Code", key: "countryCode", width: 15 },
+      { header: "Phone Number", key: "phoneNumber", width: 20 },
+      { header: "Delivery Status", key: "deliveryStatus", width: 18 },
+      { header: "Created By", key: "createdBy", width: 25 },
+      { header: "Created Date", key: "createdDate", width: 15 },
+      { header: "Media URL", key: "mediaUrl", width: 80 },
+    ];
+
+    const isEmpty = (v: unknown): boolean =>
+      v === undefined || v === null || String(v).trim() === "";
+    const columns = allColumns.filter((col) =>
+      rows.some((row) => !isEmpty(row[col.key]))
+    );
+
+    // Fall back to all columns only in the impossible case of zero rows.
+    worksheet.columns = columns.length > 0 ? columns : allColumns;
+
+    worksheet.getRow(1).font = { bold: true, size: 12 };
+    worksheet.getRow(1).fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF22C55E" },
+    };
+    worksheet.getRow(1).alignment = {
+      vertical: "middle",
+      horizontal: "center",
+    };
+    worksheet.getRow(1).height = 25;
+
+    // addRow maps by column key, so keys without a matching column are ignored.
+    rows.forEach((row) => worksheet.addRow(row));
 
     worksheet.eachRow((row, rowNumber) => {
       if (rowNumber > 1 && rowNumber % 2 === 0) {
