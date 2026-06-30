@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
-  ArrowLeft, Download, Loader2, AlertCircle, X, Users,
+  ArrowLeft, Download, Loader2, AlertCircle, Users,
   CheckCircle2, XCircle, Phone,
 } from 'lucide-react';
 import { toast } from 'sonner';

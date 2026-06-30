@@ -13,7 +13,46 @@ import { hashPassword } from "../utils/hash-password.utils.js";
 import {
   canCreateRole,
   canManageAccounts,
+  isSuperAdmin,
 } from "../utils/role-hierarchy.utils.js";
+
+/**
+ * Authorize a manager acting on a target account (delete / freeze / update / …).
+ * Super admin (God mode) may act on anyone except another super admin. Admins
+ * and resellers may only act on accounts in their own direct downline. Throws a
+ * coded error otherwise.
+ */
+function ensureManageable(actor: IUser, target: IUser): void {
+  if (target._id.toString() === actor._id.toString()) {
+    // Acting on your own account is handled by the dedicated self-service flows.
+    const err = new Error("CANNOT_TARGET_SELF") as Error & { code: string };
+    err.code = "CANNOT_TARGET_SELF";
+    throw err;
+  }
+
+  if (isSuperAdmin(actor.role)) {
+    if (target.role === UserRole.SUPER_ADMIN) {
+      const err = new Error("CANNOT_TARGET_SUPER_ADMIN") as Error & {
+        code: string;
+      };
+      err.code = "CANNOT_TARGET_SUPER_ADMIN";
+      throw err;
+    }
+    return;
+  }
+
+  const targetId = target._id.toString();
+  const inDownline =
+    actor.allAdmin?.some((id) => id.toString() === targetId) ||
+    actor.allReseller?.some((id) => id.toString() === targetId) ||
+    actor.allUsers?.some((id) => id.toString() === targetId);
+
+  if (!inDownline) {
+    const err = new Error("NOT_YOUR_USER") as Error & { code: string };
+    err.code = "NOT_YOUR_USER";
+    throw err;
+  }
+}
 import type {
   ChangeOwnPasswordBody,
   ChangePasswordBody,
@@ -71,7 +110,9 @@ export async function createManagedUser(
     status: UserStatus.ACTIVE,
   });
 
-  if (targetRole === UserRole.RESELLER) {
+  if (targetRole === UserRole.ADMIN) {
+    creator.allAdmin.push(newUser._id as mongoose.Types.ObjectId);
+  } else if (targetRole === UserRole.RESELLER) {
     creator.allReseller.push(newUser._id as mongoose.Types.ObjectId);
   } else if (targetRole === UserRole.USER) {
     creator.allUsers.push(newUser._id as mongoose.Types.ObjectId);
@@ -99,6 +140,8 @@ export async function softDeleteUser(
     err.code = "USER_NOT_FOUND";
     throw err;
   }
+
+  ensureManageable(admin, user);
 
   if (user.status === UserStatus.DELETED) {
     const err = new Error("ALREADY_DELETED") as Error & { code: string };
@@ -129,6 +172,8 @@ export async function freezeUserAccount(
     throw err;
   }
 
+  ensureManageable(admin, user);
+
   if (user.status !== UserStatus.ACTIVE) {
     const err = new Error("NOT_ACTIVE") as Error & { code: string };
     err.code = "NOT_ACTIVE";
@@ -157,6 +202,8 @@ export async function unfreezeUserAccount(
     throw err;
   }
 
+  ensureManageable(admin, user);
+
   user.status = UserStatus.ACTIVE;
   await saveUser(user);
 }
@@ -167,12 +214,23 @@ export async function updateManagedUser(
   body: UpdateUserBody
 ): Promise<IUser> {
   const isOwner = authenticatedUser._id.toString() === targetUserId;
-  const isManager = canManageAccounts(authenticatedUser.role);
 
-  if (!isOwner && !isManager) {
-    const err = new Error("FORBIDDEN_UPDATE") as Error & { code: string };
-    err.code = "FORBIDDEN_UPDATE";
-    throw err;
+  // Owners may edit their own profile. Anyone editing someone else must be a
+  // manager AND have the target in their downline (super admin: anyone but
+  // another super admin).
+  if (!isOwner) {
+    if (!canManageAccounts(authenticatedUser.role)) {
+      const err = new Error("FORBIDDEN_UPDATE") as Error & { code: string };
+      err.code = "FORBIDDEN_UPDATE";
+      throw err;
+    }
+    const target = await findUserById(targetUserId);
+    if (!target) {
+      const err = new Error("USER_NOT_FOUND") as Error & { code: string };
+      err.code = "USER_NOT_FOUND";
+      throw err;
+    }
+    ensureManageable(authenticatedUser, target);
   }
 
   const updateFields: Record<string, string | number> = {};
@@ -248,41 +306,17 @@ export async function changeUserPasswordByAdmin(
     throw err;
   }
 
-  if (
-    targetUser.role === UserRole.ADMIN ||
-    targetUser.role === UserRole.SUPER_ADMIN
-  ) {
+  // A super admin's password can only be changed through the self-service
+  // change-own-password flow, never via this admin-reset path.
+  if (targetUser.role === UserRole.SUPER_ADMIN) {
     const err = new Error("CANNOT_CHANGE_ADMIN_PW") as Error & { code: string };
     err.code = "CANNOT_CHANGE_ADMIN_PW";
     throw err;
   }
 
-  // The super admin has global authority and can reset any non-admin password
-  // without an ownership relationship; everyone else may only touch their own
-  // direct downline.
-  if (currentUser.role !== UserRole.SUPER_ADMIN) {
-    const manager = await findUserById(currentUserId, {
-      select: "allReseller allUsers role",
-    });
-    if (!manager) {
-      const err = new Error("AUTH_USER_NOT_FOUND") as Error & { code: string };
-      err.code = "AUTH_USER_NOT_FOUND";
-      throw err;
-    }
-
-    const isInResellerList = manager.allReseller.some(
-      (id) => id.toString() === targetUserId
-    );
-    const isInUserList = manager.allUsers.some(
-      (id) => id.toString() === targetUserId
-    );
-
-    if (!isInResellerList && !isInUserList) {
-      const err = new Error("NOT_YOUR_USER") as Error & { code: string };
-      err.code = "NOT_YOUR_USER";
-      throw err;
-    }
-  }
+  // Super admin (God mode) may reset any non-super-admin password, including
+  // admins. Admins and resellers may only reset accounts in their own downline.
+  ensureManageable(currentUser, targetUser);
 
   targetUser.password = await hashPassword(body.password);
   await saveUser(targetUser);

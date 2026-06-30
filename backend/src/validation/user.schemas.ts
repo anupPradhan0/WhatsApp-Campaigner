@@ -6,7 +6,14 @@ export const createUserBodySchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
   number: z.coerce.number().int().positive(),
-  role: z.nativeEnum(UserRole),
+  // super_admin is provisioned only through the bootstrap flow, never assigned
+  // via this endpoint — reject it up front. The service layer additionally
+  // enforces the full creation hierarchy (who may create which role).
+  role: z
+    .nativeEnum(UserRole)
+    .refine((r) => r !== UserRole.SUPER_ADMIN, {
+      message: "You cannot create a super admin.",
+    }),
   balance: z.coerce.number().finite().nonnegative(),
   imageUrl: z.string().url().optional(),
 });

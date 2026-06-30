@@ -1,10 +1,14 @@
 import type { Request, Response } from "express";
 import type { IUser } from "../models/user.model.js";
-import { UserRole } from "../models/user.model.js";
+import { UserRole, UserStatus } from "../models/user.model.js";
 import {
   canManageAccounts,
   isSuperAdmin,
 } from "../utils/role-hierarchy.utils.js";
+
+// Cap unbounded super-admin global listings so a very large tenant base can't
+// load the entire collection into one response.
+const GLOBAL_LIST_LIMIT = 1000;
 import mongoose from "mongoose";
 import Campaign, {
   CampaignStats,
@@ -81,8 +85,15 @@ const dashboard = async (req: Request, res: Response) => {
     const userId = new mongoose.Types.ObjectId(user._id);
     const currentYear = new Date().getFullYear();
 
+    // Super admin (God mode) sees system-wide campaign stats; everyone else is
+    // scoped to the campaigns they created.
+    const globalView = isSuperAdmin(user.role);
+    const campaignMatch: Record<string, unknown> = globalView
+      ? {}
+      : { createdBy: userId };
+
     const totalMessagesAgg = await Campaign.aggregate([
-      { $match: { createdBy: userId } },
+      { $match: campaignMatch },
       { $group: { _id: null, totalMessages: { $sum: "$numberCount" } } },
     ]);
     const totalMessages = totalMessagesAgg[0]?.totalMessages || 0;
@@ -93,7 +104,7 @@ const dashboard = async (req: Request, res: Response) => {
 
     // Get all campaigns for this user in the date range
     const allCampaigns = await Campaign.find({
-      createdBy: userId,
+      ...campaignMatch,
       createdAt: {
         $gte: twoMonthsAgo,
         $lte: now,
@@ -176,7 +187,7 @@ const dashboard = async (req: Request, res: Response) => {
 
     // -------------------- Top 5 campaigns in the current year --------------------
     const topFiveCampaigns = await Campaign.find({
-      createdBy: userId,
+      ...campaignMatch,
       createdAt: {
         $gte: new Date(`${currentYear}-01-01T00:00:00.000Z`),
         $lte: new Date(`${currentYear}-12-31T23:59:59.999Z`),
@@ -213,6 +224,16 @@ const dashboard = async (req: Request, res: Response) => {
         }
       : null;
 
+    // For the super admin the downline counts are system-wide totals; for
+    // everyone else they come straight off their own account document.
+    const [totalReseller, totalUsers, totalCampaigns] = globalView
+      ? await Promise.all([
+          User.countDocuments({ role: UserRole.RESELLER }),
+          User.countDocuments({ role: UserRole.USER }),
+          Campaign.countDocuments({}),
+        ])
+      : [user.allReseller.length, user.allUsers.length, user.totalCampaigns];
+
     // -------------------- Return response --------------------
     return res.status(200).json({
       success: true,
@@ -221,9 +242,9 @@ const dashboard = async (req: Request, res: Response) => {
         image: user.image,
         role: user.role,
         balance: user.balance,
-        totalReseller: user.allReseller.length,
-        totalUsers: user.allUsers.length,
-        totalCampaigns: user.totalCampaigns,
+        totalReseller,
+        totalUsers,
+        totalCampaigns,
         totalMessages: totalMessages,
         weeklyStats: weeklyStatsWithRange,
         topFiveCampaigns: topFiveCampaigns,
@@ -262,9 +283,13 @@ const transaction = async (req: Request, res: Response) => {
       });
     }
 
-    const transactions = await Transaction.find({
-      _id: { $in: currentUser.allTransaction },
-    })
+    // Super admin (God mode) sees every transaction in the system; everyone
+    // else sees only the transactions linked to their own account.
+    const transactionFilter = isSuperAdmin(user.role)
+      ? {}
+      : { _id: { $in: currentUser.allTransaction } };
+
+    const transactions = await Transaction.find(transactionFilter)
       .sort({ transactionDate: -1 })
       .limit(100)
       .populate("senderId", "companyName")
@@ -486,7 +511,12 @@ const manageReseller = async (req: Request, res: Response) => {
     // only the resellers they personally created.
     let resellers: any[];
     if (isSuperAdmin(userRole)) {
-      resellers = await User.find({ role: UserRole.RESELLER }).lean();
+      resellers = await User.find({
+        role: UserRole.RESELLER,
+        status: { $ne: UserStatus.DELETED },
+      })
+        .limit(GLOBAL_LIST_LIMIT)
+        .lean();
     } else {
       const currentUser = await User.findById(userId)
         .populate("allReseller")
@@ -501,6 +531,11 @@ const manageReseller = async (req: Request, res: Response) => {
 
       resellers = currentUser.allReseller as any[];
     }
+
+    // Hide soft-deleted accounts from the list.
+    resellers = resellers.filter(
+      (r: any) => r.status !== UserStatus.DELETED
+    );
 
     // Format reseller data
     const formattedResellers = resellers.map((reseller: any) => ({
@@ -567,7 +602,12 @@ const manageUser = async (req: Request, res: Response) => {
     // only the users they personally created.
     let users: any[];
     if (isSuperAdmin(userRole)) {
-      users = await User.find({ role: UserRole.USER }).lean();
+      users = await User.find({
+        role: UserRole.USER,
+        status: { $ne: UserStatus.DELETED },
+      })
+        .limit(GLOBAL_LIST_LIMIT)
+        .lean();
     } else {
       const currentUser = await User.findById(userId)
         .populate("allUsers")
@@ -582,6 +622,9 @@ const manageUser = async (req: Request, res: Response) => {
 
       users = currentUser.allUsers as any[];
     }
+
+    // Hide soft-deleted accounts from the list.
+    users = users.filter((u: any) => u.status !== UserStatus.DELETED);
 
     // Format user data
     const formattedUsers = users.map((user: any) => ({
@@ -622,6 +665,69 @@ const manageUser = async (req: Request, res: Response) => {
   }
 };
 
+// Super admin only: list every admin in the system so the top of the hierarchy
+// can manage the admins it created. Admins/resellers have no admins to manage.
+const manageAdmin = async (req: Request, res: Response) => {
+  try {
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required. User not found.",
+      });
+    }
+
+    if (!isSuperAdmin(user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only the super admin can access this section.",
+      });
+    }
+
+    const admins = await User.find({
+      role: UserRole.ADMIN,
+      status: { $ne: UserStatus.DELETED },
+    })
+      .limit(GLOBAL_LIST_LIMIT)
+      .lean();
+
+    const formattedAdmins = admins.map((admin: any) => ({
+      id: admin._id,
+      companyName: admin.companyName,
+      email: admin.email,
+      number: admin.number,
+      image: admin.image,
+      role: admin.role,
+      resellerCount: admin.allReseller?.length || 0,
+      userCount: admin.allUsers?.length || 0,
+      totalCampaigns: admin.totalCampaigns || 0,
+      balance: admin.balance || 0,
+      status: admin.status,
+      createdAt: admin.createdAt,
+    }));
+
+    formattedAdmins.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Admins fetched successfully.",
+      data: {
+        totalAdmins: formattedAdmins.length,
+        admins: formattedAdmins,
+      },
+    });
+  } catch (error: unknown) {
+    console.error("Error in manageAdmin controller:", error);
+    return res.status(500).json({
+      success: false,
+      message: "An internal server error occurred in manageAdmin controller.",
+    });
+  }
+};
+
 const treeView = async (req: Request, res: Response) => {
   try {
     const user = req.user;
@@ -647,7 +753,7 @@ const treeView = async (req: Request, res: Response) => {
       // Fetch user data
       const user = await User.findById(userId)
         .select(
-          "companyName email number role balance totalCampaigns status allReseller allUsers createdAt"
+          "companyName email number role balance totalCampaigns status allAdmin allReseller allUsers createdAt"
         )
         .lean();
 
@@ -655,7 +761,8 @@ const treeView = async (req: Request, res: Response) => {
         return null;
       }
 
-      // Get resellers and users (limit to 20 each, no sorting for performance)
+      // Get admins, resellers and users (limit each, no sorting for performance)
+      const adminIds = user.allAdmin?.slice(0, 10) || [];
       const resellerIds = user.allReseller?.slice(0, 10) || [];
       const userIds = user.allUsers?.slice(0, 10) || [];
 
@@ -677,6 +784,17 @@ const treeView = async (req: Request, res: Response) => {
 
       // Only fetch children if not at max depth
       if (currentLevel < 3) {
+        // Fetch admins recursively (super admin's direct children)
+        for (const adminId of adminIds) {
+          const adminNode = await buildTree(
+            adminId.toString(),
+            currentLevel + 1
+          );
+          if (adminNode) {
+            node.children.push(adminNode);
+          }
+        }
+
         // Fetch resellers recursively
         for (const resellerId of resellerIds) {
           const resellerNode = await buildTree(
@@ -1223,6 +1341,7 @@ export {
   complaints,
   manageReseller,
   manageUser,
+  manageAdmin,
   treeView,
   whatsAppReports,
   allCampaigns,

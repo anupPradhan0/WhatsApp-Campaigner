@@ -23,6 +23,7 @@ export interface IUser extends Document {
   number: number;
   password: string;
   role: UserRole;
+  allAdmin: mongoose.Types.ObjectId[];
   allReseller: mongoose.Types.ObjectId[];
   allUsers: mongoose.Types.ObjectId[];
   allCampaign: mongoose.Types.ObjectId[];
@@ -84,6 +85,12 @@ const userSchema = new Schema<IUser>(
       enum: Object.values(UserRole),
       default: UserRole.USER,
     },
+    allAdmin: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
     allReseller: [
       {
         type: Schema.Types.ObjectId,

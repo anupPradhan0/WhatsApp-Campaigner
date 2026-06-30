@@ -8,6 +8,7 @@ import {
   complaints,
   manageReseller,
   manageUser,
+  manageAdmin,
   treeView,
   whatsAppReports,
   allCampaigns,
@@ -28,6 +29,7 @@ router.get("/news", isLoggedIn, news);
 router.get("/complaints", isLoggedIn, complaints);
 router.get("/manage-reseller", isLoggedIn, manageReseller);
 router.get("/manage-user", isLoggedIn, manageUser);
+router.get("/manage-admin", isLoggedIn, manageAdmin);
 router.get("/tree-view", isLoggedIn, treeView);
 router.get("/whatsapp-reports", isLoggedIn, whatsAppReports);
 router.get(

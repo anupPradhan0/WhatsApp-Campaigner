@@ -77,7 +77,17 @@ function mapUserServiceError(err: unknown): { status: number; message: string } 
       return {
         status: 403,
         message:
-          "You do not have permission to change this user's password. You can only change passwords of users you created.",
+          "You can only manage accounts in your own downline (the accounts you created).",
+      };
+    case "CANNOT_TARGET_SELF":
+      return {
+        status: 400,
+        message: "You cannot perform this action on your own account.",
+      };
+    case "CANNOT_TARGET_SUPER_ADMIN":
+      return {
+        status: 403,
+        message: "The super admin account cannot be modified.",
       };
     default:
       return {
