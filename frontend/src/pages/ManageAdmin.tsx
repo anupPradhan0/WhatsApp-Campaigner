@@ -9,19 +9,17 @@ import { cn } from '../lib/utils';
 import { Spinner } from '../components/ui/Spinner';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { ModalOverlay, ModalHeader, ModalBody, ModalFooter } from '../components/ui/Modal';
-import { FInput, FLabel, FSelect } from '../components/ui/FormField';
+import { FInput, FLabel } from '../components/ui/FormField';
 import { PrimaryBtn, GhostBtn, ActionBtn } from '../components/ui/ActionButton';
 import { InlineAlert } from '../components/ui/Alert';
 import { Avatar } from '../components/ui/UserAvatar';
 import { Paginator } from '../components/ui/Paginator';
 import { PageHeader } from '../components/ui/PageHeader';
 
-const ManageReseller = () => {
+const ManageAdmin = () => {
   const userRole = getUserRole();
-  // Resellers no longer manage other resellers — only admins and the super
-  // admin reach this page.
-  const canManageResellers =
-    userRole === UserRole.SUPER_ADMIN || userRole === UserRole.ADMIN;
+  // Only the super admin manages admins.
+  const isSuperAdmin = userRole === UserRole.SUPER_ADMIN;
 
   const {
     loading, error, success, actionLoading,
@@ -30,7 +28,7 @@ const ManageReseller = () => {
     setCreateForm, setEditForm, setCreditAmt, setDebitAmt,
     openModal, closeModal,
     handleCreate, handleEdit, handleAddCredit, handleRemoveCredit, handleFreeze, handleDelete,
-  } = useUserManagement('manage-reseller', 'resellers');
+  } = useUserManagement('manage-admin', 'admins');
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -41,11 +39,11 @@ const ManageReseller = () => {
 
   const formatDate = (s: string) => { try { return format(new Date(s), 'dd MMM yyyy, hh:mm a'); } catch { return s; } };
 
-  if (loading) return <Spinner label="Loading resellers…" />;
+  if (loading) return <Spinner label="Loading admins…" />;
 
-  if (!canManageResellers) return (
+  if (!isSuperAdmin) return (
     <div className="px-4 py-3 bg-danger-dim border border-danger-border rounded-[10px]">
-      <p className="text-danger text-sm">Access denied. Admin role required.</p>
+      <p className="text-danger text-sm">Access denied. Super admin role required.</p>
     </div>
   );
 
@@ -64,11 +62,11 @@ const ManageReseller = () => {
 
       <div className="flex flex-col gap-4">
         <PageHeader
-          title="Manage Resellers"
-          subtitle={`${total} total resellers`}
+          title="Manage Admins"
+          subtitle={`${total} total admins`}
           action={
             <button onClick={() => openModal('create')} className="flex items-center gap-[7px] px-4 py-[9px] bg-brand text-white font-semibold text-[13px] border-none rounded-lg cursor-pointer">
-              <Plus size={15} /> Add Reseller
+              <Plus size={15} /> Add Admin
             </button>
           }
         />
@@ -98,7 +96,7 @@ const ManageReseller = () => {
               </thead>
               <tbody>
                 {current.length === 0 ? (
-                  <tr><td colSpan={7} className="px-4 py-10 text-center text-fg-subtle text-[13px]">No resellers found</td></tr>
+                  <tr><td colSpan={7} className="px-4 py-10 text-center text-fg-subtle text-[13px]">No admins found</td></tr>
                 ) : current.map(r => (
                   <tr key={r.id} className="group border-b border-line/50">
                     <td className="px-4 py-2.5 group-hover:bg-white/[0.025]"><Avatar name={r.companyName} image={r.image} size={34} /></td>
@@ -128,7 +126,7 @@ const ManageReseller = () => {
         <div className="lg:hidden flex flex-col gap-2.5">
           {current.length === 0 ? (
             <div className="p-8 text-center bg-surface border border-line rounded-xl">
-              <p className="text-fg-subtle text-[13px]">No resellers found</p>
+              <p className="text-fg-subtle text-[13px]">No admins found</p>
             </div>
           ) : current.map(r => (
             <div key={r.id} className="bg-surface border border-line rounded-[10px] px-3.5 py-3">
@@ -163,7 +161,7 @@ const ManageReseller = () => {
       {modal === 'create' && (
         <ModalOverlay onClose={closeModal}>
           <div className="max-w-[520px] mx-auto">
-            <ModalHeader title="Add New Reseller" onClose={closeModal} />
+            <ModalHeader title="Add New Admin" onClose={closeModal} />
             <ModalBody>
               {error && <InlineAlert msg={error} type="error" />}
               <div className="flex flex-col gap-3">
@@ -171,10 +169,6 @@ const ManageReseller = () => {
                 <FInput label="Email *" type="email" placeholder="admin@company.com" value={createForm.email} onChange={e => setCreateForm(f => ({ ...f, email: e.target.value }))} />
                 <FInput label="Password *" type="password" placeholder="Enter password" value={createForm.password} onChange={e => setCreateForm(f => ({ ...f, password: e.target.value }))} />
                 <FInput label="Phone Number *" type="tel" placeholder="10-digit number" maxLength={10} value={createForm.number} onChange={e => setCreateForm(f => ({ ...f, number: e.target.value }))} />
-                <FSelect label="Role *" value={createForm.role} onChange={e => setCreateForm(f => ({ ...f, role: e.target.value }))}>
-                  <option value="reseller">Reseller</option>
-                  <option value="user">User</option>
-                </FSelect>
                 <FInput label="Initial Balance *" type="number" placeholder="0" min="0" value={createForm.balance} onChange={e => setCreateForm(f => ({ ...f, balance: e.target.value }))} />
                 <div>
                   <FLabel>Profile Image (optional)</FLabel>
@@ -186,7 +180,7 @@ const ManageReseller = () => {
               </div>
             </ModalBody>
             <ModalFooter>
-              <PrimaryBtn onClick={handleCreate} disabled={actionLoading}>{actionLoading ? 'Creating…' : 'Create Reseller'}</PrimaryBtn>
+              <PrimaryBtn onClick={handleCreate} disabled={actionLoading}>{actionLoading ? 'Creating…' : 'Create Admin'}</PrimaryBtn>
               <GhostBtn onClick={closeModal}>Cancel</GhostBtn>
             </ModalFooter>
           </div>
@@ -197,7 +191,7 @@ const ManageReseller = () => {
       {modal === 'view' && selected && (
         <ModalOverlay onClose={closeModal}>
           <div className="max-w-[520px] mx-auto">
-            <ModalHeader title="Reseller Details" onClose={closeModal} />
+            <ModalHeader title="Admin Details" onClose={closeModal} />
             <ModalBody>
               <div className="flex items-center gap-3.5 mb-5">
                 <Avatar name={selected.companyName} image={selected.image} size={60} />
@@ -270,7 +264,7 @@ const ManageReseller = () => {
             <ModalBody>
               {error && <InlineAlert msg={error} type="error" />}
               <div className="bg-brand-dim border border-brand-border rounded-lg px-3 py-2.5 mb-3.5">
-                <p className="text-xs text-fg-muted">Reseller: <span className="text-fg font-semibold">{selected.companyName}</span></p>
+                <p className="text-xs text-fg-muted">Admin: <span className="text-fg font-semibold">{selected.companyName}</span></p>
                 <p className="text-xs text-fg-muted mt-1">Current Balance: <span className="text-brand-light font-bold text-[15px]">₹{selected.balance.toLocaleString()}</span></p>
               </div>
               <FInput label="Amount to Credit *" type="number" placeholder="Enter amount" min="0" value={creditAmt} onChange={e => setCreditAmt(e.target.value)} />
@@ -291,7 +285,7 @@ const ManageReseller = () => {
             <ModalBody>
               {error && <InlineAlert msg={error} type="error" />}
               <div className="bg-danger-dim border border-danger-border rounded-lg px-3 py-2.5 mb-3.5">
-                <p className="text-xs text-fg-muted">Reseller: <span className="text-fg font-semibold">{selected.companyName}</span></p>
+                <p className="text-xs text-fg-muted">Admin: <span className="text-fg font-semibold">{selected.companyName}</span></p>
                 <p className="text-xs text-fg-muted mt-1">Current Balance: <span className="text-brand-light font-bold text-[15px]">₹{selected.balance.toLocaleString()}</span></p>
               </div>
               <FInput label="Amount to Debit *" type="number" placeholder="Enter amount" min="0" value={debitAmt} onChange={e => setDebitAmt(e.target.value)} />
@@ -335,7 +329,7 @@ const ManageReseller = () => {
       {modal === 'delete' && selected && (
         <ModalOverlay onClose={closeModal}>
           <div className="max-w-[400px] mx-auto">
-            <ModalHeader title="Delete Reseller" onClose={closeModal} />
+            <ModalHeader title="Delete Admin" onClose={closeModal} />
             <ModalBody>
               {error && <InlineAlert msg={error} type="error" />}
               <div className="flex flex-col items-center gap-3 py-4">
@@ -358,4 +352,4 @@ const ManageReseller = () => {
   );
 };
 
-export default ManageReseller;
+export default ManageAdmin;

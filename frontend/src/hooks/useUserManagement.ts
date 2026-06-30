@@ -28,6 +28,25 @@ export interface ResellersData {
   resellers: ManagedUser[];
 }
 
+export interface AdminsData {
+  totalAdmins: number;
+  admins: ManagedUser[];
+}
+
+export type ListKey = 'users' | 'resellers' | 'admins';
+
+const ROLE_FOR_LIST: Record<ListKey, string> = {
+  users: 'user',
+  resellers: 'reseller',
+  admins: 'admin',
+};
+
+const SINGULAR: Record<ListKey, string> = {
+  users: 'User',
+  resellers: 'Reseller',
+  admins: 'Admin',
+};
+
 interface CreateForm {
   companyName: string;
   email: string;
@@ -46,15 +65,21 @@ interface EditForm {
   confirmPassword: string;
 }
 
-const blankCreate = (listKey: 'users' | 'resellers'): CreateForm => ({
+const blankCreate = (listKey: ListKey): CreateForm => ({
   companyName: '', email: '', password: '', number: '',
-  role: listKey === 'resellers' ? 'reseller' : 'user',
+  role: ROLE_FOR_LIST[listKey],
   balance: '', image: null,
 });
 
-export function useUserManagement(endpoint: string, listKey: 'users' | 'resellers') {
+const queryKeyFor = (listKey: ListKey) =>
+  listKey === 'resellers' ? QK.resellers()
+    : listKey === 'admins' ? QK.admins()
+    : QK.users();
+
+export function useUserManagement(endpoint: string, listKey: ListKey) {
   const qc = useQueryClient();
-  const queryKey = listKey === 'resellers' ? QK.resellers() : QK.users();
+  const queryKey = queryKeyFor(listKey);
+  const singular = SINGULAR[listKey];
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -72,7 +97,7 @@ export function useUserManagement(endpoint: string, listKey: 'users' | 'reseller
   const { data, isLoading } = useQuery({
     queryKey,
     queryFn: async () => {
-      const { data: r } = await api.get<{ success: boolean; message?: string; data: UsersData | ResellersData }>(`/api/dashboard/${endpoint}`);
+      const { data: r } = await api.get<{ success: boolean; message?: string; data: UsersData | ResellersData | AdminsData }>(`/api/dashboard/${endpoint}`);
       if (!r.success) throw new Error(r.message || 'Failed to load');
       return r.data;
     },
@@ -90,7 +115,7 @@ export function useUserManagement(endpoint: string, listKey: 'users' | 'reseller
       closeModal();
       setCreateForm(blankCreate(listKey));
       invalidate();
-      toast(`${listKey === 'resellers' ? 'Reseller' : 'User'} created successfully!`);
+      toast(`${singular} created successfully!`);
     },
     onError: (e: Error) => setError(e.message),
   });
@@ -150,7 +175,7 @@ export function useUserManagement(endpoint: string, listKey: 'users' | 'reseller
       const { data: r } = await api.delete<{ success: boolean; message?: string }>(`/api/user/delete/${id}`);
       if (!r.success) throw new Error(r.message || 'Failed');
     },
-    onSuccess: () => { closeModal(); invalidate(); toast(`${listKey === 'resellers' ? 'Reseller' : 'User'} deleted.`); },
+    onSuccess: () => { closeModal(); invalidate(); toast(`${singular} deleted.`); },
     onError: (e: Error) => setError(e.message),
   });
 
@@ -213,10 +238,14 @@ export function useUserManagement(endpoint: string, listKey: 'users' | 'reseller
 
   const total = listKey === 'resellers'
     ? (data as ResellersData | undefined)?.totalResellers ?? 0
+    : listKey === 'admins'
+    ? (data as AdminsData | undefined)?.totalAdmins ?? 0
     : (data as UsersData | undefined)?.totalUsers ?? 0;
 
   const items = listKey === 'resellers'
     ? (data as ResellersData | undefined)?.resellers ?? []
+    : listKey === 'admins'
+    ? (data as AdminsData | undefined)?.admins ?? []
     : (data as UsersData | undefined)?.users ?? [];
 
   return {

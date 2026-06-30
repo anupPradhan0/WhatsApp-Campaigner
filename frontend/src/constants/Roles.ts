@@ -40,13 +40,18 @@ export enum UserRole {
     {
       title: 'RESELLERS & USERS',
       items: [
-        { 
-          label: 'Manage Reseller', 
-          path: '/manage-reseller',
-          allowedRoles: [UserRole.ADMIN, UserRole.RESELLER]
+        {
+          label: 'Manage Admins',
+          path: '/manage-admin',
+          allowedRoles: [UserRole.SUPER_ADMIN]
         },
-        { 
-          label: 'Manage Users', 
+        {
+          label: 'Manage Reseller',
+          path: '/manage-reseller',
+          allowedRoles: [UserRole.ADMIN]
+        },
+        {
+          label: 'Manage Users',
           path: '/manage-users',
           allowedRoles: [UserRole.ADMIN, UserRole.RESELLER]
         },

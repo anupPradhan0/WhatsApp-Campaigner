@@ -16,6 +16,7 @@ import NewsPage from './pages/News';
 import ComplaintsPage from './pages/Complaints';
 import ManageResellerPage from './pages/ManageReseller';
 import ManageUserPage from './pages/ManageUser';
+import ManageAdminPage from './pages/ManageAdmin';
 import TreeViewPage from './pages/TreeView';
 import WhatsAppReportsPage from './pages/WhatsAppReports';
 import CampaignDetailsPage from './pages/CampaignDetails';
@@ -42,6 +43,7 @@ function App() {
               <Route path="/home"           element={wrapped(DashboardPage)} />
               <Route path="/send-whatsapp"  element={wrapped(SendWhatsapp)} />
               <Route path="/credits"        element={wrapped(CreditReportsPage)} />
+              <Route path="/manage-admin"   element={wrapped(ManageAdminPage)} />
               <Route path="/manage-reseller"element={wrapped(ManageResellerPage)} />
               <Route path="/manage-users"   element={wrapped(ManageUserPage)} />
               <Route path="/whatsapp-report"element={wrapped(WhatsAppReportsPage)} />

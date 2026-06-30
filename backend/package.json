@@ -8,6 +8,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "tsx watch src/server.ts",
+    "promote-super-admin": "tsx src/scripts/promote-super-admin.ts",
     "clean": "rm -rf dist",
     "prebuild": "pnpm run clean"
   },
