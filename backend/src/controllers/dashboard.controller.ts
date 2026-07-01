@@ -285,10 +285,15 @@ const transaction = async (req: Request, res: Response) => {
     }
 
     // Super admin (God mode) sees every transaction in the system; everyone
-    // else sees only the transactions linked to their own account.
-    const transactionFilter = isSuperAdmin(user.role)
-      ? {}
-      : { _id: { $in: currentUser.allTransaction } };
+    // else sees only the transactions linked to their own account. Failed
+    // attempts never moved money, so they must not appear in the ledger as if
+    // they did (they would otherwise show as a real debit and skew totals).
+    const transactionFilter = {
+      status: "success",
+      ...(isSuperAdmin(user.role)
+        ? {}
+        : { _id: { $in: currentUser.allTransaction } }),
+    };
 
     const transactions = await Transaction.find(transactionFilter)
       .sort({ transactionDate: -1 })

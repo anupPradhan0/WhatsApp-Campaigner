@@ -163,7 +163,7 @@ const ManageReseller = () => {
       {modal === 'create' && (
         <ModalOverlay onClose={closeModal}>
           <div className="max-w-[520px] mx-auto">
-            <ModalHeader title="Add New Reseller" onClose={closeModal} />
+            <ModalHeader title={`Add New ${createForm.role === 'user' ? 'User' : 'Reseller'}`} onClose={closeModal} />
             <ModalBody>
               {error && <InlineAlert msg={error} type="error" />}
               <div className="flex flex-col gap-3">
@@ -186,7 +186,7 @@ const ManageReseller = () => {
               </div>
             </ModalBody>
             <ModalFooter>
-              <PrimaryBtn onClick={handleCreate} disabled={actionLoading}>{actionLoading ? 'Creating…' : 'Create Reseller'}</PrimaryBtn>
+              <PrimaryBtn onClick={handleCreate} disabled={actionLoading}>{actionLoading ? 'Creating…' : `Create ${createForm.role === 'user' ? 'User' : 'Reseller'}`}</PrimaryBtn>
               <GhostBtn onClick={closeModal}>Cancel</GhostBtn>
             </ModalFooter>
           </div>

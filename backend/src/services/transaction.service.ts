@@ -6,14 +6,38 @@ import {
   adjustUserBalance,
   updateOneUser,
 } from "../repositories/user.repository.js";
-import {
-  createTransactions,
-  createTransaction,
-} from "../repositories/transaction.repository.js";
+import { createTransactions } from "../repositories/transaction.repository.js";
 import {
   canManageAccounts,
   isSuperAdmin,
 } from "../utils/role-hierarchy.utils.js";
+
+/**
+ * MongoDB multi-document transactions require a replica set (or a sharded
+ * cluster). On a standalone `mongod` any write inside a session that has
+ * `startTransaction()` active throws:
+ *   "Transaction numbers are only allowed on a replica set member or mongos".
+ *
+ * That silently broke every credit/debit on standalone deployments. We detect
+ * support once and, when it is unavailable, run the same operations WITHOUT a
+ * session. We lose cross-document atomicity, but every balance change is still a
+ * single guarded atomic `$inc`, so the worst case is a ledger row that doesn't
+ * perfectly line up with a balance update — not a lost or negative balance.
+ */
+let transactionSupport: boolean | null = null;
+
+async function supportsTransactions(): Promise<boolean> {
+  if (transactionSupport !== null) return transactionSupport;
+  try {
+    const db = mongoose.connection.db;
+    if (!db) return false; // not connected yet — don't cache
+    const info = await db.admin().command({ hello: 1 });
+    transactionSupport = Boolean(info.setName) || info.msg === "isdbgrid";
+  } catch {
+    transactionSupport = false;
+  }
+  return transactionSupport;
+}
 
 /**
  * Admins and resellers may only move credits to/from accounts in their own
@@ -50,12 +74,16 @@ export async function creditBalanceService(
   receiverId: string,
   amount: number
 ): Promise<CreditBalanceResult> {
-  const session: ClientSession = await mongoose.startSession();
-  session.startTransaction();
+  const useTransaction = await supportsTransactions();
+  const session: ClientSession | null = useTransaction
+    ? await mongoose.startSession()
+    : null;
+  if (session) session.startTransaction();
+  const sOpt = session ?? undefined;
 
   try {
-    const sender = await findUserById(senderId, { session });
-    const receiver = await findUserById(receiverId, { session });
+    const sender = await findUserById(senderId, { session: sOpt });
+    const receiver = await findUserById(receiverId, { session: sOpt });
 
     if (!sender) {
       throw new Error("Sender not found");
@@ -69,10 +97,7 @@ export async function creditBalanceService(
       throw new Error("Only admin or reseller can credit balance");
     }
 
-    if (
-      !isSuperAdmin(sender.role) &&
-      !managesAccount(sender, receiver._id)
-    ) {
+    if (!isSuperAdmin(sender.role) && !managesAccount(sender, receiver._id)) {
       throw new Error("You can only credit accounts that you manage");
     }
 
@@ -85,7 +110,7 @@ export async function creditBalanceService(
     if (!isSuperAdmin(sender.role)) {
       const updatedSender = await adjustUserBalance(sender._id, -amount, {
         minBalance: amount,
-        session,
+        session: sOpt,
       });
       if (!updatedSender) {
         throw new Error("Insufficient balance");
@@ -96,7 +121,7 @@ export async function creditBalanceService(
     }
 
     const updatedReceiver = await adjustUserBalance(receiver._id, amount, {
-      session,
+      session: sOpt,
     });
     if (!updatedReceiver) {
       throw new Error("Receiver not found");
@@ -117,7 +142,7 @@ export async function creditBalanceService(
           status: "success",
         },
       ],
-      session
+      sOpt
     );
 
     const creditTransactionDoc = await createTransactions(
@@ -132,7 +157,7 @@ export async function creditBalanceService(
           status: "success",
         },
       ],
-      session
+      sOpt
     );
 
     const debitTransaction = debitTransactionDoc[0];
@@ -143,15 +168,15 @@ export async function creditBalanceService(
     await updateOneUser(
       { _id: sender._id },
       { $push: { allTransaction: debitTransaction._id } },
-      { session }
+      { session: sOpt }
     );
     await updateOneUser(
       { _id: receiver._id },
       { $push: { allTransaction: creditTransaction._id } },
-      { session }
+      { session: sOpt }
     );
 
-    await session.commitTransaction();
+    if (session) await session.commitTransaction();
 
     return {
       sender,
@@ -160,10 +185,10 @@ export async function creditBalanceService(
       creditTransaction,
     };
   } catch (error) {
-    await session.abortTransaction();
+    if (session) await session.abortTransaction();
     throw error;
   } finally {
-    await session.endSession();
+    if (session) await session.endSession();
   }
 }
 
@@ -172,12 +197,16 @@ export async function debitBalanceService(
   receiverId: string,
   amount: number
 ): Promise<DebitBalanceResult> {
-  const session: ClientSession = await mongoose.startSession();
-  session.startTransaction();
+  const useTransaction = await supportsTransactions();
+  const session: ClientSession | null = useTransaction
+    ? await mongoose.startSession()
+    : null;
+  if (session) session.startTransaction();
+  const sOpt = session ?? undefined;
 
   try {
-    const sender = await findUserById(senderId, { session });
-    const receiver = await findUserById(receiverId, { session });
+    const sender = await findUserById(senderId, { session: sOpt });
+    const receiver = await findUserById(receiverId, { session: sOpt });
 
     if (!sender) {
       throw new Error("Sender not found");
@@ -191,10 +220,7 @@ export async function debitBalanceService(
       throw new Error("Only admin or reseller can debit balance");
     }
 
-    if (
-      !isSuperAdmin(sender.role) &&
-      !managesAccount(sender, receiver._id)
-    ) {
+    if (!isSuperAdmin(sender.role) && !managesAccount(sender, receiver._id)) {
       throw new Error("You can only debit accounts that you manage");
     }
 
@@ -202,7 +228,7 @@ export async function debitBalanceService(
     // cannot go negative under concurrent debits.
     const updatedReceiver = await adjustUserBalance(receiver._id, -amount, {
       minBalance: amount,
-      session,
+      session: sOpt,
     });
     if (!updatedReceiver) {
       throw new Error("Insufficient balance in receiver account");
@@ -218,7 +244,7 @@ export async function debitBalanceService(
     // The super admin simply burns them (no sender balance to return to).
     if (!isSuperAdmin(sender.role)) {
       const updatedSender = await adjustUserBalance(sender._id, amount, {
-        session,
+        session: sOpt,
       });
       if (!updatedSender) {
         throw new Error("Sender not found");
@@ -240,7 +266,7 @@ export async function debitBalanceService(
           status: "success",
         },
       ],
-      session
+      sOpt
     );
 
     const debitTransactionDoc = await createTransactions(
@@ -255,7 +281,7 @@ export async function debitBalanceService(
           status: "success",
         },
       ],
-      session
+      sOpt
     );
 
     const creditTransaction = creditTransactionDoc[0];
@@ -266,15 +292,15 @@ export async function debitBalanceService(
     await updateOneUser(
       { _id: sender._id },
       { $push: { allTransaction: creditTransaction._id } },
-      { session }
+      { session: sOpt }
     );
     await updateOneUser(
       { _id: receiver._id },
       { $push: { allTransaction: debitTransaction._id } },
-      { session }
+      { session: sOpt }
     );
 
-    await session.commitTransaction();
+    if (session) await session.commitTransaction();
 
     return {
       sender,
@@ -283,24 +309,9 @@ export async function debitBalanceService(
       debitTransaction,
     };
   } catch (error) {
-    await session.abortTransaction();
-
-    try {
-      await createTransaction({
-        senderId: new mongoose.Types.ObjectId(senderId),
-        receiverId: new mongoose.Types.ObjectId(receiverId),
-        type: "debit",
-        amount,
-        balanceBefore: 0,
-        balanceAfter: 0,
-        status: "failed",
-      });
-    } catch (logError) {
-      console.error("Failed to log transaction:", logError);
-    }
-
+    if (session) await session.abortTransaction();
     throw error;
   } finally {
-    await session.endSession();
+    if (session) await session.endSession();
   }
 }
