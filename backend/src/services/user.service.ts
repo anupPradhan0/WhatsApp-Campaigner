@@ -8,9 +8,13 @@ import {
   insertUser,
   saveUser,
   updateUserById,
+  deleteUserById,
 } from "../repositories/user.repository.js";
 import { hashPassword } from "../utils/hash-password.utils.js";
-import { creditBalanceService } from "./transaction.service.js";
+import {
+  creditBalanceService,
+  debitBalanceService,
+} from "./transaction.service.js";
 import {
   canCreateRole,
   canManageAccounts,
@@ -140,11 +144,28 @@ export async function createManagedUser(
   await saveUser(creator);
 
   if (initialBalance > 0) {
-    await creditBalanceService(
-      creatorId.toString(),
-      (newUser._id as mongoose.Types.ObjectId).toString(),
-      initialBalance
-    );
+    try {
+      await creditBalanceService(
+        creatorId.toString(),
+        (newUser._id as mongoose.Types.ObjectId).toString(),
+        initialBalance
+      );
+    } catch (fundingError) {
+      // Funding failed (e.g. the creator's balance dropped in a race between the
+      // up-front check and here). Roll back the just-created account and its
+      // downline link so we never leave an unfunded zombie account behind.
+      const linkField =
+        targetRole === UserRole.ADMIN
+          ? "allAdmin"
+          : targetRole === UserRole.RESELLER
+            ? "allReseller"
+            : "allUsers";
+      await deleteUserById(newUser._id as mongoose.Types.ObjectId);
+      await updateUserById(creatorId, {
+        $pull: { [linkField]: newUser._id },
+      });
+      throw fundingError;
+    }
     // Reflect the funded balance on the returned document.
     newUser.balance = initialBalance;
   }
@@ -178,9 +199,24 @@ export async function softDeleteUser(
     throw err;
   }
 
-  user.status = UserStatus.DELETED;
-  user.deletedAt = new Date();
-  await saveUser(user);
+  // Reclaim any remaining credits back to the wallet that funded them (the
+  // account's creator) before deletion. The balance was created by debiting the
+  // creator, so without this the credits are stranded on a hidden DELETED
+  // account and lost from the usable pool. A debit (creator = "sender") moves
+  // the funds out of the account and back to the creator; the super admin burns.
+  if (user.balance > 0 && user.userID) {
+    await debitBalanceService(
+      user.userID.toString(),
+      user._id.toString(),
+      user.balance
+    );
+  }
+
+  // Use an atomic $set (not saveUser) so we don't clobber the balance/ledger
+  // that debitBalanceService just updated with the stale in-memory document.
+  await updateUserById(targetUserId, {
+    $set: { status: UserStatus.DELETED, deletedAt: new Date() },
+  });
 }
 
 export async function freezeUserAccount(

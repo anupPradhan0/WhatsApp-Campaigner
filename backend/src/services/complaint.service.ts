@@ -76,11 +76,23 @@ export async function deleteComplaintWithLink(
     }
 
     const isCreator = complaint.createdBy.toString() === userId.toString();
-    const isAdmin =
-      userRole === UserRole.ADMIN || userRole === UserRole.SUPER_ADMIN;
 
-    if (!isCreator && !isAdmin) {
-      throw new Error("FORBIDDEN");
+    // The creator can always delete their own ticket, and the super admin (God
+    // mode) can delete any. A regular admin/reseller may only delete complaints
+    // raised by accounts in their own downline — matching updateComplaintAdmin.
+    // Previously ANY admin could delete ANY complaint in the system.
+    if (!isCreator && userRole !== UserRole.SUPER_ADMIN) {
+      const manager = await findUserById(userId, {
+        select: "allUsers allReseller",
+      });
+      const downlineIds = new Set([
+        userId.toString(),
+        ...(manager?.allUsers ?? []).map((id) => id.toString()),
+        ...(manager?.allReseller ?? []).map((id) => id.toString()),
+      ]);
+      if (!downlineIds.has(complaint.createdBy.toString())) {
+        throw new Error("FORBIDDEN");
+      }
     }
 
     await deleteComplaintById(complaintId, session);

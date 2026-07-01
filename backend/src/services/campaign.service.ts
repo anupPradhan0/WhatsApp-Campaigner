@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 import type { ICampaign } from "../models/campaign.model.js";
+import type { IUser } from "../models/user.model.js";
+import { userCanViewCampaign } from "../utils/campaign-access.utils.js";
 import {
   CampaignStats,
   MobileNumberEntryType,
@@ -212,12 +214,25 @@ export async function createCampaignForUser(
 }
 
 export async function updateCampaignStats(
+  user: IUser,
   campaignId: string,
   body: CampaignStatsBody
 ): Promise<ICampaign> {
   const campaign = await findCampaignById(campaignId);
   if (!campaign) {
     throw new Error("CAMPAIGN_NOT_FOUND");
+  }
+
+  // Only the campaign owner, their upline manager, or the super admin may change
+  // a campaign's status — same scope as viewing/exporting it. Without this any
+  // logged-in account could rewrite an unrelated tenant's campaign status by id.
+  const allowed = await userCanViewCampaign(
+    user,
+    campaignId,
+    campaign.createdBy
+  );
+  if (!allowed) {
+    throw new Error("FORBIDDEN");
   }
 
   campaign.status = body.status;

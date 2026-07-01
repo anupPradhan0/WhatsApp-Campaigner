@@ -521,6 +521,7 @@ const manageReseller = async (req: Request, res: Response) => {
         role: UserRole.RESELLER,
         status: { $ne: UserStatus.DELETED },
       })
+        .sort({ createdAt: -1 })
         .limit(GLOBAL_LIST_LIMIT)
         .lean();
     } else {
@@ -612,6 +613,7 @@ const manageUser = async (req: Request, res: Response) => {
         role: UserRole.USER,
         status: { $ne: UserStatus.DELETED },
       })
+        .sort({ createdAt: -1 })
         .limit(GLOBAL_LIST_LIMIT)
         .lean();
     } else {
@@ -694,6 +696,7 @@ const manageAdmin = async (req: Request, res: Response) => {
       role: UserRole.ADMIN,
       status: { $ne: UserStatus.DELETED },
     })
+      .sort({ createdAt: -1 })
       .limit(GLOBAL_LIST_LIMIT)
       .lean();
 

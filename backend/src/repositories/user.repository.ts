@@ -113,4 +113,12 @@ export async function updateOneUser(
   await User.updateOne(filter, update, { session: options?.session });
 }
 
+/** Hard-delete a user document (used to roll back a failed account creation). */
+export async function deleteUserById(
+  id: string | mongoose.Types.ObjectId,
+  options?: { session?: ClientSession }
+): Promise<void> {
+  await User.deleteOne({ _id: id }, { session: options?.session });
+}
+
 export { UserRole, UserStatus };

@@ -14,7 +14,7 @@ export const createUserBodySchema = z.object({
     .refine((r) => r !== UserRole.SUPER_ADMIN, {
       message: "You cannot create a super admin.",
     }),
-  balance: z.coerce.number().finite().nonnegative(),
+  balance: z.coerce.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   imageUrl: z.string().url().optional(),
 });
 

@@ -124,10 +124,16 @@ export async function campaignStats(
   res: Response
 ): Promise<void> {
   try {
+    const user = req.user;
+    if (!user) {
+      res.status(401).json({ success: false, message: "Authentication required" });
+      return;
+    }
+
     const campaignId = pathParam(req.params.campaignId);
     const body = req.body as CampaignStatsBody;
 
-    const campaign = await updateCampaignStats(campaignId, body);
+    const campaign = await updateCampaignStats(user, campaignId, body);
 
     res.status(200).json({
       success: true,
@@ -144,6 +150,13 @@ export async function campaignStats(
       res.status(404).json({
         success: false,
         message: "Campaign not found.",
+      });
+      return;
+    }
+    if (msg === "FORBIDDEN") {
+      res.status(403).json({
+        success: false,
+        message: "You are not allowed to update this campaign.",
       });
       return;
     }
