@@ -10,6 +10,7 @@ import {
   updateUserById,
 } from "../repositories/user.repository.js";
 import { hashPassword } from "../utils/hash-password.utils.js";
+import { creditBalanceService } from "./transaction.service.js";
 import {
   canCreateRole,
   canManageAccounts,
@@ -98,13 +99,29 @@ export async function createManagedUser(
 
   const hashedPassword = await hashPassword(body.password);
 
+  // Non-super-admins fund a new account's opening balance out of their own
+  // wallet. Reject up front so we never create an account we then can't fund.
+  const initialBalance = body.balance ?? 0;
+  if (
+    !isSuperAdmin(creator.role) &&
+    initialBalance > 0 &&
+    creator.balance < initialBalance
+  ) {
+    const err = new Error("INSUFFICIENT_BALANCE") as Error & { code: string };
+    err.code = "INSUFFICIENT_BALANCE";
+    throw err;
+  }
+
+  // Create the account with a zero balance; the opening balance is then moved in
+  // via the shared credit flow so the creator's wallet is actually debited
+  // (except the super admin, who mints) and a proper ledger entry is recorded.
   const newUser = await insertUser({
     companyName: body.companyName,
     email: body.email.toLowerCase().trim(),
     password: hashedPassword,
     number: body.number,
     image: imagePath,
-    balance: body.balance,
+    balance: 0,
     userID: creatorId,
     role: targetRole,
     status: UserStatus.ACTIVE,
@@ -118,7 +135,19 @@ export async function createManagedUser(
     creator.allUsers.push(newUser._id as mongoose.Types.ObjectId);
   }
 
+  // Persist the downline link first: the credit flow re-reads the creator and
+  // verifies it manages the new account before moving funds.
   await saveUser(creator);
+
+  if (initialBalance > 0) {
+    await creditBalanceService(
+      creatorId.toString(),
+      (newUser._id as mongoose.Types.ObjectId).toString(),
+      initialBalance
+    );
+    // Reflect the funded balance on the returned document.
+    newUser.balance = initialBalance;
+  }
 
   return newUser;
 }

@@ -185,7 +185,7 @@ const Support = () => {
         <SectionHead icon={Shield} title="Platform Support" accent="violet" />
         <div className="p-5 flex flex-col gap-3">
           <ContactLink href="mailto:hello@prominds.digital" icon={Mail} label="Platform Email" value="hello@prominds.digital" accent="violet" />
-          <ContactLink href="tel:+919876543210" icon={Phone} label="Support Hotline · Mon–Sat 9AM–6PM" value="+91 98765 43210" accent="brand-light" />
+          <ContactLink href="tel:+919090090150" icon={Phone} label="Support Hotline · Mon–Sat 9AM–6PM" value="+91 90900 90150" accent="brand-light" />
           <div className="border-t border-line pt-3.5">
             <p className="text-xs font-bold text-fg-muted mb-2.5 uppercase tracking-[0.07em]">File a Formal Complaint</p>
             <div className="flex items-start gap-2.5 px-3.5 py-3 bg-surface2 border border-line rounded-[9px]">

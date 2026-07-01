@@ -577,7 +577,7 @@ export default function Login() {
 
                 <div className="flex flex-col gap-2.5">
                   <a
-                    href="mailto:support@example.com"
+                    href="mailto:hello@prominds.digital"
                     className="flex items-center gap-3.5 px-4 py-3.5 border border-line rounded-[10px] no-underline bg-surface transition-[border-color,background] duration-150 hover:border-[#16a34a] hover:bg-[#18181b]"
                   >
                     <div className="w-[38px] h-[38px] rounded-[10px] bg-[rgba(59,130,246,0.15)] flex items-center justify-center shrink-0">
@@ -585,12 +585,12 @@ export default function Login() {
                     </div>
                     <div>
                       <p className="text-[11px] font-semibold text-fg-subtle uppercase tracking-[0.06em] mb-0.5">Email Us</p>
-                      <p className="text-sm font-medium text-[#60a5fa]">support@example.com</p>
+                      <p className="text-sm font-medium text-[#60a5fa]">hello@prominds.digital</p>
                     </div>
                   </a>
 
                   <a
-                    href="tel:+911234567890"
+                    href="tel:+919090090150"
                     className="flex items-center gap-3.5 px-4 py-3.5 border border-line rounded-[10px] no-underline bg-surface transition-[border-color,background] duration-150 hover:border-[#16a34a] hover:bg-[#18181b]"
                   >
                     <div className="w-[38px] h-[38px] rounded-[10px] bg-brand-dim flex items-center justify-center shrink-0">
@@ -598,7 +598,7 @@ export default function Login() {
                     </div>
                     <div>
                       <p className="text-[11px] font-semibold text-fg-subtle uppercase tracking-[0.06em] mb-0.5">Call Us</p>
-                      <p className="text-sm font-medium text-[#4ade80]">+91 12345 67890</p>
+                      <p className="text-sm font-medium text-[#4ade80]">+91 90900 90150</p>
                     </div>
                   </a>
 
@@ -611,7 +611,7 @@ export default function Login() {
                 </div>
 
                 <a
-                  href="mailto:support@example.com"
+                  href="mailto:hello@prominds.digital"
                   className="flex items-center justify-center mt-4 h-[42px] bg-brand hover:bg-brand-hover text-white rounded-lg no-underline text-sm font-medium transition-[background] duration-150"
                 >
                   Send Email

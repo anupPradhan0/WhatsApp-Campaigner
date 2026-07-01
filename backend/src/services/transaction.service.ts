@@ -11,33 +11,7 @@ import {
   canManageAccounts,
   isSuperAdmin,
 } from "../utils/role-hierarchy.utils.js";
-
-/**
- * MongoDB multi-document transactions require a replica set (or a sharded
- * cluster). On a standalone `mongod` any write inside a session that has
- * `startTransaction()` active throws:
- *   "Transaction numbers are only allowed on a replica set member or mongos".
- *
- * That silently broke every credit/debit on standalone deployments. We detect
- * support once and, when it is unavailable, run the same operations WITHOUT a
- * session. We lose cross-document atomicity, but every balance change is still a
- * single guarded atomic `$inc`, so the worst case is a ledger row that doesn't
- * perfectly line up with a balance update — not a lost or negative balance.
- */
-let transactionSupport: boolean | null = null;
-
-async function supportsTransactions(): Promise<boolean> {
-  if (transactionSupport !== null) return transactionSupport;
-  try {
-    const db = mongoose.connection.db;
-    if (!db) return false; // not connected yet — don't cache
-    const info = await db.admin().command({ hello: 1 });
-    transactionSupport = Boolean(info.setName) || info.msg === "isdbgrid";
-  } catch {
-    transactionSupport = false;
-  }
-  return transactionSupport;
-}
+import { supportsTransactions } from "../utils/transaction-support.utils.js";
 
 /**
  * Admins and resellers may only move credits to/from accounts in their own

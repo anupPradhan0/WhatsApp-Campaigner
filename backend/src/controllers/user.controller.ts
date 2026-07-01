@@ -34,6 +34,12 @@ function mapUserServiceError(err: unknown): { status: number; message: string } 
         status: 403,
         message: "You are not allowed to create an account with this role.",
       };
+    case "INSUFFICIENT_BALANCE":
+      return {
+        status: 400,
+        message:
+          "Insufficient wallet balance to fund this account's opening balance.",
+      };
     case "FORBIDDEN_FREEZE":
       return {
         status: 403,

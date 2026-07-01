@@ -15,6 +15,7 @@ import {
   adjustUserBalance,
 } from "../repositories/user.repository.js";
 import { createTransactions } from "../repositories/transaction.repository.js";
+import { supportsTransactions } from "../utils/transaction-support.utils.js";
 import { publishCampaignJob } from "../queue/campaign.producer.js";
 import type {
   CampaignStatsBody,
@@ -49,8 +50,10 @@ export async function createCampaignForUser(
   mediaPath: string,
   profileImagePath = ""
 ): Promise<CreateCampaignResult> {
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  const useTransaction = await supportsTransactions();
+  const session = useTransaction ? await mongoose.startSession() : null;
+  if (session) session.startTransaction();
+  const sOpt = session ?? undefined;
 
   try {
     const {
@@ -73,7 +76,7 @@ export async function createCampaignForUser(
 
     const requestedNumberCount = numbersArray.length;
 
-    const user = await findUserById(creatorId, { session });
+    const user = await findUserById(creatorId, { session: sOpt });
     if (!user) {
       throw new Error("USER_NOT_FOUND");
     }
@@ -122,7 +125,7 @@ export async function createCampaignForUser(
       };
     }
 
-    const created = await createCampaigns([campaignData], session);
+    const created = await createCampaigns([campaignData], sOpt);
     const newCampaign = created[0];
 
     const balanceBefore = user.balance;
@@ -135,7 +138,7 @@ export async function createCampaignForUser(
       // the guard fails and the whole transaction rolls back.
       const debited = await adjustUserBalance(user._id, -actualNumberCount, {
         minBalance: actualNumberCount,
-        session,
+        session: sOpt,
       });
       if (!debited) {
         throw new Error("INSUFFICIENT_BALANCE");
@@ -155,7 +158,7 @@ export async function createCampaignForUser(
           status: "success",
         },
       ],
-      session
+      sOpt
     );
 
     const transaction = transactionDocs[0];
@@ -164,9 +167,9 @@ export async function createCampaignForUser(
     user.totalCampaigns += 1;
     user.allTransaction.push(transaction._id as mongoose.Types.ObjectId);
 
-    await saveUser(user, session);
+    await saveUser(user, sOpt);
 
-    await session.commitTransaction();
+    if (session) await session.commitTransaction();
 
     // Enqueue the send job. Failure to enqueue is non-fatal here: we mark the
     // campaign failed asynchronously and log. Debits remain — refund is a
@@ -201,10 +204,10 @@ export async function createCampaignForUser(
       transactionId: transaction._id as Types.ObjectId,
     };
   } catch (error) {
-    await session.abortTransaction();
+    if (session) await session.abortTransaction();
     throw error;
   } finally {
-    await session.endSession();
+    if (session) await session.endSession();
   }
 }
 
