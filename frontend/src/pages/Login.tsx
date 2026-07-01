@@ -254,10 +254,11 @@ export default function Login() {
         }
       `}</style>
 
-      <div className="flex min-h-[100dvh] bg-bg">
+      <div className="flex min-h-[100dvh] bg-bg justify-center">
+       <div className="flex w-full max-w-[1440px]">
 
         {/* ── LEFT PANEL ── */}
-        <div className="hidden lg:flex flex-[0_0_57%] h-[100dvh] overflow-hidden relative bg-[#0a0a0c]">
+        <div className="hidden lg:flex flex-[0_0_55%] h-[100dvh] overflow-hidden relative bg-[#0a0a0c]">
           {/* mesh grid background */}
           <div
             className="absolute inset-0 bg-[length:40px_40px]"
@@ -272,7 +273,7 @@ export default function Login() {
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_40%,rgba(22,163,74,0.12)_0%,transparent_70%)]" />
 
           {/* content */}
-          <div className="relative z-[1] flex flex-col items-center justify-center text-center h-full px-12 py-10 gap-9">
+          <div className="relative z-[1] flex flex-col items-start justify-center text-left h-full px-16 py-10 gap-9 max-w-[560px] mx-auto w-full">
             {/* logo */}
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-[10px] bg-[linear-gradient(135deg,#16a34a,#15803d)] flex items-center justify-center shadow-[0_0_20px_rgba(22,163,74,0.4)]">
@@ -293,7 +294,7 @@ export default function Login() {
                 Reach millions.<br />
                 <span className="text-[#4ade80]">Drive results.</span>
               </h1>
-              <p className="text-[#6b7280] text-[15px] leading-[1.6] max-w-[380px] mx-auto">
+              <p className="text-[#6b7280] text-[15px] leading-[1.6] max-w-[420px]">
                 The all-in-one WhatsApp campaign platform for businesses that want to grow faster and connect deeper with their customers.
               </p>
             </div>
@@ -304,11 +305,11 @@ export default function Login() {
                 <div
                   key={label}
                   className={cn(
-                    'flex-1 px-4 py-5 bg-white/[0.03] text-center',
+                    'flex-1 px-4 py-5 bg-white/[0.03] text-left',
                     i < stats.length - 1 ? 'border-r border-white/[0.07]' : '',
                   )}
                 >
-                  <Icon size={16} color="#4ade80" className="block mx-auto mb-2" />
+                  <Icon size={16} color="#4ade80" className="block mb-2" />
                   <div className="text-white text-[22px] font-bold leading-none">{value}</div>
                   <div className="text-[#6b7280] text-[11px] mt-1 font-medium">{label}</div>
                 </div>
@@ -630,6 +631,7 @@ export default function Login() {
             )}
           </div>
         </div>
+       </div>
 
         {/* ── FORGOT PASSWORD MODAL ── */}
         {showForgotPassword && (
