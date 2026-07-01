@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { UserRole } from '../constants/Roles';
 import { getUserRole } from '../utils/Auth';
 import { useCampaigns, type Campaign } from '../hooks/useCampaigns';
-import { api } from '../api/client';
+import { api, getErrorMessage } from '../api/client';
 import { cn } from '../lib/utils';
 import { fieldCls } from '../theme/classes';
 import { Spinner } from '../components/ui/Spinner';
@@ -52,7 +52,7 @@ export default function AllCampaigns() {
       const { data: r } = await api.put(`/api/campaigns/stats/${editCampaign.campaignId}`, { status: updateStatus, statusMessage: updateMessage });
       if (r.success) { toast.success('Status updated!'); setEditCampaign(null); refetch(); }
       else toast.error(r.message || 'Failed');
-    } catch { toast.error('Error updating status'); }
+    } catch (err) { toast.error(getErrorMessage(err, 'Error updating status')); }
     finally { setUpdatingStatus(false); }
   };
 

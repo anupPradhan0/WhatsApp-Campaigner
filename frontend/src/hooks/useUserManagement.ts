@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../api/client';
+import { api, getErrorMessage } from '../api/client';
 import { QK } from '../lib/queryKeys';
 
 export interface ManagedUser {
@@ -117,7 +117,7 @@ export function useUserManagement(endpoint: string, listKey: ListKey) {
       invalidate();
       toast(`${singular} created successfully!`);
     },
-    onError: (e: Error) => setError(e.message),
+    onError: (e) => setError(getErrorMessage(e)),
   });
 
   const editMut = useMutation({
@@ -138,7 +138,7 @@ export function useUserManagement(endpoint: string, listKey: ListKey) {
       }
     },
     onSuccess: () => { closeModal(); invalidate(); toast('Updated successfully!'); },
-    onError: (e: Error) => setError(e.message),
+    onError: (e) => setError(getErrorMessage(e)),
   });
 
   const addCreditMut = useMutation({
@@ -147,7 +147,7 @@ export function useUserManagement(endpoint: string, listKey: ListKey) {
       if (!r.success) throw new Error(r.message || 'Failed');
     },
     onSuccess: () => { closeModal(); invalidate(); toast(`₹${creditAmt} credited!`); },
-    onError: (e: Error) => setError(e.message),
+    onError: (e) => setError(getErrorMessage(e)),
   });
 
   const removeCreditMut = useMutation({
@@ -156,7 +156,7 @@ export function useUserManagement(endpoint: string, listKey: ListKey) {
       if (!r.success) throw new Error(r.message || 'Failed');
     },
     onSuccess: () => { closeModal(); invalidate(); toast(`₹${debitAmt} debited!`); },
-    onError: (e: Error) => setError(e.message),
+    onError: (e) => setError(getErrorMessage(e)),
   });
 
   const freezeMut = useMutation({
@@ -167,7 +167,7 @@ export function useUserManagement(endpoint: string, listKey: ListKey) {
       return r.message;
     },
     onSuccess: (msg) => { closeModal(); invalidate(); toast(msg || 'Done'); },
-    onError: (e: Error) => setError(e.message),
+    onError: (e) => setError(getErrorMessage(e)),
   });
 
   const deleteMut = useMutation({
@@ -176,7 +176,7 @@ export function useUserManagement(endpoint: string, listKey: ListKey) {
       if (!r.success) throw new Error(r.message || 'Failed');
     },
     onSuccess: () => { closeModal(); invalidate(); toast(`${singular} deleted.`); },
-    onError: (e: Error) => setError(e.message),
+    onError: (e) => setError(getErrorMessage(e)),
   });
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────

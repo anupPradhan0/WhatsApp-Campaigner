@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
-import { api } from '../api/client';
+import { api, getErrorMessage } from '../api/client';
 import { QK } from '../lib/queryKeys';
 
 export interface BusinessData {
@@ -85,8 +84,7 @@ export function useBusiness() {
       setTimeout(() => setSuccess(''), 5000);
     },
     onError: (e: unknown) => {
-      if (axios.isAxiosError(e)) setError(String((e.response?.data as { message?: string })?.message ?? 'Network error.'));
-      else setError(e instanceof Error ? e.message : 'Network error.');
+      setError(getErrorMessage(e));
     },
   });
 

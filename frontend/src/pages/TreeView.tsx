@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { ChevronRight, ChevronDown, User, Users, ShieldCheck, X } from "lucide-react";
 import { getUserRole } from "../utils/Auth";
 import { UserRole } from "../constants/Roles";
-import { api } from "../api/client";
+import { api, getErrorMessage } from "../api/client";
 import { cn } from "../lib/utils";
 import { Spinner } from '../components/ui/Spinner';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -32,7 +32,7 @@ export default function TreeView() {
   const isAdminOrReseller = userRole === UserRole.ADMIN || userRole === UserRole.RESELLER;
 
   const fetchData = useCallback(async () => {
-    try { setLoading(true); const { data: r } = await api.get('/api/dashboard/tree-view'); if (r.success) { setTreeData(r.data); if (r.data.tree) setExpanded(new Set([r.data.tree.id])); } else setError(r.message || 'Failed'); } catch { setError('Network error.'); } finally { setLoading(false); }
+    try { setLoading(true); const { data: r } = await api.get('/api/dashboard/tree-view'); if (r.success) { setTreeData(r.data); if (r.data.tree) setExpanded(new Set([r.data.tree.id])); } else setError(r.message || 'Failed'); } catch (err) { setError(getErrorMessage(err)); } finally { setLoading(false); }
   }, []);
   useEffect(() => { fetchData(); }, [fetchData]);
 

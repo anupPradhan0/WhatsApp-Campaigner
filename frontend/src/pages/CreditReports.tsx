@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Calendar, Wallet, TrendingUp, TrendingDown, X } from 'lucide-react';
 import { format } from 'date-fns';
-import { api } from '../api/client';
+import { api, getErrorMessage } from '../api/client';
 import { D } from '../theme/tokens';
 import { Paginator } from '../components/ui/Paginator';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -44,8 +44,8 @@ const CreditReports = () => {
       const { data: result } = await api.get<{ success: boolean; message?: string; data: TransactionData }>('/api/dashboard/transaction');
       if (result.success) setTransactionData(result.data);
       else setError(result.message || 'Failed to load transaction data');
-    } catch {
-      setError('Network error. Please try again.');
+    } catch (err) {
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
