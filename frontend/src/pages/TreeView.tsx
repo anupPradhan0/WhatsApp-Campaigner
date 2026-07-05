@@ -12,6 +12,7 @@ interface TreeData { totalCount: number; tree: TreeNode; }
 
 interface RoleStyle { color: string; dim: string; hoverBorder: string; Icon: React.ComponentType<{ size?: number; className?: string }>; }
 const roleStyle = (role: string): RoleStyle => {
+  if (role === 'super_admin') return { color: 'text-info',        dim: 'bg-info-dim',    hoverBorder: 'hover:border-info/50',        Icon: ShieldCheck };
   if (role === 'admin')    return { color: 'text-info',        dim: 'bg-info-dim',    hoverBorder: 'hover:border-info/50',        Icon: ShieldCheck };
   if (role === 'reseller') return { color: 'text-brand-light', dim: 'bg-brand-dim',   hoverBorder: 'hover:border-brand-light/50',  Icon: Users };
   return                          { color: 'text-warning',     dim: 'bg-warning-dim', hoverBorder: 'hover:border-warning/50',      Icon: User };
@@ -29,7 +30,10 @@ export default function TreeView() {
   const [selected, setSelected] = useState<TreeNode | null>(null);
 
   const userRole = getUserRole();
-  const isAdminOrReseller = userRole === UserRole.ADMIN || userRole === UserRole.RESELLER;
+  const canViewTree =
+    userRole === UserRole.SUPER_ADMIN ||
+    userRole === UserRole.ADMIN ||
+    userRole === UserRole.RESELLER;
 
   const fetchData = useCallback(async () => {
     try { setLoading(true); const { data: r } = await api.get('/api/dashboard/tree-view'); if (r.success) { setTreeData(r.data); if (r.data.tree) setExpanded(new Set([r.data.tree.id])); } else setError(r.message || 'Failed'); } catch (err) { setError(getErrorMessage(err)); } finally { setLoading(false); }
@@ -103,9 +107,9 @@ export default function TreeView() {
 
   if (loading) return <Spinner label="Loading network…" />;
 
-  if (!isAdminOrReseller) return (
+  if (!canViewTree) return (
     <div className="px-3.5 py-2.5 bg-danger-dim border border-danger-border rounded-lg">
-      <p className="text-danger text-[13px]">Access Denied. Only Admin and Reseller can view this page.</p>
+      <p className="text-danger text-[13px]">Access Denied. Only Super Admin, Admin and Reseller can view this page.</p>
     </div>
   );
 

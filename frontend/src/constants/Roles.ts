@@ -86,9 +86,9 @@ export enum UserRole {
           allowedRoles: [UserRole.ADMIN, UserRole.RESELLER, UserRole.USER]
         },
         { 
-          label: 'Tree View', 
+          label: 'Tree View',
           path: '/tree-view',
-          allowedRoles: [UserRole.ADMIN, UserRole.RESELLER]
+          allowedRoles: [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.RESELLER]
         },
         { 
           label: 'Complaints', 
