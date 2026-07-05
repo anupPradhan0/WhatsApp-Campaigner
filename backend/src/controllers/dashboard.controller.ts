@@ -1191,6 +1191,18 @@ const campaignDetails = async (req: Request, res: Response) => {
       .select("companyName email number role status createdAt")
       .lean();
 
+    // Present the delivery summary as a reflection of the campaign status so the
+    // counts never disagree with it (e.g. a pending campaign shows 0 delivered).
+    const totalRecipients = details.mobileNumberCount;
+    const derivedDelivery = deriveFallbackStatus(details.status);
+    const delivery = {
+      delivered:
+        derivedDelivery === DeliveryStatus.DELIVERED ? totalRecipients : 0,
+      failed: derivedDelivery === DeliveryStatus.FAILED ? totalRecipients : 0,
+      tracked: totalRecipients,
+      total: totalRecipients,
+    };
+
     return res.status(200).json({
       success: true,
       message: "Campaign details fetched successfully.",
@@ -1209,12 +1221,7 @@ const campaignDetails = async (req: Request, res: Response) => {
         statusMessage: details.statusMessage,
         phoneButton: details.phoneButton || null,
         linkButton: details.linkButton || null,
-        delivery: {
-          delivered: details.delivered,
-          failed: details.failed,
-          tracked: details.tracked,
-          total: details.mobileNumberCount,
-        },
+        delivery,
       },
       userData: {
         companyName: creator?.companyName || user.companyName,
@@ -1305,23 +1312,19 @@ const campaignNumbers = async (req: Request, res: Response) => {
     const slicedResults = campaign.deliveryResults ?? [];
     const fallback = deriveFallbackStatus(campaign.status);
 
+    // Every recipient's status follows the campaign status: a pending campaign
+    // shows all numbers as pending, delivered shows all delivered, failed shows
+    // all failed. We keep the recorded number value and only surface
+    // error/sentAt metadata when it is consistent with the campaign status.
     const numbers = slicedNumbers.map((number, i) => {
       const result = slicedResults[i];
-      if (result) {
-        return {
-          serial: skip + i + 1,
-          number: result.number ?? number,
-          status: result.status,
-          error: result.error ?? null,
-          sentAt: result.sentAt ?? null,
-        };
-      }
       return {
         serial: skip + i + 1,
-        number,
+        number: result?.number ?? number,
         status: fallback,
-        error: null,
-        sentAt: null,
+        error: fallback === DeliveryStatus.FAILED ? result?.error ?? null : null,
+        sentAt:
+          fallback === DeliveryStatus.DELIVERED ? result?.sentAt ?? null : null,
       };
     });
 

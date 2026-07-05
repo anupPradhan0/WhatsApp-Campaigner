@@ -66,13 +66,19 @@ const Dashboard = () => {
 
   const statCards = [
     {
+      // Every role sees their own wallet balance.
       show: true,
-      label: isAdminLike ? 'Total Messages' : 'Available Balance',
-      value: isAdminLike ? data.totalMessages.toLocaleString() : `₹${data.balance.toLocaleString()}`,
-      icon: isAdminLike ? TrendingUp : Wallet,
-      accent: isAdminLike ? D.red : D.green,
-      iconBg: isAdminLike ? D.redDim : D.greenDim,
-      iconColor: isAdminLike ? D.red : D.greenLight,
+      label: 'Available Balance',
+      value: `₹${data.balance.toLocaleString()}`,
+      icon: Wallet,
+      accent: D.green, iconBg: D.greenDim, iconColor: D.greenLight,
+    },
+    {
+      show: isAdminLike,
+      label: 'Total Messages',
+      value: data.totalMessages.toLocaleString(),
+      icon: TrendingUp,
+      accent: D.red, iconBg: D.redDim, iconColor: D.red,
     },
     {
       show: isAdminOrReseller,
