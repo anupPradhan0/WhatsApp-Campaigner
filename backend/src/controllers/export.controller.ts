@@ -97,6 +97,17 @@ export async function exportCampaignToExcel(
     // Build every row first, then keep only the columns that have at least one
     // non-empty value — so fields that are empty for the whole campaign (e.g. no
     // phone button, no link button, no media) are dropped from the sheet.
+    // Combine the country code and the phone number into one full international
+    // number (e.g. "+919090090150") in a single column. The stored number often
+    // already includes the country-code digits, so guard against double-prefix.
+    const toFullNumber = (raw: string): string => {
+      const ccDigits = (campaign.countryCode ?? "").replace(/\D/g, "");
+      const numDigits = (raw ?? "").replace(/\D/g, "");
+      if (!numDigits) return "";
+      if (ccDigits && numDigits.startsWith(ccDigits)) return `+${numDigits}`;
+      return `+${ccDigits}${numDigits}`;
+    };
+
     const rows: Record<string, string>[] = campaign.mobileNumbers.map(
       (phoneNumber, i) => {
         const result = deliveryResults[i];
@@ -108,8 +119,7 @@ export async function exportCampaignToExcel(
           phoneButtonNumber: campaign.phoneButton?.number ?? "",
           linkButtonText: campaign.linkButton?.text ?? "",
           linkButtonUrl: campaign.linkButton?.url ?? "",
-          countryCode: campaign.countryCode,
-          phoneNumber,
+          phoneNumber: toFullNumber(phoneNumber),
           deliveryStatus,
           createdBy: createdByName,
           createdDate,
@@ -125,8 +135,7 @@ export async function exportCampaignToExcel(
       { header: "Phone Button Number", key: "phoneButtonNumber", width: 20 },
       { header: "Link Button Text", key: "linkButtonText", width: 20 },
       { header: "Link Button URL", key: "linkButtonUrl", width: 40 },
-      { header: "Country Code", key: "countryCode", width: 15 },
-      { header: "Phone Number", key: "phoneNumber", width: 20 },
+      { header: "Phone Number", key: "phoneNumber", width: 22 },
       { header: "Delivery Status", key: "deliveryStatus", width: 18 },
       { header: "Created By", key: "createdBy", width: 25 },
       { header: "Created Date", key: "createdDate", width: 15 },
