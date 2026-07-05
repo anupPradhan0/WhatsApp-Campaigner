@@ -46,7 +46,9 @@ export default function Complaints() {
   const [actionLoading, setActionLoading] = useState(false);
 
   const userRole = getUserRole();
-  const isAdmin = userRole === UserRole.ADMIN;
+  // Super admin (God mode) has the same complaint controls as an admin — the
+  // backend update/delete endpoints already permit SUPER_ADMIN.
+  const isAdmin = userRole === UserRole.ADMIN || userRole === UserRole.SUPER_ADMIN;
 
   const currentUserName = (() => { try { const u = JSON.parse(localStorage.getItem('user') || '{}'); return u.companyName || u.email || ''; } catch { return ''; } })();
 

@@ -57,19 +57,22 @@ const Dashboard = () => {
 
   if (!data) return null;
 
-  const isAdminOrReseller = userRole === UserRole.ADMIN || userRole === UserRole.RESELLER;
+  // The super admin has the same overview as an admin (the /home endpoint
+  // already returns global totals for them).
+  const isAdminLike = userRole === UserRole.ADMIN || userRole === UserRole.SUPER_ADMIN;
+  const isAdminOrReseller = isAdminLike || userRole === UserRole.RESELLER;
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   const statCards = [
     {
       show: true,
-      label: userRole === UserRole.ADMIN ? 'Total Messages' : 'Available Balance',
-      value: userRole === UserRole.ADMIN ? data.totalMessages.toLocaleString() : `₹${data.balance.toLocaleString()}`,
-      icon: userRole === UserRole.ADMIN ? TrendingUp : Wallet,
-      accent: userRole === UserRole.ADMIN ? D.red : D.green,
-      iconBg: userRole === UserRole.ADMIN ? D.redDim : D.greenDim,
-      iconColor: userRole === UserRole.ADMIN ? D.red : D.greenLight,
+      label: isAdminLike ? 'Total Messages' : 'Available Balance',
+      value: isAdminLike ? data.totalMessages.toLocaleString() : `₹${data.balance.toLocaleString()}`,
+      icon: isAdminLike ? TrendingUp : Wallet,
+      accent: isAdminLike ? D.red : D.green,
+      iconBg: isAdminLike ? D.redDim : D.greenDim,
+      iconColor: isAdminLike ? D.red : D.greenLight,
     },
     {
       show: isAdminOrReseller,

@@ -70,7 +70,9 @@ export default function News() {
   const [actionLoading, setActionLoading] = useState(false);
 
   const userRole = getUserRole();
-  const isAdmin = userRole === UserRole.ADMIN;
+  // The super admin has every capability an admin has (backend `isAdmin`
+  // middleware already allows both), so they can author/manage news too.
+  const isAdmin = userRole === UserRole.ADMIN || userRole === UserRole.SUPER_ADMIN;
 
   const showAlert = (type: 'success' | 'error', msg: string) => {
     if (type === 'success') toast.success(msg);

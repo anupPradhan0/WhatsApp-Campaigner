@@ -20,6 +20,10 @@ const dateInpCls = "bg-surface2 border border-line rounded-[7px] text-fg text-xs
 
 export default function AllCampaigns() {
   const userRole = getUserRole();
+  // Admins and the super admin can edit a campaign's delivery status (backend
+  // authorizes the super admin via userCanViewCampaign).
+  const canEditStatus =
+    userRole === UserRole.ADMIN || userRole === UserRole.SUPER_ADMIN;
   const navigate = useNavigate();
   const { data, loading, error, refetch, downloadExcel, downloading, dlError, clearDlError } = useCampaigns('/api/dashboard/all-campaigns');
   const [page, setPage] = useState(1);
@@ -129,7 +133,7 @@ export default function AllCampaigns() {
                       <td className="px-3.5 py-[11px] text-xs text-fg-muted whitespace-nowrap group-hover:bg-white/[0.025]">{format(new Date(c.createdAt), 'dd MMM')}</td>
                       <td className="px-3.5 py-[11px] group-hover:bg-white/[0.025]">
                         <div className="flex gap-1.5">
-                          {userRole === UserRole.ADMIN && (
+                          {canEditStatus && (
                             <button onClick={() => { setEditCampaign(c); setUpdateStatus(c.status || 'pending'); setUpdateMessage(''); }} title="Edit Status" className="w-[30px] h-[30px] rounded-[7px] bg-info-dim border-none flex items-center justify-center cursor-pointer">
                               <Edit2 size={12} className="text-info" />
                             </button>
@@ -169,7 +173,7 @@ export default function AllCampaigns() {
                 <p className="text-[11px] text-fg-subtle mb-1.5">By: {c.createdBy} · {format(new Date(c.createdAt), 'dd MMM')}</p>
                 <p className="text-xs text-fg-muted mb-2 overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical]">{trunc(stripHtml(c.message), 80)}</p>
                 <div className="flex justify-end gap-1.5 pt-2 border-t border-line">
-                  {userRole === UserRole.ADMIN && (
+                  {canEditStatus && (
                     <button onClick={() => { setEditCampaign(c); setUpdateStatus(c.status || 'pending'); setUpdateMessage(''); }} className="flex items-center gap-[5px] px-2.5 py-[5px] bg-info-dim border-none rounded-md cursor-pointer text-info text-xs font-semibold">
                       <Edit2 size={12} /> Edit
                     </button>
