@@ -50,6 +50,7 @@ export default function TreeView() {
     const isExp = expanded.has(node.id);
     const hasKids = node.children?.length > 0;
     const rs = roleStyle(node.role);
+    const admins = node.children?.filter(c => c.role === 'admin') ?? [];
     const users = node.children?.filter(c => c.role === 'user') ?? [];
     const resellers = node.children?.filter(c => c.role === 'reseller') ?? [];
     const indentPx = depth * 20;
@@ -87,6 +88,12 @@ export default function TreeView() {
 
         {hasKids && isExp && (
           <div className="border-l border-line mb-1" style={{ paddingLeft: indentPx + 26, marginLeft: indentPx + 9 }}>
+            {admins.length > 0 && (
+              <div className="mb-1.5">
+                <div className="inline-block text-[9px] font-bold text-info bg-info-dim px-2 py-0.5 rounded-[20px] uppercase tracking-[0.06em] mb-1.5 -ml-0.5">Admins ({admins.length})</div>
+                {admins.map(c => renderNode(c, depth + 1))}
+              </div>
+            )}
             {users.length > 0 && (
               <div className="mb-1.5">
                 <div className="inline-block text-[9px] font-bold text-warning bg-warning-dim px-2 py-0.5 rounded-[20px] uppercase tracking-[0.06em] mb-1.5 -ml-0.5">Users ({users.length})</div>
