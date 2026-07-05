@@ -173,22 +173,19 @@ export async function createCampaignForUser(
 
     if (session) await session.commitTransaction();
 
-    // Enqueue the send job. Failure to enqueue is non-fatal here: we mark the
-    // campaign failed asynchronously and log. Debits remain — refund is a
-    // separate manual/admin action.
+    // Enqueue the send job. A freshly published campaign must always read as
+    // PENDING (its default) — we never flip it to FAILED here. If the queue is
+    // temporarily unavailable we only log; the campaign stays pending until it
+    // is actually processed by the worker or an admin changes its status.
     try {
       const queued = publishCampaignJob(
         (newCampaign._id as Types.ObjectId).toString(),
       );
       if (!queued) {
         console.error(
-          "[campaign.service] failed to enqueue campaign",
+          "[campaign.service] failed to enqueue campaign; left pending",
           (newCampaign._id as Types.ObjectId).toString(),
         );
-        newCampaign.status = CampaignStats.FAILED;
-        newCampaign.statusMessage =
-          "Could not enqueue send job. Contact support.";
-        await newCampaign.save();
       }
     } catch (err) {
       console.error(
