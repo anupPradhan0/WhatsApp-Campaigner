@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import {
   createCampaignForUser,
   updateCampaignStats,
+  sendDraftCampaign,
 } from "../services/campaign.service.js";
 import type {
   CampaignStatsBody,
@@ -44,17 +45,21 @@ export async function createCampaign(
       balanceAfter,
       pointsDeducted,
       transactionId,
+      isDraft,
     } = result;
 
     res.status(201).json({
       success: true,
-      message:
-        actualNumberCount < requestedNumberCount
+      message: isDraft
+        ? "Campaign saved as draft."
+        : actualNumberCount < requestedNumberCount
           ? `Campaign created with ${actualNumberCount} numbers (limited by balance). ${
               requestedNumberCount - actualNumberCount
             } numbers were excluded.`
           : "Campaign created successfully.",
       data: {
+        isDraft,
+        status: newCampaign.status,
         campaignId: newCampaign._id,
         campaignName: newCampaign.campaignName,
         message: newCampaign.message,
@@ -180,6 +185,94 @@ export async function campaignStats(
       success: false,
       message: "Server error while updating campaign status",
       error: message,
+    });
+  }
+}
+
+export async function sendCampaign(
+  req: Request,
+  res: Response
+): Promise<void> {
+  try {
+    const user = req.user;
+    if (!user) {
+      res.status(401).json({ success: false, message: "Authentication required." });
+      return;
+    }
+
+    const campaignId = pathParam(req.params.campaignId);
+    const raw = (req.body ?? {}) as { allowPartial?: unknown };
+    const allowPartial = raw.allowPartial === true || raw.allowPartial === "true";
+
+    const result = await sendDraftCampaign(user._id, campaignId, allowPartial);
+
+    res.status(200).json({
+      success: true,
+      message:
+        result.actualNumberCount < result.requestedNumberCount
+          ? `Campaign sent to ${result.actualNumberCount} numbers (limited by balance).`
+          : "Campaign sent successfully.",
+      data: {
+        campaignId: result.campaign._id,
+        status: result.campaign.status,
+        requestedNumberCount: result.requestedNumberCount,
+        actualNumberCount: result.actualNumberCount,
+        remainingBalance: result.balanceAfter,
+      },
+    });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "";
+    if (msg === "CAMPAIGN_NOT_FOUND" || msg === "USER_NOT_FOUND") {
+      res.status(404).json({ success: false, message: "Campaign not found." });
+      return;
+    }
+    if (msg === "NOT_A_DRAFT") {
+      res.status(400).json({
+        success: false,
+        message: "This campaign is not a draft — it has already been sent.",
+      });
+      return;
+    }
+    if (msg === "FORBIDDEN") {
+      res.status(403).json({
+        success: false,
+        message: "You are not allowed to send this campaign.",
+      });
+      return;
+    }
+    if (msg === "NO_NUMBERS") {
+      res.status(400).json({
+        success: false,
+        message: "This draft has no recipients to send to.",
+      });
+      return;
+    }
+    if (msg === "INSUFFICIENT_BALANCE") {
+      res.status(400).json({
+        success: false,
+        message:
+          "Insufficient balance. You need at least 1 credit to send this campaign.",
+      });
+      return;
+    }
+    if (msg === "PARTIAL_BALANCE") {
+      const e = error as Error & { affordable?: number; requested?: number };
+      const affordable = e.affordable ?? 0;
+      const requested = e.requested ?? 0;
+      res.status(400).json({
+        success: false,
+        code: "PARTIAL_BALANCE",
+        message: `You have only ${affordable} credit${affordable === 1 ? "" : "s"}, but this campaign has ${requested} numbers. You can send to ${affordable} number${affordable === 1 ? "" : "s"} only.`,
+        affordable,
+        requested,
+      });
+      return;
+    }
+    console.error("Error sending campaign:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while sending campaign",
+      error: msg,
     });
   }
 }

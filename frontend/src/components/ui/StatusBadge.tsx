@@ -20,6 +20,8 @@ export const statusColor = (status: string): { color: string; bg: string } => {
   const s = status?.toLowerCase();
   if (s === 'completed' || s === 'delivered' || s === 'resolved' || s === 'active')
     return { color: D.greenLight, bg: D.greenDim };
+  if (s === 'draft')
+    return { color: '#a78bfa', bg: 'rgba(167,139,250,0.12)' };
   if (s === 'pending')
     return { color: D.amber, bg: D.amberDim };
   if (s === 'processing' || s === 'in-progress')

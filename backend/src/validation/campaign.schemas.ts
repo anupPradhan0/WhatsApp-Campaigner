@@ -29,6 +29,12 @@ export const createCampaignBodySchema = z.object({
     .union([z.boolean(), z.string()])
     .optional()
     .transform((v) => v === true || v === "true"),
+  // Save the campaign as a draft instead of sending it — no credits are charged
+  // and it is not enqueued until the owner explicitly sends it later.
+  saveAsDraft: z
+    .union([z.boolean(), z.string()])
+    .optional()
+    .transform((v) => v === true || v === "true"),
 });
 
 export const campaignStatsBodySchema = z.object({

@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   createCampaign,
   campaignStats,
+  sendCampaign,
 } from "../controllers/campaign.controller.js";
 import isLoggedIn from "../middleware/is-logged-in.middleware.js";
 import upload from "../utils/upload.utils.js";
@@ -35,6 +36,13 @@ router.put(
   validateParams(campaignIdParamSchema),
   validateBody(campaignStatsBodySchema),
   campaignStats
+);
+router.post(
+  "/:campaignId/send",
+  isLoggedIn,
+  upload.none(),
+  validateParams(campaignIdParamSchema),
+  sendCampaign
 );
 
 export default router;

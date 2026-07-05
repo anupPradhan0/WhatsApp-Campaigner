@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactQuill from 'react-quill-new';
 import type { FormEvent, ChangeEvent } from 'react';
 import { toast } from 'sonner';
@@ -6,7 +6,9 @@ import 'react-quill-new/dist/quill.snow.css';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { api, getErrorMessage } from '../api/client';
-import { Send, Phone, Link2, ImageIcon, Users, X, Hash, Upload, FileSpreadsheet, UserCircle } from 'lucide-react';
+import { Send, Phone, Link2, ImageIcon, Users, X, Hash, Upload, FileSpreadsheet, UserCircle, Save, AlertTriangle } from 'lucide-react';
+import { getUserRole } from '../utils/Auth';
+import { UserRole } from '../constants/Roles';
 import { cn } from '../lib/utils';
 import { fieldCls } from '../theme/classes';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -64,6 +66,20 @@ const SendWhatsapp = () => {
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [partialConfirm, setPartialConfirm] = useState<{ affordable: number; requested: number } | null>(null);
+  const [balance, setBalance] = useState<number | null>(null);
+  const userRole = getUserRole();
+  const isSuperAdmin = userRole === UserRole.SUPER_ADMIN;
+
+  // Fetch the current balance so we can warn (live) before the user even clicks
+  // Send. Best-effort — the server re-checks on submit regardless.
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await api.get<{ success: boolean; data?: { balance?: number } }>('/api/dashboard/home');
+        if (data.success && typeof data.data?.balance === 'number') setBalance(data.data.balance);
+      } catch { /* ignore — balance warning is optional */ }
+    })();
+  }, []);
 
   const modules = { toolbar: [['bold', 'italic'], [{ list: 'ordered' }, { list: 'bullet' }], ['blockquote'], ['link']] };
   const formats = ['bold', 'italic', 'list', 'blockquote', 'link'];
@@ -138,7 +154,7 @@ const SendWhatsapp = () => {
     return formData.mobileNumbers.split(/[\n,]/).map(n => n.trim()).filter(Boolean).length;
   };
 
-  const buildCampaignFormData = (allowPartial: boolean): FormData => {
+  const buildCampaignFormData = (allowPartial: boolean, saveAsDraft: boolean): FormData => {
     const data = new FormData();
     data.append('campaignName', formData.campaignName);
     data.append('message', formData.message);
@@ -157,20 +173,22 @@ const SendWhatsapp = () => {
     if (profileImage) data.append('profileImage', profileImage);
     // Confirmed partial send: only the affordable count will be charged/sent.
     if (allowPartial) data.append('allowPartial', 'true');
+    // Save silently as a draft — nothing is charged or sent.
+    if (saveAsDraft) data.append('saveAsDraft', 'true');
     return data;
   };
 
-  const submitCampaign = async (allowPartial: boolean) => {
+  const submitCampaign = async (allowPartial: boolean, saveAsDraft: boolean) => {
     setLoading(true);
     try {
       const { data: result } = await api.post<{ success: boolean; message?: string; errors?: string[] }>(
-        '/api/campaigns', buildCampaignFormData(allowPartial),
+        '/api/campaigns', buildCampaignFormData(allowPartial, saveAsDraft),
       );
 
       if (result.success) {
         setFormData({ campaignName: '', message: '', phoneButtonText: '', phoneButtonNumber: '', linkButtonText: '', linkButtonUrl: '', mobileNumberEntryType: 'manual', mobileNumbers: '', countryCode: '+91', numberCount: '' });
         setSelectedFile(null); setFileType(null); setProfileImage(null);
-        toast.success('Campaign created successfully!');
+        toast.success(saveAsDraft ? 'Campaign saved as draft.' : 'Campaign created successfully!');
         navigate('/whatsapp-report');
       } else {
         toast.error(result.errors?.[0] || result.message || 'Failed to create campaign');
@@ -182,24 +200,36 @@ const SendWhatsapp = () => {
         setPartialConfirm({ affordable: d.affordable, requested: d.requested });
         return;
       }
-      toast.error(getErrorMessage(err, 'Failed to create campaign'));
+      toast.error(getErrorMessage(err, saveAsDraft ? 'Failed to save draft' : 'Failed to create campaign'));
     } finally { setLoading(false); }
+  };
+
+  const validateForm = (): boolean => {
+    if (!formData.campaignName || !formData.message || !formData.mobileNumbers) {
+      toast.error('Campaign name, message, and mobile numbers are required'); return false;
+    }
+    return true;
   };
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!formData.campaignName || !formData.message || !formData.mobileNumbers) {
-      toast.error('Campaign name, message, and mobile numbers are required'); return;
-    }
-    submitCampaign(false);
+    if (!validateForm()) return;
+    submitCampaign(false, false);
+  };
+
+  const handleSaveDraft = () => {
+    if (!validateForm()) return;
+    submitCampaign(false, true);
   };
 
   const confirmPartialSend = () => {
     setPartialConfirm(null);
-    submitCampaign(true);
+    submitCampaign(true, false);
   };
 
   const count = countMobileNumbers();
+  // Live warning: recipients exceed the (non-super-admin) balance.
+  const overBalance = balance !== null && !isSuperAdmin && count > balance;
 
   return (
     <>
@@ -409,17 +439,37 @@ const SendWhatsapp = () => {
                   />
                 </div>
               </div>
-              <div className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] w-fit border", count > 0 ? "bg-brand-dim border-brand-border" : "bg-surface2 border-line")}>
-                <Hash size={13} className={count > 0 ? "text-brand-light" : "text-fg-subtle"} />
-                <span className={cn("text-[13px] font-semibold", count > 0 ? "text-brand-light" : "text-fg-subtle")}>
-                  {count} {count === 1 ? 'number' : 'numbers'} detected
-                </span>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <div className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] w-fit border", count > 0 ? "bg-brand-dim border-brand-border" : "bg-surface2 border-line")}>
+                  <Hash size={13} className={count > 0 ? "text-brand-light" : "text-fg-subtle"} />
+                  <span className={cn("text-[13px] font-semibold", count > 0 ? "text-brand-light" : "text-fg-subtle")}>
+                    {count} {count === 1 ? 'number' : 'numbers'} detected
+                  </span>
+                </div>
+                {balance !== null && !isSuperAdmin && (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] w-fit border bg-surface2 border-line">
+                    <span className="text-[13px] font-semibold text-fg-muted">Balance: ₹{balance.toLocaleString()}</span>
+                  </div>
+                )}
               </div>
+              {overBalance && (
+                <div className="flex items-start gap-2 px-3.5 py-2.5 rounded-[8px] border bg-[rgba(245,158,11,0.1)] border-[rgba(245,158,11,0.35)]">
+                  <AlertTriangle size={15} className="text-[#f59e0b] flex-shrink-0 mt-px" />
+                  <p className="text-[12.5px] text-fg-muted leading-[1.5] m-0">
+                    You added <strong className="text-fg">{count.toLocaleString()}</strong> numbers but only have <strong className="text-fg">{balance?.toLocaleString()}</strong> credits.
+                    Sending will reach at most <strong className="text-[#f59e0b]">{balance?.toLocaleString()}</strong> of them — top up your balance, remove numbers, or save this as a draft for later.
+                  </p>
+                </div>
+              )}
             </div>
           </SectionCard>
 
           {/* Submit */}
-          <div className="flex justify-end pt-1">
+          <div className="flex justify-end pt-1 gap-2.5 flex-wrap">
+            <button type="button" onClick={handleSaveDraft} disabled={loading} className="flex items-center gap-2 px-6 py-[11px] bg-surface2 hover:bg-surface border border-line text-fg font-semibold text-sm rounded-[9px] cursor-pointer transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+              <Save size={15} />
+              Save as Draft
+            </button>
             <button type="submit" disabled={loading} className="flex items-center gap-2 px-7 py-[11px] bg-brand hover:bg-brand-hover text-white font-semibold text-sm border-none rounded-[9px] cursor-pointer transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-brand">
               <Send size={15} />
               {loading ? 'Sending…' : 'Send Campaign'}

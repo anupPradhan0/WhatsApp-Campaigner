@@ -7,6 +7,7 @@ export enum MediaType {
 }
 
 export enum CampaignStats {
+  DRAFT = "draft",
   PENDING = "pending",
   DELIVERED = "delivered",
   FAILED = "failed",

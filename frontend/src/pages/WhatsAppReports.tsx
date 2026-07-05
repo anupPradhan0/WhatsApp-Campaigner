@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { X, Eye, Calendar, Plus, Download, Loader2, AlertCircle } from 'lucide-react';
+import { X, Eye, Calendar, Plus, Download, Loader2, AlertCircle, Send } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+import axios from 'axios';
 import { useCampaigns } from '../hooks/useCampaigns';
+import { api, getErrorMessage } from '../api/client';
 import { cn } from '../lib/utils';
 import { Spinner } from '../components/ui/Spinner';
 import { StatusBadge } from '../components/ui/StatusBadge';
@@ -23,13 +26,40 @@ const dateInpCls = "bg-surface2 border border-line rounded-[7px] text-fg text-xs
 
 export default function WhatsAppReports() {
   const navigate = useNavigate();
-  const { data, loading, error, downloadExcel, downloading, dlError, clearDlError } = useCampaigns('/api/dashboard/whatsapp-reports');
+  const { data, loading, error, refetch, downloadExcel, downloading, dlError, clearDlError } = useCampaigns('/api/dashboard/whatsapp-reports');
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [sending, setSending] = useState<Set<string>>(new Set());
+  const [draftConfirm, setDraftConfirm] = useState<{ id: string; affordable: number; requested: number } | null>(null);
 
   const openDetails = (id: string) => navigate(`/whatsapp-report/${id}`);
+
+  const sendDraft = async (id: string, allowPartial: boolean) => {
+    setSending(prev => new Set(prev).add(id));
+    try {
+      const { data: r } = await api.post<{ success: boolean; message?: string }>(`/api/campaigns/${id}/send`, { allowPartial });
+      if (r.success) { toast.success(r.message || 'Campaign sent!'); refetch(); }
+      else toast.error(r.message || 'Failed to send campaign');
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.data?.code === 'PARTIAL_BALANCE') {
+        const d = err.response.data as { affordable: number; requested: number };
+        setDraftConfirm({ id, affordable: d.affordable, requested: d.requested });
+        return;
+      }
+      toast.error(getErrorMessage(err, 'Failed to send campaign'));
+    } finally {
+      setSending(prev => { const s = new Set(prev); s.delete(id); return s; });
+    }
+  };
+
+  const confirmDraftSend = () => {
+    if (!draftConfirm) return;
+    const { id } = draftConfirm;
+    setDraftConfirm(null);
+    sendDraft(id, true);
+  };
 
   useEffect(() => { setPage(1); }, [perPage, startDate, endDate]);
 
@@ -48,6 +78,27 @@ export default function WhatsAppReports() {
   return (
     <>
       <style>{`input[type=date]::-webkit-calendar-picker-indicator{filter:invert(0.5)}`}</style>
+
+      {draftConfirm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-[3px] flex items-center justify-center z-[9999] p-4" onClick={() => setDraftConfirm(null)}>
+          <div className="bg-surface rounded-2xl w-full max-w-[420px] border border-line shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className="w-10 h-10 rounded-[10px] bg-[rgba(245,158,11,0.12)] flex items-center justify-center shrink-0">
+                <AlertCircle size={18} className="text-[#f59e0b]" />
+              </div>
+              <h3 className="text-[17px] font-semibold text-fg">Not enough balance</h3>
+            </div>
+            <p className="text-[13px] text-fg-muted leading-[1.6] mb-5">
+              This draft has <strong className="text-fg">{draftConfirm.requested.toLocaleString()}</strong> numbers but the account only has <strong className="text-fg">{draftConfirm.affordable.toLocaleString()}</strong> credits.
+              Continue to send to the first <strong className="text-brand-light">{draftConfirm.affordable.toLocaleString()}</strong>; the remaining <strong className="text-danger">{(draftConfirm.requested - draftConfirm.affordable).toLocaleString()}</strong> won't be sent.
+            </p>
+            <div className="flex gap-2.5">
+              <button type="button" onClick={() => setDraftConfirm(null)} className="flex-1 h-[42px] rounded-lg border border-line bg-surface2 text-fg text-sm font-medium cursor-pointer">Cancel</button>
+              <button type="button" onClick={confirmDraftSend} className="flex-1 h-[42px] rounded-lg border-none bg-brand hover:bg-brand-hover text-white text-sm font-medium cursor-pointer">Send to {draftConfirm.affordable.toLocaleString()}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {dlError && (
         <div className="fixed top-5 right-5 z-[9999] flex items-center gap-2 max-w-[340px] bg-danger-dim border border-danger-border rounded-[10px] px-3.5 py-2.5">
@@ -124,6 +175,11 @@ export default function WhatsAppReports() {
                       <td className="px-3.5 py-[11px] group-hover:bg-white/[0.025]">
                         <div className="flex gap-1.5">
                           <button onClick={() => openDetails(c.campaignId)} title="View" className="w-[30px] h-[30px] rounded-[7px] bg-brand-dim border-none flex items-center justify-center cursor-pointer"><Eye size={13} className="text-brand-light" /></button>
+                          {c.status?.toLowerCase() === 'draft' && (
+                            <button onClick={() => sendDraft(c.campaignId, false)} disabled={sending.has(c.campaignId)} title="Send Campaign" className={cn("w-[30px] h-[30px] rounded-[7px] bg-brand border-none flex items-center justify-center cursor-pointer", sending.has(c.campaignId) ? "opacity-50" : "opacity-100")}>
+                              {sending.has(c.campaignId) ? <Loader2 size={13} className="text-white animate-spin" /> : <Send size={13} className="text-white" />}
+                            </button>
+                          )}
                           <button onClick={() => downloadExcel(c.campaignId)} disabled={downloading.has(c.campaignId)} title="Download Excel" className={cn("w-[30px] h-[30px] rounded-[7px] bg-info-dim border-none flex items-center justify-center cursor-pointer", downloading.has(c.campaignId) ? "opacity-50" : "opacity-100")}>
                             {downloading.has(c.campaignId) ? <Loader2 size={13} className="text-info animate-spin" /> : <Download size={13} className="text-info" />}
                           </button>
@@ -158,6 +214,11 @@ export default function WhatsAppReports() {
                   <span className="text-[11px] text-fg-subtle">{format(new Date(c.createdAt), 'dd MMM, hh:mm a')}</span>
                   <div className="flex gap-1.5">
                     <button onClick={() => openDetails(c.campaignId)} className="flex items-center gap-[5px] px-2.5 py-[5px] bg-brand-dim border-none rounded-md cursor-pointer text-brand-light text-xs font-semibold"><Eye size={12} /> View</button>
+                    {c.status?.toLowerCase() === 'draft' && (
+                      <button onClick={() => sendDraft(c.campaignId, false)} disabled={sending.has(c.campaignId)} className="flex items-center gap-[5px] px-2.5 py-[5px] bg-brand border-none rounded-md cursor-pointer text-white text-xs font-semibold">
+                        {sending.has(c.campaignId) ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Send
+                      </button>
+                    )}
                     <button onClick={() => downloadExcel(c.campaignId)} disabled={downloading.has(c.campaignId)} className="w-7 h-7 rounded-md bg-info-dim border-none flex items-center justify-center cursor-pointer">
                       {downloading.has(c.campaignId) ? <Loader2 size={12} className="text-info animate-spin" /> : <Download size={12} className="text-info" />}
                     </button>
