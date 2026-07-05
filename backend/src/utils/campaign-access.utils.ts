@@ -1,14 +1,17 @@
+import mongoose from "mongoose";
 import type { IUser } from "../models/user.model.js";
 import User from "../models/user.model.js";
 import { canManageAccounts, isSuperAdmin } from "./role-hierarchy.utils.js";
+import { collectDownlineIds } from "./downline.utils.js";
 
 /**
- * Whether `user` is allowed to view/export a campaign.
+ * Whether `user` is allowed to view/act on a campaign.
  *
  *  - super admin: every campaign in the system
  *  - any user: campaigns they own (present in their `allCampaign`)
- *  - admin / reseller: campaigns created by their direct downline
- *    (`allReseller` + `allUsers`), matching the All-Campaigns listing scope
+ *  - admin / reseller: campaigns created anywhere in their downline — not just
+ *    direct children, but a reseller's users, sub-resellers, and so on (matching
+ *    the All-Campaigns listing scope)
  */
 export async function userCanViewCampaign(
   user: IUser,
@@ -26,10 +29,11 @@ export async function userCanViewCampaign(
   if (owns) return true;
 
   if (canManageAccounts(user.role)) {
-    const directChildren = [...user.allReseller, ...user.allUsers].map((id) =>
-      id.toString()
+    const downline = await collectDownlineIds(
+      new mongoose.Types.ObjectId(user._id)
     );
-    if (directChildren.includes(campaignCreatedBy.toString())) return true;
+    const target = campaignCreatedBy.toString();
+    if (downline.some((id) => id.toString() === target)) return true;
   }
 
   return false;
