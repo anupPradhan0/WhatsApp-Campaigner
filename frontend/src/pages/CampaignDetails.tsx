@@ -14,7 +14,14 @@ import { Spinner } from '../components/ui/Spinner';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { Paginator } from '../components/ui/Paginator';
 
-const stripHtml = (h: string) => h?.replace(/<[^>]*>/g, '') ?? '';
+// Strip HTML tags AND decode entities (&nbsp;, &amp;, …) that the rich-text
+// editor stores — a plain tag-regex leaves the entities showing literally.
+const stripHtml = (h: string) => {
+  if (!h) return '';
+  const el = document.createElement('div');
+  el.innerHTML = h;
+  return el.textContent ?? '';
+};
 const fmtDate = (s?: string | null) => {
   if (!s) return '—';
   try { return format(new Date(s), 'dd MMM yyyy, hh:mm a'); } catch { return s; }
