@@ -3,16 +3,76 @@ import {
   Book, Rocket, Sparkles, MessageSquare, Users, Download, Calendar,
   Shield, FileText, Mail, Github, Linkedin, Globe, Menu, X,
   CheckCircle2, Image, Send, BarChart3, HelpCircle, User,
-  Database, Filter, Eye, Upload,
+  Filter, Eye, Upload, Coins, Ban, Video, Link2,
+  UserCircle, FileSpreadsheet,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 const navItems = [
-  { id: 'getting-started', label: 'Getting Started', icon: Rocket },
-  { id: 'features',        label: 'Features',        icon: Sparkles },
-  { id: 'how-to-use',      label: 'How to Use',      icon: Book },
-  { id: 'faq',             label: 'FAQ',             icon: HelpCircle },
-  { id: 'about',           label: 'About Creator',   icon: User },
+  { id: 'getting-started', label: 'Getting Started',     icon: Rocket },
+  { id: 'user-roles',      label: 'User Roles',          icon: Shield },
+  { id: 'features',        label: 'Features',            icon: Sparkles },
+  { id: 'create-campaign', label: 'Creating a Campaign', icon: Send },
+  { id: 'media',           label: 'Media & Uploads',     icon: Image },
+  { id: 'how-to-use',      label: 'How to Use',          icon: Book },
+  { id: 'faq',             label: 'FAQ',                 icon: HelpCircle },
+  { id: 'about',           label: 'About Creator',       icon: User },
+];
+
+const ROLES = [
+  {
+    name: 'Super Admin', color: '#f87171', icon: Shield, tag: 'God mode',
+    can: [
+      'Full access to every account and every campaign in the whole system',
+      'Create Admins, Resellers, and Users',
+      'Add credits to any account — credits are minted at no cost to the super admin',
+      'Send campaigns for free (unlimited, no credits deducted)',
+      'See the entire network in Tree View, plus manage News, Complaints and any campaign status',
+    ],
+    cannot: ['Nothing is restricted — the super admin sits at the very top of the hierarchy'],
+  },
+  {
+    name: 'Admin', color: '#3b82f6', icon: Users, tag: 'Manages a downline',
+    can: [
+      'Create Resellers and Users beneath them',
+      'Manage their whole downline — edit, freeze, delete, reset password',
+      'Add or remove credits for downline accounts, funded from the admin’s own wallet',
+      'See every campaign created anywhere in their downline (a reseller’s users included)',
+      'Manually change the status of any campaign in their downline, and post News',
+      'Send their own campaigns (paid from their balance)',
+    ],
+    cannot: [
+      'Cannot create other Admins or a Super Admin',
+      'Cannot see or act on accounts outside their own downline',
+    ],
+  },
+  {
+    name: 'Reseller', color: '#4ade80', icon: UserCircle, tag: 'Manages users',
+    can: [
+      'Create Users beneath them',
+      'Manage their own users — edit, freeze, delete, reset password',
+      'Add or remove credits for their users, funded from the reseller’s own wallet',
+      'See and manage campaigns created by their users',
+      'Send their own campaigns (paid from their balance)',
+    ],
+    cannot: [
+      'Cannot create Admins or other Resellers',
+      'Cannot access any account outside their downline',
+    ],
+  },
+  {
+    name: 'User', color: '#fbbf24', icon: User, tag: 'Runs campaigns',
+    can: [
+      'Create and send their own WhatsApp campaigns (paid from their balance)',
+      'Attach media, a campaign profile picture, and interactive buttons',
+      'View their own campaign reports and export them to Excel',
+      'Raise support complaints and read News',
+    ],
+    cannot: [
+      'Cannot create any accounts',
+      'Cannot see other users’ data or campaigns',
+    ],
+  },
 ];
 
 const Section = ({ id, icon: Icon, title, children, accent = '#16a34a' }: {
@@ -205,19 +265,132 @@ const Documentation = () => {
             </div>
           </Section>
 
+          {/* User Roles */}
+          <Section id="user-roles" icon={Shield} title="User Roles & Permissions" accent="#f87171">
+            <div className="flex flex-col gap-4">
+              <p className="text-[13px] text-fg-muted leading-[1.7]">
+                The platform has <strong className="text-fg">four roles</strong> in a strict top-to-bottom hierarchy.
+                Each role can manage everything below it, and every account only ever sees its own data plus the data of accounts beneath it (its “downline”).
+              </p>
+
+              <div className="bg-surface2 border border-line rounded-[10px] px-[18px] py-3 text-center">
+                <p className="text-[13px] font-bold text-fg tracking-wide m-0">
+                  Super&nbsp;Admin&nbsp;&nbsp;→&nbsp;&nbsp;Admin&nbsp;&nbsp;→&nbsp;&nbsp;Reseller&nbsp;&nbsp;→&nbsp;&nbsp;User
+                </p>
+              </div>
+
+              {ROLES.map((r) => (
+                <div key={r.name} className="bg-surface2 border border-line rounded-[10px] border-l-[3px] px-[18px] py-4" style={{ borderLeftColor: r.color }}>
+                  <div className="flex items-center gap-2 mb-3 flex-wrap">
+                    <r.icon size={16} color={r.color} />
+                    <p className="text-[14px] font-bold text-fg m-0">{r.name}</p>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-[20px] border" style={{ color: r.color, borderColor: `${r.color}55`, background: `${r.color}18` }}>{r.tag}</span>
+                  </div>
+                  <div className="grid gap-3.5 [grid-template-columns:repeat(auto-fit,minmax(230px,1fr))]">
+                    <div>
+                      <p className="text-[11px] font-bold text-brand-light uppercase tracking-[0.06em] mb-1.5">Can do</p>
+                      <ul className="m-0 p-0 flex flex-col gap-1.5 list-none">
+                        {r.can.map((c, i) => (
+                          <li key={i} className="flex items-start gap-1.5 text-xs text-fg-muted leading-[1.55]">
+                            <CheckCircle2 size={12} className="text-brand-light flex-shrink-0 mt-0.5" /><span>{c}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-bold text-danger uppercase tracking-[0.06em] mb-1.5">Cannot do</p>
+                      <ul className="m-0 p-0 flex flex-col gap-1.5 list-none">
+                        {r.cannot.map((c, i) => (
+                          <li key={i} className="flex items-start gap-1.5 text-xs text-fg-muted leading-[1.55]">
+                            <Ban size={12} className="text-danger flex-shrink-0 mt-0.5" /><span>{c}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              <div className="bg-brand-dim border border-brand-border rounded-[10px] px-[18px] py-3.5">
+                <p className="text-xs font-bold text-brand-light uppercase tracking-[0.07em] mb-2 flex items-center gap-1.5"><Coins size={12} /> Credits &amp; Balance</p>
+                <p className="text-xs text-fg-muted leading-[1.7] m-0">
+                  Your <strong className="text-fg">balance is your credits</strong>. Every message costs <strong className="text-fg">1 credit</strong> — one recipient equals one credit.
+                  Admins and Resellers fund their downline’s credits from their <strong className="text-fg">own wallet</strong>; the Super Admin mints credits and sends campaigns for free.
+                  If a campaign has more numbers than you have credits, you’re warned first and can choose to send to only as many as you can afford.
+                </p>
+              </div>
+            </div>
+          </Section>
+
           {/* Features */}
           <Section id="features" icon={Sparkles} title="Features" accent="#3b82f6">
             <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
               {[
-                { icon: MessageSquare, title: 'Campaign Management', desc: 'Create unlimited campaigns with customizable messages, media, and interactive buttons.', accent: '#4ade80' },
-                { icon: Send, title: 'Bulk Messaging', desc: 'Send to thousands simultaneously. Import numbers via bulk upload or manual entry.', accent: '#3b82f6' },
-                { icon: Download, title: 'Excel Export', desc: 'Download campaign data as professionally formatted Excel files.', accent: '#a78bfa' },
-                { icon: Calendar, title: 'Advanced Filtering', desc: 'Filter campaigns by date range and paginate with custom entries per page.', accent: '#fbbf24' },
-                { icon: Shield, title: 'Admin Controls', desc: 'Role-based access: Admin, Reseller, User. Admins can view all data.', accent: '#f87171' },
-                { icon: BarChart3, title: 'Campaign Analytics', desc: 'Track performance with stats: recipient count, message length, history.', accent: '#4ade80' },
-                { icon: Image, title: 'Media Support', desc: 'Upload images and videos. Cloud storage ensures fast delivery.', accent: '#a78bfa' },
-                { icon: FileText, title: 'Support Tickets', desc: 'Built-in complaint system with status tracking and admin responses.', accent: '#fbbf24' },
+                { icon: MessageSquare, title: 'Campaign Management', desc: 'Create campaigns with a rich-text message, media, a profile picture, and interactive buttons.', accent: '#4ade80' },
+                { icon: Send, title: 'Bulk Messaging', desc: 'Reach many recipients at once — type numbers manually or import them from a CSV / Excel file.', accent: '#3b82f6' },
+                { icon: Image, title: 'Media & Profile Picture', desc: 'Attach an image, video or PDF (max 5 MB) and a display picture shown with the campaign.', accent: '#a78bfa' },
+                { icon: Link2, title: 'Interactive Buttons', desc: 'Add a Call button (phone number) and a Link button (URL) to drive replies and clicks.', accent: '#4ade80' },
+                { icon: Coins, title: 'Credit System', desc: '1 credit = 1 message. Insufficient balance? You’re warned and can send a partial batch.', accent: '#fbbf24' },
+                { icon: Download, title: 'Excel Export', desc: 'Download campaign data — including full +country-code phone numbers — as a formatted .xlsx.', accent: '#a78bfa' },
+                { icon: Calendar, title: 'Filtering & Pagination', desc: 'Filter reports by date range and page through results (10 / 25 / 50 per page).', accent: '#3b82f6' },
+                { icon: Shield, title: 'Role-Based Access', desc: 'Super Admin, Admin, Reseller and User — each scoped to their own downline.', accent: '#f87171' },
+                { icon: BarChart3, title: 'Reports & Tree View', desc: 'Track every campaign and visualise your whole account network in Tree View.', accent: '#4ade80' },
+                { icon: FileText, title: 'Support & News', desc: 'Built-in complaints with admin responses, plus a News feed from your admins.', accent: '#fbbf24' },
               ].map(f => <InfoCard key={f.title} {...f} />)}
+            </div>
+          </Section>
+
+          {/* Creating a Campaign */}
+          <Section id="create-campaign" icon={Send} title="Creating a Campaign — Step by Step" accent="#4ade80">
+            <div className="flex flex-col gap-4">
+              <p className="text-[13px] text-fg-muted leading-[1.7]">
+                Open <strong className="text-fg">Send WhatsApp</strong> from the sidebar and fill in the form. Only the name, message and recipients are required — everything else is optional.
+              </p>
+              <div className="bg-brand-dim border border-brand-border rounded-[10px] px-[18px] py-3.5">
+                <div className="flex flex-col gap-2.5">
+                  <Step n={1} title="Campaign Name" desc={'A label just for you — e.g. "Summer Sale 2026". Minimum 3 characters.'} />
+                  <Step n={2} title="Message" desc="Write your text in the rich-text editor. This is what recipients receive." />
+                  <Step n={3} title="Media (optional)" desc="Attach one image, video or PDF (up to 5 MB). A preview appears once selected." />
+                  <Step n={4} title="Profile Picture (optional)" desc="Add a display image shown alongside the campaign. Images only." />
+                  <Step n={5} title="Buttons (optional)" desc="Add a Call button (text + phone number) and/or a Link button (text + URL)." />
+                  <Step n={6} title="Recipients" desc="Pick a country code, then type numbers (comma or new-line separated) or import a CSV / Excel file — numbers are auto-detected from any column." />
+                  <Step n={7} title="Send Campaign" desc="Click Send. Each recipient costs 1 credit. If you don’t have enough, you can confirm a partial send." />
+                </div>
+              </div>
+              <div className="bg-surface2 border border-line rounded-[10px] border-l-[3px] px-[18px] py-3.5" style={{ borderLeftColor: '#fbbf24' }}>
+                <p className="text-[13px] font-bold text-fg mb-1 flex items-center gap-1.5"><Coins size={14} className="text-warning" /> Not enough credits?</p>
+                <p className="text-xs text-fg-muted leading-[1.7] m-0">
+                  If a campaign has more numbers than your balance, nothing is charged — you’ll see a prompt showing how many you can afford.
+                  Choose <strong className="text-fg">Cancel</strong> to top up first, or continue to send to only that many numbers.
+                </p>
+              </div>
+              <div className="bg-surface2 border border-line rounded-[10px] border-l-[3px] px-[18px] py-3.5" style={{ borderLeftColor: '#3b82f6' }}>
+                <p className="text-[13px] font-bold text-fg mb-1 flex items-center gap-1.5"><BarChart3 size={14} className="text-info" /> After sending</p>
+                <p className="text-xs text-fg-muted leading-[1.7] m-0">
+                  Every new campaign starts as <strong className="text-fg">Pending</strong>. The status stays pending until an <strong className="text-fg">Admin or Super Admin</strong> reviews and updates it — recipient statuses always mirror the campaign’s status.
+                </p>
+              </div>
+            </div>
+          </Section>
+
+          {/* Media & Uploads */}
+          <Section id="media" icon={Image} title="Media &amp; Uploads" accent="#a78bfa">
+            <div className="flex flex-col gap-3">
+              <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
+                <InfoCard icon={Image} title="Images" accent="#4ade80" desc="JPG, JPEG, PNG, GIF, WebP — up to 5 MB each." />
+                <InfoCard icon={Video} title="Videos" accent="#3b82f6" desc="MP4, MOV (QuickTime), WebM — up to 5 MB each." />
+                <InfoCard icon={FileText} title="Documents" accent="#fbbf24" desc="PDF files — up to 5 MB each." />
+                <InfoCard icon={UserCircle} title="Profile Picture" accent="#a78bfa" desc="An image shown with the campaign. Same image formats, up to 5 MB." />
+                <InfoCard icon={FileSpreadsheet} title="Recipient Import" accent="#4ade80" desc="Upload a CSV or Excel (.xlsx / .xls). Phone numbers are auto-detected from any column. Max 5 MB." />
+              </div>
+              <div className="bg-surface2 border border-line rounded-[10px] px-[18px] py-3.5">
+                <p className="text-xs font-bold text-fg-muted uppercase tracking-[0.07em] mb-2 flex items-center gap-1.5"><Upload size={12} /> Good to know</p>
+                <ul className="m-0 pl-[18px] flex flex-col gap-1.5">
+                  <li className="text-xs text-fg-muted leading-[1.6]">The <strong className="text-fg">size limit is 5 MB per file</strong> — compress large videos before uploading.</li>
+                  <li className="text-xs text-fg-muted leading-[1.6]">You can attach <strong className="text-fg">one media file and one profile picture</strong> per campaign.</li>
+                  <li className="text-xs text-fg-muted leading-[1.6]">Unsupported file types are rejected with a clear error — stick to the formats above.</li>
+                </ul>
+              </div>
             </div>
           </Section>
 
@@ -231,30 +404,36 @@ const Documentation = () => {
                 'Select <strong>Country Code</strong> and add mobile numbers',
                 'Click <strong>Send Campaign</strong>',
               ]} />
-              <HowToCard icon={Upload} title="2. Upload Media (Optional)" accent="#a78bfa" steps={[
-                'In the campaign form, find the <strong>Media Attachment</strong> section',
-                'Click <strong>Choose File</strong> to select an image',
-                'Supported: JPG, PNG, GIF (max 5 MB)',
-                'File preview appears once selected',
+              <HowToCard icon={Upload} title="2. Add Media & Profile Picture (Optional)" accent="#a78bfa" steps={[
+                'In the campaign form, open the <strong>Media Attachment</strong> section',
+                'Choose an <strong>image, video or PDF</strong> — JPG, PNG, GIF, WebP, MP4, MOV, WebM or PDF (max 5 MB)',
+                'Add a <strong>Profile Picture</strong> (image only) to show alongside the campaign',
+                'A preview appears once each file is selected',
               ]} />
-              <HowToCard icon={BarChart3} title="3. Track Campaign Reports" accent="#3b82f6" steps={[
+              <HowToCard icon={FileSpreadsheet} title="3. Import Recipients from a File" accent="#3b82f6" steps={[
+                'In the <strong>Recipients</strong> section choose the file-upload option',
+                'Upload a <strong>CSV or Excel</strong> file (.csv / .xlsx / .xls, max 5 MB)',
+                'Phone numbers are <strong>auto-detected from any column</strong>',
+                'Review the detected numbers before sending',
+              ]} />
+              <HowToCard icon={BarChart3} title="4. Track Campaign Reports" accent="#3b82f6" steps={[
                 'Go to <strong>WhatsApp Reports</strong> in the sidebar',
                 'View all campaigns in a sortable table',
                 'Use pagination to browse (10/25/50 per page)',
                 'Click the Eye icon to view full campaign details',
               ]} />
-              <HowToCard icon={Filter} title="4. Filter by Date" accent="#fbbf24" steps={[
+              <HowToCard icon={Filter} title="5. Filter by Date" accent="#fbbf24" steps={[
                 'On the Reports page, find the date filter section',
                 'Pick a <strong>From</strong> and <strong>To</strong> date',
                 'Results filter automatically',
                 'Click <strong>Clear</strong> to reset filters',
               ]} />
-              <HowToCard icon={Eye} title="5. View Campaign Details" accent="#4ade80" steps={[
+              <HowToCard icon={Eye} title="6. View Campaign Details" accent="#4ade80" steps={[
                 'Click the Eye icon on any campaign row',
                 'A modal shows user info, campaign details, and statistics',
                 'Click <strong>Close</strong> to return',
               ]} />
-              <HowToCard icon={Download} title="6. Download Campaign Data" accent="#a78bfa" steps={[
+              <HowToCard icon={Download} title="7. Download Campaign Data" accent="#a78bfa" steps={[
                 'Click the Download icon on the Reports page',
                 'An Excel file generates automatically',
                 'File name: <code style="background:#27272a;padding:1px 5px;border-radius:4px">CampaignName_YYYY-MM-DD.xlsx</code>',
@@ -267,23 +446,31 @@ const Documentation = () => {
           <Section id="faq" icon={HelpCircle} title="FAQ" accent="#fbbf24">
             <div className="flex flex-col gap-2.5">
               <FaqItem q="How many phone numbers can I add?">
-                No limit! The system supports bulk import and handles large recipient lists efficiently.
+                There's no hard cap on list size, but every recipient costs <strong className="text-fg">1 credit</strong>. If a campaign has more numbers than your balance, you'll be prompted to top up or send to only as many as you can afford.
               </FaqItem>
               <FaqItem q="What file formats are supported for media?">
-                Images (JPG, PNG, GIF, WebP), video (MP4, MOV, WebM), and PDF documents. Max 5 MB per file.
+                Images (JPG, JPEG, PNG, GIF, WebP), video (MP4, MOV, WebM) and PDF documents — <strong className="text-fg">max 5 MB per file</strong>. You can attach one media file plus one profile picture per campaign.
+              </FaqItem>
+              <FaqItem q="What are the four roles and who can do what?">
+                <ul className="m-0 pl-4">
+                  <li><strong className="text-fg">Super Admin:</strong> full control of the whole system; creates Admins/Resellers/Users; sends free</li>
+                  <li><strong className="text-fg">Admin:</strong> creates Resellers &amp; Users; manages and sees their whole downline</li>
+                  <li><strong className="text-fg">Reseller:</strong> creates and manages their own Users</li>
+                  <li><strong className="text-fg">User:</strong> creates and sends their own campaigns only</li>
+                </ul>
+                See the <strong className="text-fg">User Roles</strong> section above for the full breakdown.
+              </FaqItem>
+              <FaqItem q="What are credits and how are they charged?">
+                Your balance is your credits — <strong className="text-fg">1 credit = 1 message</strong>. Admins and Resellers fund their downline from their own wallet; the Super Admin mints credits and sends for free. Deleting an account refunds its remaining credits back to its creator.
+              </FaqItem>
+              <FaqItem q="Why is my campaign still showing “Pending”?">
+                Every campaign starts as <strong className="text-fg">Pending</strong> by design and stays that way until an <strong className="text-fg">Admin or Super Admin</strong> reviews it and updates the status. Each recipient's status always mirrors the campaign's status.
               </FaqItem>
               <FaqItem q="Can I edit a campaign after creating it?">
-                Currently campaigns cannot be edited once created. Create a new one with updated details.
-              </FaqItem>
-              <FaqItem q="What's the difference between User, Reseller, and Admin?">
-                <ul className="m-0 pl-4">
-                  <li><strong className="text-fg">User:</strong> Create and manage own campaigns</li>
-                  <li><strong className="text-fg">Reseller:</strong> Manage multiple client campaigns</li>
-                  <li><strong className="text-fg">Admin:</strong> Full access to everything</li>
-                </ul>
+                A campaign's content can't be edited once created — create a new one instead. Its <strong className="text-fg">status</strong>, however, can be changed by an Admin or Super Admin.
               </FaqItem>
               <FaqItem q="How do I export campaign data?">
-                Click the Download button on the Reports page. An Excel file is generated automatically.
+                Click the Download button on the Reports page. An Excel (.xlsx) file is generated automatically, with recipients listed in a single full-number column (e.g. <code style={{ background: '#27272a', padding: '1px 5px', borderRadius: 4 }}>+919090090150</code>).
               </FaqItem>
               <FaqItem q="Is my data secure?">
                 Yes. All data is encrypted, passwords are hashed, and auth uses JWT tokens with regular backups.
@@ -334,46 +521,24 @@ const Documentation = () => {
                   </div>
                   <div>
                     <p className="text-[15px] font-bold text-fg">Anup Pradhan</p>
-                    <p className="text-xs text-brand-light">Full-Stack MERN Developer</p>
-                    <span className="text-[10px] font-bold px-2 py-0.5 bg-brand-dim border border-brand-border rounded-[20px] text-brand-light mt-1 inline-block">Solo Developer · Built Entire Product</span>
+                    <p className="text-xs text-brand-light">Software Developer</p>
                   </div>
                 </div>
                 <p className="text-xs text-fg-muted leading-[1.7] mb-3.5">
-                  Sole architect and developer of the WhatsApp Campaign Management System. Specialized in building scalable full-stack applications with MERN + TypeScript. Single-handedly developed this platform from concept to production.
+                  Software developer and sole architect of the WhatsApp Campaign Management System, which he designed and built end to end — from initial concept through to production. The platform was developed in collaboration with <strong className="text-fg">ProMinds Digital</strong>.
                 </p>
-                <div className="flex flex-wrap gap-1.5 mb-3.5">
-                  {['React', 'TypeScript', 'Node.js', 'Express', 'MongoDB', 'Mongoose', 'Tailwind CSS', 'JWT', 'Cloudinary', 'ExcelJS', 'Vite'].map(t => (
-                    <span key={t} className="text-[11px] font-semibold px-2.5 py-[3px] bg-surface border border-brand-border rounded-[20px] text-brand-light">{t}</span>
-                  ))}
-                </div>
                 <div className="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(160px,1fr))]">
                   <ExtLink href="https://github.com/M0rs-Ruki/WhatsApp-Campaigner" icon={Github} title="GitHub Repository" sub="View source code" />
-                  <ExtLink href="https://www.linkedin.com/in/anup-pradhan77" icon={Linkedin} title="LinkedIn Profile" sub="Connect professionally" />
-                  <ExtLink href="https://morscode.site/" icon={Globe} title="Portfolio Website" sub="Other projects" />
+                  <ExtLink href="https://www.linkedin.com/in/anuppradhan0/" icon={Linkedin} title="LinkedIn Profile" sub="Connect professionally" />
+                  <ExtLink href="https://www.anuppradhan.in/" icon={Globe} title="Portfolio Website" sub="anuppradhan.in" />
                   <ExtLink href="mailto:anuppradhan929@gmail.com" icon={Mail} title="Email Developer" sub="anuppradhan929@gmail.com" />
                 </div>
-              </div>
-
-              {/* Bottom stats */}
-              <div className="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(100px,1fr))]">
-                {[
-                  { icon: Database, label: 'MongoDB', sub: 'Database', color: '#4ade80' },
-                  { icon: Shield, label: 'JWT', sub: 'Security', color: '#3b82f6' },
-                  { icon: Sparkles, label: 'React', sub: 'Frontend', color: '#a78bfa' },
-                  { icon: Rocket, label: 'Node.js', sub: 'Backend', color: '#fbbf24' },
-                ].map(({ icon: Icon, label, sub, color }) => (
-                  <div key={label} className="bg-surface2 border border-line rounded-[9px] px-2 py-3 text-center">
-                    <Icon size={18} color={color} className="mb-1.5 mx-auto" />
-                    <p className="text-[13px] font-bold mb-0.5" style={{ color }}>{label}</p>
-                    <p className="text-[10px] text-fg-subtle">{sub}</p>
-                  </div>
-                ))}
               </div>
 
               {/* Collab note */}
               <div className="px-4 py-3 rounded-[9px] text-center bg-[#fbbf2414] border border-[#fbbf2444]">
                 <p className="text-xs text-fg-muted leading-[1.7]">
-                  🤝 <strong className="text-warning">Collaboration:</strong> Conceptualized by <strong className="text-fg">ProMinds Digital</strong>, developed from scratch by <strong className="text-fg">Anup Pradhan</strong> as the sole full-stack developer.
+                  🤝 <strong className="text-warning">Collaboration:</strong> Conceptualized by <strong className="text-fg">ProMinds Digital</strong>, developed from scratch by <strong className="text-fg">Anup Pradhan</strong> as the sole software developer.
                 </p>
               </div>
 
