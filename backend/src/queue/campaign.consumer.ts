@@ -77,19 +77,10 @@ function safeRepublish(
   }
 }
 
-async function markCampaign(
-  campaign: ICampaign,
-  status: CampaignStats,
-  statusMessage: string,
-): Promise<void> {
-  campaign.status = status;
-  campaign.statusMessage = statusMessage;
-  await campaign.save();
-}
-
 /**
- * Process a single campaign job: load by ID, mark processing, iterate numbers,
- * mark delivered/failed. Throws on transient errors (caller handles retry).
+ * Process a single campaign job: load by ID, send each number, record per-number
+ * results. Status is left PENDING (never auto-progressed). Throws on transient
+ * errors (caller handles retry).
  */
 async function processCampaignJob(payload: CampaignJobPayload): Promise<void> {
   const campaign = await findCampaignById(payload.campaignId);
@@ -114,11 +105,9 @@ async function processCampaignJob(payload: CampaignJobPayload): Promise<void> {
     return;
   }
 
-  await markCampaign(
-    campaign,
-    CampaignStats.PROCESSING,
-    "Worker is sending messages.",
-  );
+  // NOTE: we intentionally do NOT change the campaign status here. Campaigns
+  // stay PENDING by default until an admin/super admin sets the final status
+  // manually — the worker never auto-progresses status.
 
   let sent = 0;
   let failed = 0;
@@ -153,32 +142,13 @@ async function processCampaignJob(payload: CampaignJobPayload): Promise<void> {
     }
   }
 
+  // Record the per-recipient outcome for audit, but DO NOT change the campaign
+  // status — it stays PENDING until an admin/super admin sets it manually.
   campaign.deliveryResults = results;
-
-  const total = campaign.mobileNumbers.length;
-  if (failed === 0) {
-    await markCampaign(
-      campaign,
-      CampaignStats.DELIVERED,
-      `Delivered ${sent}/${total} messages.`,
-    );
-  } else if (sent === 0) {
-    await markCampaign(
-      campaign,
-      CampaignStats.FAILED,
-      `All ${total} messages failed.`,
-    );
-  } else {
-    // Partial success — treat as delivered with a note.
-    await markCampaign(
-      campaign,
-      CampaignStats.DELIVERED,
-      `Delivered ${sent}/${total} (${failed} failed).`,
-    );
-  }
+  await campaign.save();
 
   console.log(
-    `[consumer] campaign ${payload.campaignId} done: sent=${sent} failed=${failed}`,
+    `[consumer] campaign ${payload.campaignId} processed (left pending): sent=${sent} failed=${failed}`,
   );
 }
 
@@ -221,26 +191,8 @@ async function handleMessage(
     console.error(
       `[consumer] giving up on campaign ${payload.campaignId} after ${retryCount} retries: ${errMsg}`,
     );
-    // Mark failed in DB so the user sees the outcome.
-    try {
-      const campaign = await findCampaignById(payload.campaignId);
-      if (
-        campaign &&
-        campaign.status !== CampaignStats.DELIVERED &&
-        campaign.status !== CampaignStats.FAILED
-      ) {
-        await markCampaign(
-          campaign,
-          CampaignStats.FAILED,
-          `Send failed after ${retryCount} retries: ${errMsg}`,
-        );
-      }
-    } catch (innerErr) {
-      console.error(
-        "[consumer] could not mark campaign failed:",
-        (innerErr as Error).message,
-      );
-    }
+    // Leave the campaign PENDING — we never auto-mark it failed. An admin/super
+    // admin decides the final status manually.
     // nack without requeue → DLQ via DLX.
     safeNack(channel, msg);
   }

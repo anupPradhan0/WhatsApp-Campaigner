@@ -958,6 +958,44 @@ const whatsAppReports = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Collect the full transitive downline of a manager — every descendant account
+ * (their resellers, those resellers' users, sub-resellers, and so on), not just
+ * direct children. Used so an admin sees campaigns created anywhere beneath
+ * them, including a reseller's users. Excludes the manager themselves.
+ */
+async function collectDownlineIds(
+  rootId: mongoose.Types.ObjectId
+): Promise<mongoose.Types.ObjectId[]> {
+  const seen = new Set<string>();
+  const result: mongoose.Types.ObjectId[] = [];
+  let frontier: mongoose.Types.ObjectId[] = [rootId];
+
+  while (frontier.length > 0) {
+    const docs = await User.find({ _id: { $in: frontier } })
+      .select("allAdmin allReseller allUsers")
+      .lean();
+    const next: mongoose.Types.ObjectId[] = [];
+    for (const doc of docs) {
+      const children = [
+        ...(doc.allAdmin ?? []),
+        ...(doc.allReseller ?? []),
+        ...(doc.allUsers ?? []),
+      ] as mongoose.Types.ObjectId[];
+      for (const childId of children) {
+        const key = childId.toString();
+        if (!seen.has(key)) {
+          seen.add(key);
+          result.push(childId);
+          next.push(childId);
+        }
+      }
+    }
+    frontier = next;
+  }
+  return result;
+}
+
 const allCampaigns = async (req: Request, res: Response) => {
   try {
     const user = req.user;
@@ -978,11 +1016,14 @@ const allCampaigns = async (req: Request, res: Response) => {
 
     let filter: any = {};
 
-    // Super admin sees every campaign in the system. Admins and resellers are
-    // scoped to their own direct children only.
+    // Super admin sees every campaign in the system. Admins and resellers see
+    // every campaign created anywhere in their downline — not just their direct
+    // children, but also a reseller's users, sub-resellers, and so on.
     if (!isSuperAdmin(user.role)) {
-      const directChildrenIds = [...user.allReseller, ...user.allUsers];
-      filter = { createdBy: { $in: directChildrenIds } };
+      const downlineIds = await collectDownlineIds(
+        new mongoose.Types.ObjectId(user._id)
+      );
+      filter = { createdBy: { $in: downlineIds } };
     }
 
     // Fetch latest 50 campaigns
