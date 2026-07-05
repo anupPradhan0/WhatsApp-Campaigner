@@ -90,9 +90,26 @@ export async function createCampaignForUser(
     if (isSuperAdmin(user.role)) {
       actualNumberCount = requestedNumberCount;
     } else {
-      actualNumberCount = Math.min(requestedNumberCount, user.balance);
-      if (actualNumberCount === 0) {
+      const affordable = Math.floor(user.balance);
+      if (affordable <= 0) {
         throw new Error("INSUFFICIENT_BALANCE");
+      }
+      if (requestedNumberCount > affordable) {
+        // Not enough balance to reach every number. We never silently drop the
+        // rest — stop and let the caller decide: top up, or explicitly confirm a
+        // partial send that reaches only the affordable count.
+        if (!body.allowPartial) {
+          const err = new Error("PARTIAL_BALANCE") as Error & {
+            affordable?: number;
+            requested?: number;
+          };
+          err.affordable = affordable;
+          err.requested = requestedNumberCount;
+          throw err;
+        }
+        actualNumberCount = affordable;
+      } else {
+        actualNumberCount = requestedNumberCount;
       }
     }
 

@@ -4,6 +4,7 @@ import type { FormEvent, ChangeEvent } from 'react';
 import { toast } from 'sonner';
 import 'react-quill-new/dist/quill.snow.css';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { api, getErrorMessage } from '../api/client';
 import { Send, Phone, Link2, ImageIcon, Users, X, Hash, Upload, FileSpreadsheet, UserCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -62,6 +63,7 @@ const SendWhatsapp = () => {
   const [fileType, setFileType] = useState<'image' | 'video' | null>(null);
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [partialConfirm, setPartialConfirm] = useState<{ affordable: number; requested: number } | null>(null);
 
   const modules = { toolbar: [['bold', 'italic'], [{ list: 'ordered' }, { list: 'bullet' }], ['blockquote'], ['link']] };
   const formats = ['bold', 'italic', 'list', 'blockquote', 'link'];
@@ -136,31 +138,34 @@ const SendWhatsapp = () => {
     return formData.mobileNumbers.split(/[\n,]/).map(n => n.trim()).filter(Boolean).length;
   };
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!formData.campaignName || !formData.message || !formData.mobileNumbers) {
-      toast.error('Campaign name, message, and mobile numbers are required'); return;
+  const buildCampaignFormData = (allowPartial: boolean): FormData => {
+    const data = new FormData();
+    data.append('campaignName', formData.campaignName);
+    data.append('message', formData.message);
+    data.append('mobileNumberEntryType', formData.mobileNumberEntryType);
+    data.append('mobileNumbers', formData.mobileNumbers);
+    data.append('countryCode', formData.countryCode);
+    if (formData.phoneButtonText && formData.phoneButtonNumber) {
+      data.append('phoneButtonText', formData.phoneButtonText);
+      data.append('phoneButtonNumber', formData.phoneButtonNumber);
     }
+    if (formData.linkButtonText && formData.linkButtonUrl) {
+      data.append('linkButtonText', formData.linkButtonText);
+      data.append('linkButtonUrl', formData.linkButtonUrl);
+    }
+    if (selectedFile) data.append('image', selectedFile);
+    if (profileImage) data.append('profileImage', profileImage);
+    // Confirmed partial send: only the affordable count will be charged/sent.
+    if (allowPartial) data.append('allowPartial', 'true');
+    return data;
+  };
+
+  const submitCampaign = async (allowPartial: boolean) => {
     setLoading(true);
     try {
-      const data = new FormData();
-      data.append('campaignName', formData.campaignName);
-      data.append('message', formData.message);
-      data.append('mobileNumberEntryType', formData.mobileNumberEntryType);
-      data.append('mobileNumbers', formData.mobileNumbers);
-      data.append('countryCode', formData.countryCode);
-      if (formData.phoneButtonText && formData.phoneButtonNumber) {
-        data.append('phoneButtonText', formData.phoneButtonText);
-        data.append('phoneButtonNumber', formData.phoneButtonNumber);
-      }
-      if (formData.linkButtonText && formData.linkButtonUrl) {
-        data.append('linkButtonText', formData.linkButtonText);
-        data.append('linkButtonUrl', formData.linkButtonUrl);
-      }
-      if (selectedFile) data.append('image', selectedFile);
-      if (profileImage) data.append('profileImage', profileImage);
-
-      const { data: result } = await api.post<{ success: boolean; message?: string; errors?: string[] }>('/api/campaigns', data);
+      const { data: result } = await api.post<{ success: boolean; message?: string; errors?: string[] }>(
+        '/api/campaigns', buildCampaignFormData(allowPartial),
+      );
 
       if (result.success) {
         setFormData({ campaignName: '', message: '', phoneButtonText: '', phoneButtonNumber: '', linkButtonText: '', linkButtonUrl: '', mobileNumberEntryType: 'manual', mobileNumbers: '', countryCode: '+91', numberCount: '' });
@@ -171,14 +176,75 @@ const SendWhatsapp = () => {
         toast.error(result.errors?.[0] || result.message || 'Failed to create campaign');
       }
     } catch (err: unknown) {
+      // Balance can't cover every number — ask the user to confirm a partial send.
+      if (axios.isAxiosError(err) && err.response?.data?.code === 'PARTIAL_BALANCE') {
+        const d = err.response.data as { affordable: number; requested: number };
+        setPartialConfirm({ affordable: d.affordable, requested: d.requested });
+        return;
+      }
       toast.error(getErrorMessage(err, 'Failed to create campaign'));
     } finally { setLoading(false); }
+  };
+
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!formData.campaignName || !formData.message || !formData.mobileNumbers) {
+      toast.error('Campaign name, message, and mobile numbers are required'); return;
+    }
+    submitCampaign(false);
+  };
+
+  const confirmPartialSend = () => {
+    setPartialConfirm(null);
+    submitCampaign(true);
   };
 
   const count = countMobileNumbers();
 
   return (
     <>
+      {partialConfirm && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-[3px] flex items-center justify-center z-50 p-4"
+          onClick={() => { if (!loading) setPartialConfirm(null); }}
+        >
+          <div
+            className="bg-surface rounded-2xl w-full max-w-[420px] border border-line shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className="w-10 h-10 rounded-[10px] bg-[rgba(245,158,11,0.12)] flex items-center justify-center shrink-0">
+                <Users size={18} className="text-[#f59e0b]" />
+              </div>
+              <h3 className="text-[17px] font-semibold text-fg">Not enough balance</h3>
+            </div>
+            <p className="text-[13px] text-fg-muted leading-[1.6] mb-1">
+              You have <span className="font-semibold text-fg">{partialConfirm.affordable.toLocaleString()}</span> credit{partialConfirm.affordable === 1 ? '' : 's'}, but this campaign has <span className="font-semibold text-fg">{partialConfirm.requested.toLocaleString()}</span> numbers.
+            </p>
+            <p className="text-[13px] text-fg-muted leading-[1.6] mb-5">
+              If you continue, only the first <span className="font-semibold text-brand-light">{partialConfirm.affordable.toLocaleString()}</span> number{partialConfirm.affordable === 1 ? '' : 's'} will be sent — the remaining <span className="font-semibold text-danger">{(partialConfirm.requested - partialConfirm.affordable).toLocaleString()}</span> won&apos;t be delivered.
+            </p>
+            <div className="flex gap-2.5">
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => setPartialConfirm(null)}
+                className="flex-1 h-[42px] rounded-lg border border-line bg-surface2 text-fg text-sm font-medium cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={confirmPartialSend}
+                className="flex-1 h-[42px] rounded-lg border-none bg-brand hover:bg-brand-hover text-white text-sm font-medium cursor-pointer disabled:opacity-50"
+              >
+                {loading ? 'Sending…' : `Send to ${partialConfirm.affordable.toLocaleString()}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <style>{`
         .ql-toolbar.ql-snow { background: #18181b !important; border: 1px solid #27272a !important; border-bottom: none !important; border-radius: 8px 8px 0 0 !important; }
         .ql-container.ql-snow { background: #111113 !important; border: 1px solid #27272a !important; border-radius: 0 0 8px 8px !important; font-size: 14px !important; color: #f4f4f5 !important; }

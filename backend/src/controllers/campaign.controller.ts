@@ -97,6 +97,19 @@ export async function createCampaign(
       });
       return;
     }
+    if (msg === "PARTIAL_BALANCE") {
+      const e = error as Error & { affordable?: number; requested?: number };
+      const affordable = e.affordable ?? 0;
+      const requested = e.requested ?? 0;
+      res.status(400).json({
+        success: false,
+        code: "PARTIAL_BALANCE",
+        message: `You have only ${affordable} credit${affordable === 1 ? "" : "s"}, but this campaign has ${requested} numbers. You can send to ${affordable} number${affordable === 1 ? "" : "s"} only.`,
+        affordable,
+        requested,
+      });
+      return;
+    }
 
     if (error instanceof mongoose.Error.ValidationError) {
       const messages = Object.values(error.errors).map((e) => e.message);

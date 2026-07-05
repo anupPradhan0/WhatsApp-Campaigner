@@ -23,6 +23,12 @@ export const createCampaignBodySchema = z.object({
   fileUrl: z.string().url().optional(),
   mediaType: z.nativeEnum(MediaType).optional(),
   profileImageUrl: z.string().url().optional(),
+  // When the balance can't cover every number, the client re-submits with this
+  // flag set to explicitly confirm a partial send (only the affordable count).
+  allowPartial: z
+    .union([z.boolean(), z.string()])
+    .optional()
+    .transform((v) => v === true || v === "true"),
 });
 
 export const campaignStatsBodySchema = z.object({
