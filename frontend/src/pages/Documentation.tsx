@@ -259,7 +259,7 @@ const Documentation = () => {
                 <div className="flex flex-col gap-2.5">
                   <Step n={1} title="Create Your Account" desc="Register with your company name, email, and phone number." />
                   <Step n={2} title="Login to Dashboard" desc="Access your personalized campaign management dashboard." />
-                  <Step n={3} title="Create Your First Campaign" desc={'Navigate to "Send WhatsApp" and start sending!'} />
+                  <Step n={3} title="Create Your First Campaign" desc={'Navigate to "Campaign" and start sending!'} />
                 </div>
               </div>
             </div>
@@ -344,7 +344,7 @@ const Documentation = () => {
           <Section id="create-campaign" icon={Send} title="Creating a Campaign — Step by Step" accent="#4ade80">
             <div className="flex flex-col gap-4">
               <p className="text-[13px] text-fg-muted leading-[1.7]">
-                Open <strong className="text-fg">Send WhatsApp</strong> from the sidebar and fill in the form. Only the name, message and recipients are required — everything else is optional.
+                Open <strong className="text-fg">Campaign</strong> from the sidebar and fill in the form. Only the name, message and recipients are required — everything else is optional.
               </p>
               <div className="bg-brand-dim border border-brand-border rounded-[10px] px-[18px] py-3.5">
                 <div className="flex flex-col gap-2.5">
@@ -398,7 +398,7 @@ const Documentation = () => {
           <Section id="how-to-use" icon={Book} title="How to Use" accent="#a78bfa">
             <div className="flex flex-col gap-3">
               <HowToCard icon={MessageSquare} title="1. Create Your First Campaign" accent="#4ade80" steps={[
-                'Navigate to <strong>Send WhatsApp</strong> from the sidebar',
+                'Navigate to <strong>Campaign</strong> from the sidebar',
                 'Enter a <strong>Campaign Name</strong> (e.g., "Summer Sale 2026")',
                 'Write your <strong>Message</strong> using the rich text editor',
                 'Select <strong>Country Code</strong> and add mobile numbers',

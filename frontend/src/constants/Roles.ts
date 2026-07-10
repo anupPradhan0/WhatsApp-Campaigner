@@ -26,7 +26,7 @@ export enum UserRole {
           allowedRoles: [UserRole.ADMIN, UserRole.RESELLER, UserRole.USER]
         },
         { 
-          label: 'Send Whatsapp', 
+          label: 'Campaign',
           path: '/send-whatsapp',
           allowedRoles: [UserRole.ADMIN, UserRole.RESELLER, UserRole.USER]
         },
