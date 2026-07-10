@@ -44,6 +44,14 @@ const SectionTitle = ({ icon: Icon, children }: { icon: React.FC<{ size?: number
 
 const fieldLabelCls = "block text-[11px] font-semibold text-fg-muted uppercase tracking-[0.07em] mb-1.5";
 
+// Backend validates the raw (HTML) message string, so count the same thing.
+const MESSAGE_LIMIT = 4000;
+const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').trim();
+
+// Inline error shown directly under the offending field.
+const FieldError = ({ msg }: { msg?: string }) =>
+  msg ? <p className="text-[12px] text-danger font-medium mt-1.5">{msg}</p> : null;
+
 const FieldInput = ({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) => (
   <div>
     <label className={fieldLabelCls}>{label}</label>
@@ -65,6 +73,7 @@ const SendWhatsapp = () => {
   const [fileType, setFileType] = useState<'image' | 'video' | null>(null);
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [partialConfirm, setPartialConfirm] = useState<{ affordable: number; requested: number } | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
   const userRole = getUserRole();
@@ -84,9 +93,14 @@ const SendWhatsapp = () => {
   const modules = { toolbar: [['bold', 'italic'], [{ list: 'ordered' }, { list: 'bullet' }], ['blockquote'], ['link']] };
   const formats = ['bold', 'italic', 'list', 'blockquote', 'link'];
 
+  // Clear a field's inline error as soon as the user starts fixing it.
+  const clearFieldError = (name: string) =>
+    setFieldErrors(prev => { if (!prev[name]) return prev; const n = { ...prev }; delete n[name]; return n; });
+
   const handleInput = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    clearFieldError(name);
   };
 
   const handleFileUpload = (e: ChangeEvent<HTMLInputElement>, type: 'image' | 'video') => {
@@ -141,6 +155,7 @@ const SendWhatsapp = () => {
     const { value } = e.target;
     if (!/^[0-9+,\s\n\r]*$/.test(value)) { toast.error('Only numbers, +, commas, spaces, and line breaks are allowed'); return; }
     setFormData(prev => ({ ...prev, mobileNumbers: value }));
+    clearFieldError('mobileNumbers');
   };
 
   const handlePhoneNumberChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -190,8 +205,8 @@ const SendWhatsapp = () => {
         setSelectedFile(null); setFileType(null); setProfileImage(null);
         toast.success(saveAsDraft ? 'Campaign saved as draft.' : 'Campaign created successfully!');
         navigate('/whatsapp-report');
-      } else {
-        toast.error(result.errors?.[0] || result.message || 'Failed to create campaign');
+      } else if (!applyServerErrors(result.errors)) {
+        toast.error(result.message || 'Failed to create campaign');
       }
     } catch (err: unknown) {
       // Balance can't cover every number — ask the user to confirm a partial send.
@@ -200,14 +215,48 @@ const SendWhatsapp = () => {
         setPartialConfirm({ affordable: d.affordable, requested: d.requested });
         return;
       }
-      toast.error(getErrorMessage(err, saveAsDraft ? 'Failed to save draft' : 'Failed to create campaign'));
+      // Map server-side validation failures back onto their fields so the user
+      // sees exactly what to fix, not just a single generic toast.
+      const serverErrors = axios.isAxiosError(err)
+        ? (err.response?.data as { errors?: string[] } | undefined)?.errors
+        : undefined;
+      if (!applyServerErrors(serverErrors)) {
+        toast.error(getErrorMessage(err, saveAsDraft ? 'Failed to save draft' : 'Failed to create campaign'));
+      }
     } finally { setLoading(false); }
   };
 
-  const validateForm = (): boolean => {
-    if (!formData.campaignName || !formData.message || !formData.mobileNumbers) {
-      toast.error('Campaign name, message, and mobile numbers are required'); return false;
+  // Backend errors come as ["field: message", ...] — pin each to its field.
+  const applyServerErrors = (errors?: string[]): boolean => {
+    if (!errors?.length) return false;
+    const mapped: Record<string, string> = {};
+    for (const e of errors) {
+      const i = e.indexOf(':');
+      const field = i > 0 ? e.slice(0, i).trim() : '';
+      const msg = i > 0 ? e.slice(i + 1).trim() : e;
+      mapped[field || 'campaignName'] = msg;
     }
+    setFieldErrors(mapped);
+    toast.error('Please fix the highlighted fields.');
+    return true;
+  };
+
+  const validateForm = (): boolean => {
+    const e: Record<string, string> = {};
+
+    const name = formData.campaignName.trim();
+    if (!name) e.campaignName = 'Campaign name is required.';
+    else if (name.length < 3) e.campaignName = 'Campaign name must be at least 3 characters.';
+    else if (name.length > 100) e.campaignName = 'Campaign name cannot exceed 100 characters.';
+
+    if (!stripHtml(formData.message)) e.message = 'Message is required.';
+    else if (formData.message.length > MESSAGE_LIMIT)
+      e.message = `Message is too long (${formData.message.length}/${MESSAGE_LIMIT}). Please shorten it.`;
+
+    if (countMobileNumbers() === 0) e.mobileNumbers = 'Add at least one mobile number.';
+
+    setFieldErrors(e);
+    if (Object.keys(e).length) { toast.error('Please fix the highlighted fields.'); return false; }
     return true;
   };
 
@@ -307,12 +356,19 @@ const SendWhatsapp = () => {
           <SectionCard>
             <SectionTitle icon={Send}>Campaign Details</SectionTitle>
             <FieldInput label="Campaign Name *" type="text" name="campaignName" value={formData.campaignName} onChange={handleInput} placeholder="e.g. Summer Sale 2026" disabled={loading} />
+            <FieldError msg={fieldErrors.campaignName} />
           </SectionCard>
 
           {/* Message */}
           <SectionCard>
             <SectionTitle icon={Send}>Message *</SectionTitle>
-            <ReactQuill theme="snow" value={formData.message} onChange={content => setFormData(prev => ({ ...prev, message: content }))} modules={modules} formats={formats} placeholder="Type your message here…" />
+            <ReactQuill theme="snow" value={formData.message} onChange={content => { setFormData(prev => ({ ...prev, message: content })); clearFieldError('message'); }} modules={modules} formats={formats} placeholder="Type your message here…" />
+            <div className="flex items-center justify-between mt-1.5">
+              <FieldError msg={fieldErrors.message} />
+              <span className={cn("text-[12px] font-medium ml-auto", formData.message.length > MESSAGE_LIMIT ? "text-danger" : "text-fg-subtle")}>
+                {formData.message.length}/{MESSAGE_LIMIT}
+              </span>
+            </div>
           </SectionCard>
 
           {/* Action Buttons */}
@@ -438,6 +494,7 @@ const SendWhatsapp = () => {
                     className={cn(fieldCls, "resize-y leading-[1.6] font-mono flex-1")}
                   />
                 </div>
+                <FieldError msg={fieldErrors.mobileNumbers} />
               </div>
               <div className="flex items-center gap-2.5 flex-wrap">
                 <div className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] w-fit border", count > 0 ? "bg-brand-dim border-brand-border" : "bg-surface2 border-line")}>
