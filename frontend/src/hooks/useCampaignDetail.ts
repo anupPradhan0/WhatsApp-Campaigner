@@ -124,7 +124,9 @@ export function useDownloadCampaign() {
       });
       if (res.status >= 400) {
         const t = await (res.data as Blob).text();
-        throw new Error(JSON.parse(t)?.message || 'Failed');
+        let msg = 'Failed to download campaign';
+        try { msg = JSON.parse(t)?.message || msg; } catch { /* non-JSON error body — keep fallback */ }
+        throw new Error(msg);
       }
       const cd = res.headers['content-disposition'] || '';
       const fn = cd.match(/filename="?(.+)"?/i)?.[1] || `Campaign_${id}.xlsx`;

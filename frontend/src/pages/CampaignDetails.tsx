@@ -81,8 +81,8 @@ export default function CampaignDetails() {
       a.href = u; a.download = `${name}_media.jpg`;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       URL.revokeObjectURL(u);
-    } catch {
-      toast.error('Could not download media');
+    } catch (e) {
+      toast.error(e instanceof Error ? `Could not download media (${e.message})` : 'Could not download media');
     }
   };
 
