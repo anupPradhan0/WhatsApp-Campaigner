@@ -1,8 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
 import type { ZodSchema, ZodError } from "zod";
 
-function formatZodError(error: ZodError): string {
-  return error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
+function formatZodError(error: ZodError): string[] {
+  return error.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
 }
 
 export function validateBody<T>(schema: ZodSchema<T>) {

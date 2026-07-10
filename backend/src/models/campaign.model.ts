@@ -148,7 +148,10 @@ const campaignSchema = new Schema<ICampaign>(
       required: [true, "Message is required"],
       trim: true,
       minlength: [1, "Message cannot be empty"],
-      maxlength: [1000, "Message cannot exceed 1000 characters"],
+      maxlength: [
+        4000,
+        "You have reached the message length limit of 4000 characters.",
+      ],
     },
     phoneButton: {
       type: PhoneButtonSchema,

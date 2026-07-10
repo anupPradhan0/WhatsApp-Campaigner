@@ -12,7 +12,10 @@ const mobileNumbersField = z.union([
 
 export const createCampaignBodySchema = z.object({
   campaignName: z.string().min(1).max(100),
-  message: z.string().min(1).max(1000),
+  message: z
+    .string()
+    .min(1, "Message cannot be empty")
+    .max(4000, "You have reached the message length limit of 4000 characters."),
   phoneButtonText: z.string().max(20).optional(),
   phoneButtonNumber: z.string().optional(),
   linkButtonText: z.string().max(20).optional(),
