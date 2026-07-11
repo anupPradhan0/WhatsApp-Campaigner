@@ -15,7 +15,7 @@ export const createCampaignBodySchema = z.object({
   message: z
     .string()
     .min(1, "Message cannot be empty")
-    .max(4000, "You have reached the message length limit of 4000 characters."),
+    .max(12000, "You have reached the message length limit of 12000 characters."),
   phoneButtonText: z.string().max(20).optional(),
   phoneButtonNumber: z.string().optional(),
   linkButtonText: z.string().max(20).optional(),

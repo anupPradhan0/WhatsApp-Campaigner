@@ -45,7 +45,7 @@ const SectionTitle = ({ icon: Icon, children }: { icon: React.FC<{ size?: number
 const fieldLabelCls = "block text-[11px] font-semibold text-fg-muted uppercase tracking-[0.07em] mb-1.5";
 
 // Backend validates the raw (HTML) message string, so count the same thing.
-const MESSAGE_LIMIT = 4000;
+const MESSAGE_LIMIT = 12000;
 const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').trim();
 
 // Inline error shown directly under the offending field.
