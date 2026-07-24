@@ -187,7 +187,19 @@ export async function exportCampaignToExcel(
       });
     });
 
-    const fileName = `${Date.now()}_campaign_${campaign.campaignName}.xlsx`;
+    // Sanitize to a pure-ASCII, filesystem-safe name. A raw campaign name can
+    // hold quotes, slashes, or unicode that break the Content-Disposition header
+    // and mangle the .xlsx extension on some clients (Mac Numbers/Safari), so the
+    // downloaded file won't open.
+    const safeBase =
+      `campaign_${campaign.campaignName}_${createdDate}`
+        .normalize("NFKD")
+        .replace(/[^\x20-\x7E]/g, "") // drop non-ASCII
+        .replace(/[\\/:*?"<>|]/g, "_") // filesystem-illegal chars
+        .replace(/\s+/g, "_")
+        .replace(/_+/g, "_")
+        .replace(/^_+|_+$/g, "") || "campaign";
+    const fileName = `${safeBase}.xlsx`;
 
     res.setHeader(
       "Content-Type",

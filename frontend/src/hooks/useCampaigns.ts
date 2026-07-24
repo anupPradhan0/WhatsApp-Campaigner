@@ -62,7 +62,9 @@ export function useCampaigns(endpoint: string) {
         throw new Error(msg);
       }
       const cd = res.headers['content-disposition'] || '';
-      const fn = cd.match(/filename="?(.+)"?/i)?.[1] || `Campaign_${id}.xlsx`;
+      // Non-greedy, quote-excluding capture — a greedy `.+` swallows the closing
+      // quote into the name, producing a `…xlsx"` extension that won't open on Mac.
+      const fn = cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)?.[1] || `Campaign_${id}.xlsx`;
       const url = URL.createObjectURL(res.data as Blob);
       const a = document.createElement('a');
       a.href = url; a.download = fn;
