@@ -50,62 +50,55 @@ export default function TreeView() {
     const isExp = expanded.has(node.id);
     const hasKids = node.children?.length > 0;
     const rs = roleStyle(node.role);
-    const admins = node.children?.filter(c => c.role === 'admin') ?? [];
-    const users = node.children?.filter(c => c.role === 'user') ?? [];
-    const resellers = node.children?.filter(c => c.role === 'reseller') ?? [];
-    const indentPx = depth * 20;
+    const groups = ([
+      ['admin', 'Admins', 'text-info', 'bg-info-dim'],
+      ['reseller', 'Resellers', 'text-brand-light', 'bg-brand-dim'],
+      ['user', 'Users', 'text-warning', 'bg-warning-dim'],
+    ] as const)
+      .map(([key, label, color, dim]) => ({ key, label, color, dim, items: node.children?.filter(c => c.role === key) ?? [] }))
+      .filter(g => g.items.length > 0);
 
     return (
       <div key={node.id}>
-        <div className="flex items-center gap-1.5 mb-1.5" style={{ paddingLeft: indentPx }}>
-          {depth > 0 && <div className="w-3.5 h-px bg-line-strong flex-shrink-0" />}
+        {/* Row — horizontal connector reaches back to the parent trunk when depth>0 */}
+        <div className="relative flex items-center gap-2 py-1">
+          {depth > 0 && <span className="absolute left-[-18px] top-1/2 w-[18px] h-px bg-line-strong" />}
           {hasKids
-            ? <button onClick={() => toggle(node.id)} className="w-5 h-5 rounded-[5px] bg-surface2 border border-line flex items-center justify-center cursor-pointer flex-shrink-0">
-                {isExp ? <ChevronDown size={11} className="text-fg-muted" /> : <ChevronRight size={11} className="text-fg-muted" />}
+            ? <button onClick={() => toggle(node.id)} aria-label={isExp ? 'Collapse' : 'Expand'} className="w-5 h-5 rounded-[5px] bg-surface2 border border-line flex items-center justify-center cursor-pointer flex-shrink-0 hover:border-line-strong transition-colors">
+                {isExp ? <ChevronDown size={12} className="text-fg-muted" /> : <ChevronRight size={12} className="text-fg-muted" />}
               </button>
-            : <div className="w-5" />}
+            : <span className="w-5 flex justify-center flex-shrink-0"><span className="w-1.5 h-1.5 rounded-full bg-line-strong" /></span>}
           <div
             onClick={() => setSelected(node)}
-            className={cn("flex-1 flex items-center gap-2 px-2.5 py-[7px] bg-surface2 border border-line rounded-lg cursor-pointer transition-colors", rs.hoverBorder)}
+            className={cn("flex-1 flex items-center gap-2.5 px-3 py-2 bg-surface2 border border-line rounded-lg cursor-pointer transition-colors", rs.hoverBorder)}
           >
-            <div className={cn("w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0", rs.dim)}>
-              <rs.Icon size={13} className={rs.color} />
+            <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0", rs.dim)}>
+              <rs.Icon size={15} className={rs.color} />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <p className="text-xs font-semibold text-fg overflow-hidden text-ellipsis whitespace-nowrap max-w-[180px]">{node.companyName}</p>
-                <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded-[20px] uppercase tracking-[0.06em] flex-shrink-0", rs.color, rs.dim)}>{node.role}</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded-[20px] bg-surface border border-line text-fg-subtle flex-shrink-0">L{node.level}</span>
+                <p className="text-[13px] font-semibold text-fg truncate max-w-[220px]">{node.companyName}</p>
+                <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-[0.06em] flex-shrink-0", rs.color, rs.dim)}>{node.role.replace('_', ' ')}</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-surface border border-line text-fg-subtle flex-shrink-0">L{node.level}</span>
               </div>
-              <div className="flex items-center gap-2 mt-0.5">
-                <StatusDot s={node.status} />
-                <span className="text-[11px] text-fg-subtle">₹{node.balance}</span>
-                {hasKids && <span className="text-[11px] text-fg-subtle">· {node.children.length} children</span>}
+              <div className="flex items-center gap-2 mt-1">
+                <span className="flex items-center gap-1"><StatusDot s={node.status} /><span className="text-[11px] text-fg-subtle">₹{node.balance.toLocaleString()}</span></span>
+                {hasKids && <span className="text-[11px] text-fg-subtle">· {node.children.length} {node.children.length === 1 ? 'member' : 'members'}</span>}
               </div>
             </div>
+            <ChevronRight size={15} className="text-fg-subtle flex-shrink-0" />
           </div>
         </div>
 
+        {/* Children — nested vertical trunk (border-l); members branch off it */}
         {hasKids && isExp && (
-          <div className="border-l border-line mb-1" style={{ paddingLeft: indentPx + 26, marginLeft: indentPx + 9 }}>
-            {admins.length > 0 && (
-              <div className="mb-1.5">
-                <div className="inline-block text-[9px] font-bold text-info bg-info-dim px-2 py-0.5 rounded-[20px] uppercase tracking-[0.06em] mb-1.5 -ml-0.5">Admins ({admins.length})</div>
-                {admins.map(c => renderNode(c, depth + 1))}
+          <div className="ml-[9px] pl-[18px] border-l border-line-strong flex flex-col gap-2 pb-1">
+            {groups.map(g => (
+              <div key={g.key} className="flex flex-col gap-1">
+                <span className={cn("self-start text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-[0.06em]", g.color, g.dim)}>{g.label} ({g.items.length})</span>
+                {g.items.map(c => renderNode(c, depth + 1))}
               </div>
-            )}
-            {users.length > 0 && (
-              <div className="mb-1.5">
-                <div className="inline-block text-[9px] font-bold text-warning bg-warning-dim px-2 py-0.5 rounded-[20px] uppercase tracking-[0.06em] mb-1.5 -ml-0.5">Users ({users.length})</div>
-                {users.map(c => renderNode(c, depth + 1))}
-              </div>
-            )}
-            {resellers.length > 0 && (
-              <div>
-                <div className="inline-block text-[9px] font-bold text-brand-light bg-brand-dim px-2 py-0.5 rounded-[20px] uppercase tracking-[0.06em] mb-1.5 -ml-0.5">Resellers ({resellers.length})</div>
-                {resellers.map(c => renderNode(c, depth + 1))}
-              </div>
-            )}
+            ))}
           </div>
         )}
       </div>
