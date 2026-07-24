@@ -5,12 +5,14 @@ import { cn } from '../lib/utils';
 import ManageUser from './ManageUser';
 import ManageReseller from './ManageReseller';
 import ManageAdmin from './ManageAdmin';
+import AllAccounts from './AllAccounts';
 
 // Merged account management: Users / Resellers / Admins as tabs instead of three
 // separate sidebar links. Each tab is gated to the same roles the old menu items
 // allowed; a role that can reach only one gets no tab bar. Each child page keeps
 // its own header + "Add" button unchanged.
 const TABS = [
+  { key: 'all', label: 'All Accounts', roles: [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.RESELLER], Comp: AllAccounts },
   { key: 'users', label: 'Users', roles: [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.RESELLER], Comp: ManageUser },
   { key: 'resellers', label: 'Resellers', roles: [UserRole.SUPER_ADMIN, UserRole.ADMIN], Comp: ManageReseller },
   { key: 'admins', label: 'Admins', roles: [UserRole.SUPER_ADMIN], Comp: ManageAdmin },
