@@ -37,6 +37,8 @@ export default function AllCampaigns({ embedded = false }: { embedded?: boolean 
   const [perPage, setPerPage] = useState(10);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
+  const [emailSearch, setEmailSearch] = useState('');
   const [editCampaign, setEditCampaign] = useState<Campaign | null>(null);
 
   const openDetails = (id: string) => navigate(`/all-campaign/${id}`);
@@ -44,9 +46,14 @@ export default function AllCampaigns({ embedded = false }: { embedded?: boolean 
   const [updateMessage, setUpdateMessage] = useState('');
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
-  useEffect(() => { setPage(1); }, [perPage, startDate, endDate]);
+  useEffect(() => { setPage(1); }, [perPage, startDate, endDate, roleFilter, emailSearch]);
+
+  // Roles actually present in the data — avoids offering an empty option.
+  const availableRoles = [...new Set((data?.campaigns ?? []).map(c => c.userData?.role).filter(Boolean))] as string[];
 
   const filtered = (data?.campaigns ?? []).filter(c => {
+    if (roleFilter && c.userData?.role !== roleFilter) return false;
+    if (emailSearch && !(c.userData?.email ?? '').toLowerCase().includes(emailSearch.trim().toLowerCase())) return false;
     if (!startDate || !endDate) return true;
     const d = new Date(c.createdAt), s = new Date(startDate), e = new Date(endDate);
     e.setHours(23, 59, 59, 999);
@@ -95,8 +102,17 @@ export default function AllCampaigns({ embedded = false }: { embedded?: boolean 
             <span className="text-fg-subtle text-[13px]">→</span>
             <div><div className="text-[10px] text-fg-subtle mb-0.5">TO</div><input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className={dateInpCls} /></div>
           </div>
-          {(startDate || endDate) && (
-            <button onClick={() => { setStartDate(''); setEndDate(''); }} className="flex items-center gap-1 px-2.5 py-[5px] bg-surface2 border border-line-strong rounded-md cursor-pointer text-fg-muted text-xs">
+          <div><div className="text-[10px] text-fg-subtle mb-0.5">ROLE</div>
+            <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} className={cn(dateInpCls, "cursor-pointer capitalize")}>
+              <option value="" className="bg-surface2 text-fg">All roles</option>
+              {availableRoles.map(r => <option key={r} value={r} className="bg-surface2 text-fg capitalize">{r}</option>)}
+            </select>
+          </div>
+          <div><div className="text-[10px] text-fg-subtle mb-0.5">EMAIL</div>
+            <input type="search" value={emailSearch} onChange={e => setEmailSearch(e.target.value)} placeholder="Search by email…" className={cn(dateInpCls, "min-w-[180px]")} />
+          </div>
+          {(startDate || endDate || roleFilter || emailSearch) && (
+            <button onClick={() => { setStartDate(''); setEndDate(''); setRoleFilter(''); setEmailSearch(''); }} className="flex items-center gap-1 px-2.5 py-[5px] bg-surface2 border border-line-strong rounded-md cursor-pointer text-fg-muted text-xs">
               <X size={11} /> Clear
             </button>
           )}
