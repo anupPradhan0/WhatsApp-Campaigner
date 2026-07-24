@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import ReactQuill from 'react-quill-new';
 import type { FormEvent, ChangeEvent } from 'react';
 import { toast } from 'sonner';
@@ -6,7 +6,7 @@ import 'react-quill-new/dist/quill.snow.css';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { api, getErrorMessage } from '../api/client';
-import { Send, Phone, Link2, ImageIcon, Users, X, Hash, Upload, FileSpreadsheet, UserCircle, Save, AlertTriangle } from 'lucide-react';
+import { Send, Phone, Link2, ImageIcon, Users, X, Hash, Upload, FileSpreadsheet, UserCircle, Save, AlertTriangle, Eye } from 'lucide-react';
 import { getUserRole } from '../utils/Auth';
 import { UserRole } from '../constants/Roles';
 import { cn } from '../lib/utils';
@@ -280,6 +280,16 @@ const SendWhatsapp = () => {
   // Live warning: recipients exceed the (non-super-admin) balance.
   const overBalance = balance !== null && !isSuperAdmin && count > balance;
 
+  // ─── Live preview derived state ───────────────────────────────────────────────
+  // Memoized object URLs so we don't leak a new blob URL on every keystroke.
+  const mediaUrl = useMemo(() => (selectedFile && fileType === 'image') ? URL.createObjectURL(selectedFile) : null, [selectedFile, fileType]);
+  useEffect(() => () => { if (mediaUrl) URL.revokeObjectURL(mediaUrl); }, [mediaUrl]);
+  const profileUrl = useMemo(() => profileImage ? URL.createObjectURL(profileImage) : null, [profileImage]);
+  useEffect(() => () => { if (profileUrl) URL.revokeObjectURL(profileUrl); }, [profileUrl]);
+  const hasMessage = !!stripHtml(formData.message);
+  const hasPhoneBtn = !!(formData.phoneButtonText && formData.phoneButtonNumber);
+  const hasLinkBtn = !!(formData.linkButtonText && formData.linkButtonUrl);
+
   return (
     <>
       {partialConfirm && (
@@ -335,6 +345,9 @@ const SendWhatsapp = () => {
         .ql-toolbar.ql-snow .ql-formats button:hover .ql-stroke { stroke: #f4f4f5 !important; } .ql-toolbar.ql-snow .ql-formats button:hover .ql-fill { fill: #f4f4f5 !important; }
         .file-input::file-selector-button { background: rgba(22,163,74,0.15); border: 1px solid rgba(22,163,74,0.3); color: #4ade80; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; margin-right: 10px; transition: background 0.15s; }
         .file-input::file-selector-button:hover { background: rgba(22,163,74,0.25); }
+        .wa-msg p { margin: 0; } .wa-msg p + p { margin-top: 6px; }
+        .wa-msg a { color: #53bdeb; } .wa-msg ul, .wa-msg ol { padding-left: 18px; margin: 0; }
+        .wa-msg blockquote { border-left: 3px solid #53bdeb; margin: 4px 0; padding-left: 8px; color: #cfd6da; }
       `}</style>
 
       {/* Loading overlay */}
@@ -350,6 +363,7 @@ const SendWhatsapp = () => {
       <div className="flex flex-col gap-5">
         <PageHeader title="Send Campaign" subtitle="Create and send a new WhatsApp campaign to your audience." />
 
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] items-start">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
 
           {/* Campaign name */}
@@ -436,7 +450,7 @@ const SendWhatsapp = () => {
               {profileImage ? (
                 <div className="flex items-center justify-between gap-2.5 px-3.5 py-2.5 bg-brand-dim border border-brand-border rounded-lg">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <img src={URL.createObjectURL(profileImage)} alt="Profile preview" className="w-9 h-9 rounded-full object-cover flex-shrink-0 border border-brand-border" />
+                    <img src={profileUrl ?? ''} alt="Profile preview" className="w-9 h-9 rounded-full object-cover flex-shrink-0 border border-brand-border" />
                     <div className="min-w-0">
                       <p className="text-[13px] text-fg overflow-hidden text-ellipsis whitespace-nowrap">{profileImage.name}</p>
                       <p className="text-[11px] text-fg-muted">{(profileImage.size / 1024 / 1024).toFixed(2)} MB</p>
@@ -533,6 +547,49 @@ const SendWhatsapp = () => {
             </button>
           </div>
         </form>
+
+        {/* Live WhatsApp preview */}
+        <aside className="lg:sticky lg:top-4 flex flex-col gap-3 order-first lg:order-none">
+          <div className="bg-surface border border-line rounded-xl overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-line">
+              <Eye size={14} className="text-brand-light" />
+              <p className="text-[12px] font-semibold text-fg uppercase tracking-[0.06em]">Live Preview</p>
+            </div>
+            <div className="p-4" style={{ background: '#0b141a' }}>
+              <div className="flex items-start gap-2">
+                <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-surface2 border border-line flex items-center justify-center">
+                  {profileUrl ? <img src={profileUrl} alt="" className="w-full h-full object-cover" /> : <UserCircle size={20} className="text-fg-subtle" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="rounded-lg rounded-tl-none overflow-hidden shadow-[0_1px_1px_rgba(0,0,0,0.3)]" style={{ background: '#202c33' }}>
+                    {mediaUrl && <img src={mediaUrl} alt="" className="w-full max-h-44 object-cover" />}
+                    {!mediaUrl && selectedFile && fileType === 'video' && (
+                      <div className="h-24 flex items-center justify-center" style={{ background: '#111b21' }}><ImageIcon size={22} className="text-fg-subtle" /></div>
+                    )}
+                    <div className="px-2.5 py-2">
+                      {formData.campaignName && <p className="text-[13px] font-semibold mb-0.5" style={{ color: '#53bdeb' }}>{formData.campaignName}</p>}
+                      {hasMessage
+                        ? <div className="wa-msg text-[13px] leading-[1.5] break-words" style={{ color: '#e9edef' }} dangerouslySetInnerHTML={{ __html: formData.message }} />
+                        : <p className="text-[13px] italic" style={{ color: '#8696a0' }}>Your message preview appears here…</p>}
+                      <div className="text-right text-[10px] mt-1" style={{ color: '#8696a0' }}>Now</div>
+                    </div>
+                    {hasPhoneBtn && <div className="flex items-center justify-center gap-1.5 py-2 text-[13px] font-medium" style={{ color: '#53bdeb', borderTop: '1px solid #2a3942' }}><Phone size={14} /> {formData.phoneButtonText}</div>}
+                    {hasLinkBtn && <div className="flex items-center justify-center gap-1.5 py-2 text-[13px] font-medium" style={{ color: '#53bdeb', borderTop: '1px solid #2a3942' }}><Link2 size={14} /> {formData.linkButtonText}</div>}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Summary */}
+          <div className="bg-surface border border-line rounded-xl px-4 py-3 flex flex-col gap-2">
+            <div className="flex items-center justify-between text-[12px]"><span className="text-fg-subtle">Recipients</span><span className={cn("font-semibold", count > 0 ? "text-brand-light" : "text-fg-subtle")}>{count.toLocaleString()}</span></div>
+            {balance !== null && !isSuperAdmin && (
+              <div className="flex items-center justify-between text-[12px]"><span className="text-fg-subtle">Balance</span><span className={cn("font-medium", overBalance ? "text-[#f59e0b]" : "text-fg")}>₹{balance.toLocaleString()}</span></div>
+            )}
+          </div>
+        </aside>
+        </div>
       </div>
     </>
   );
