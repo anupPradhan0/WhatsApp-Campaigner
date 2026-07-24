@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  X, MessageSquare,
+  X, MessageSquare, ChevronLeft, ChevronRight,
   LayoutDashboard, Send, Wallet,
   Users,
   BarChart3,
@@ -82,24 +82,35 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         </button>
 
 
-        {/* Logo — click to collapse */}
-        <div
-          onClick={() => { setCollapsed(c => !c); setTooltip(null); }}
-          className={cn(
-            "flex items-center gap-3 p-3 rounded-xl overflow-hidden cursor-pointer transition-[margin] duration-300 ease-in-out",
-            "bg-brand/10 border border-brand/20",
-            collapsed ? "justify-center mx-1 mb-6" : "justify-start mx-4 mb-6"
-          )}
-        >
-          <div className="bg-brand shadow-[0_0_12px_rgba(22,163,74,0.4)] w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0">
-            <MessageSquare size={16} color="#fff" />
-          </div>
-          {!collapsed && (
-            <div>
-              <p className="text-fg text-[13px] font-semibold leading-tight whitespace-nowrap">WhatsApp</p>
-              <p className="text-brand-light text-[10px] font-medium tracking-[0.08em] uppercase whitespace-nowrap">Campaign Manager</p>
+        {/* Logo (→ Dashboard) + explicit collapse toggle */}
+        <div className={cn("flex items-center gap-2 mb-6", collapsed ? "flex-col mx-2" : "mx-4")}>
+          <Link
+            to="/home"
+            onClick={onClose}
+            title="Dashboard"
+            className={cn(
+              "flex items-center gap-2.5 min-w-0 rounded-lg no-underline hover:bg-white/[0.03] transition-colors",
+              collapsed ? "justify-center p-1" : "flex-1 justify-start py-1.5 pr-1"
+            )}
+          >
+            <div className="bg-brand shadow-[0_0_12px_rgba(22,163,74,0.35)] w-9 h-9 rounded-[10px] flex items-center justify-center flex-shrink-0">
+              <MessageSquare size={17} color="#fff" />
             </div>
-          )}
+            {!collapsed && (
+              <div className="min-w-0">
+                <p className="text-fg text-[13px] font-semibold leading-tight truncate">WhatsApp</p>
+                <p className="text-brand-light text-[10px] font-medium tracking-[0.08em] uppercase truncate">Campaign Manager</p>
+              </div>
+            )}
+          </Link>
+          <button
+            onClick={() => { setCollapsed(c => !c); setTooltip(null); }}
+            title={collapsed ? "Expand" : "Collapse"}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="hidden lg:flex items-center justify-center w-7 h-7 shrink-0 rounded-lg bg-white/[0.04] border border-line text-fg-muted hover:bg-white/[0.08] hover:text-fg transition-colors"
+          >
+            {collapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
+          </button>
         </div>
 
         {/* Nav */}
@@ -121,7 +132,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
               )}
               <ul className="list-none p-0 m-0 flex flex-col gap-0.5">
                 {section.items.map((item) => {
-                  const isActive = activeItem === item.path;
+                  const isActive = activeItem === item.path || activeItem.startsWith(item.path + '/');
                   const Icon = ICONS[item.path];
                   return (
                     <li
