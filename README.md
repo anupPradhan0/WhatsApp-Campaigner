@@ -32,12 +32,13 @@ A comprehensive full-stack WhatsApp campaign management system built with the ME
 ### 🎯 Core Functionality
 
 - **Campaign Management** - Create, manage, and track WhatsApp campaigns with detailed analytics
+- **Live WhatsApp Preview** - Compose campaigns with a real-time WhatsApp phone-mockup preview (message, media, CTA buttons, profile)
 - **Asynchronous Send Pipeline** - Campaigns are queued in **RabbitMQ** and processed by a worker (DLQ on permanent failure); the HTTP API returns immediately and survives restarts
 - **Redis-Backed Shared State** - Distributed login rate-limiting, JWT denylist for real logout invalidation, and `Idempotency-Key` support on campaign creation — all with safe fail-open fallbacks
 - **Credit System** - Flexible credit management for campaign operations and user balance tracking
-- **Role-Based Access Control** - Three-tier system (Admin, Reseller, User) with granular permissions
-- **Real-time Reports** - Comprehensive WhatsApp campaign analytics with exportable data
-- **User Management** - Complete user and reseller administration dashboard
+- **Role-Based Access Control** - Four-tier system (Super Admin, Admin, Reseller, User) with granular permissions
+- **Unified Reports** - WhatsApp Report page with *My Campaigns* and *All Campaigns* tabs, plus role & email filters and Excel export
+- **Unified Account Management** - Single Manage Accounts page with Users / Resellers / Admins / All Accounts tabs (role-gated), each with email search
 - **Complaint System** - Built-in ticketing for complaint handling and resolution
 - **Business Profiles** - Account and business profile management capabilities
 - **News Feed** - Platform announcements managed by admins
@@ -46,7 +47,7 @@ A comprehensive full-stack WhatsApp campaign management system built with the ME
 
 - ✅ JWT-based authentication with secure HTTP-only cookies
 - ✅ File upload support with Cloudinary CDN integration
-- ✅ Excel export functionality for comprehensive reports
+- ✅ Excel export functionality for comprehensive reports (cross-platform filenames — opens on Windows, Mac & mobile)
 - ✅ API rate limiting for DDoS protection
 - ✅ Fully responsive UI with Tailwind CSS
 - ✅ Type-safe development with TypeScript
@@ -478,11 +479,11 @@ WhatsApp-Campaigner/
 │   ├── src/
 │   │   ├── main.tsx               # App entry point
 │   │   ├── App.tsx                # Routes + providers + ErrorBoundary
-│   │   ├── pages/                 # Dashboard, SendWhatsapp, AllCampaigns,
-│   │   │                          #   WhatsAppReports, ManageUser, ManageReseller,
-│   │   │                          #   ManageBusiness, CreditReports, News,
-│   │   │                          #   Complaints, Support, TreeView, Documentation,
-│   │   │                          #   Login, NotFound
+│   │   ├── pages/                 # Dashboard, SendWhatsapp, Reports (tabs:
+│   │   │                          #   WhatsAppReports + AllCampaigns), ManageAccounts
+│   │   │                          #   (tabs: ManageUser/Reseller/Admin + AllAccounts),
+│   │   │                          #   ManageBusiness, CreditReports, News, Complaints,
+│   │   │                          #   Support, TreeView, Documentation, Login, NotFound
 │   │   ├── components/            # layout/, auth/ (ProtectedRoute), ui/ (shadcn)
 │   │   ├── hooks/                 # useDashboard, useCampaigns, useBusiness,
 │   │   │                          #   useUserManagement
@@ -597,43 +598,31 @@ GET    /api/dashboard/support                     Support page data
 
 ### Send WhatsApp Campaign
 ![Send WhatsApp](./screenshots/send-whatsapp.png)
-*Create and send WhatsApp campaigns to targeted users*
+*Create and send WhatsApp campaigns with a live WhatsApp-style preview*
+
+### WhatsApp Report
+![WhatsApp Report](./screenshots/whatsapp-report.png)
+*Campaign reports with delivery status — My Campaigns and All Campaigns in one tabbed view*
+
+### Manage Accounts
+![Manage Accounts](./screenshots/manage-accounts.png)
+*Unified account management — Users, Resellers, Admins, and All Accounts as role-gated tabs*
 
 ### Credit Management
 ![Credit Management](./screenshots/credit.png)
 *Manage user credits and transaction history*
 
-### Manage Reseller
-![Manage Reseller](./screenshots/manage-reseller.png)
-*Admin panel for reseller management and oversight*
-
-### Manage User
-![Manage User](./screenshots/manage-user.png)
-*User management dashboard with role assignments*
-
-### WhatsApp Report
-![WhatsApp Report](./screenshots/whatsapp-report.png)
-*Detailed campaign reports with delivery status and analytics*
-
-### All Campaigns
-![All Campaigns](./screenshots/all-campaign.png)
-*View all campaigns with filtering and sorting options*
+### Tree View
+![Tree View](./screenshots/tree-view.png)
+*Network hierarchy showing created Users and Resellers in a tree*
 
 ### News
 ![News](./screenshots/news.png)
 *Platform news and announcements feed*
 
-### Tree View
-![Tree View](./screenshots/tree-view.png)
-*User can see there created User and Reseller in tree view*
-
 ### Complaints
 ![Complaints](./screenshots/complaints.png)
 *Complaint tracking and resolution system*
-
-### Manage Business
-![Manage Business](./screenshots/manage-business.png)
-*Business profile and account settings management*
 
 ---
 
