@@ -14,7 +14,7 @@ import AllCampaigns from './AllCampaigns';
 export default function Reports() {
   const navigate = useNavigate();
   const role = getUserRole();
-  const canSeeAll = role === UserRole.ADMIN || role === UserRole.RESELLER;
+  const canSeeAll = role === UserRole.SUPER_ADMIN || role === UserRole.ADMIN || role === UserRole.RESELLER;
   const [tab, setTab] = useState<'mine' | 'all'>('mine');
 
   return (

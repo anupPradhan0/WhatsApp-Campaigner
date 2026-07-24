@@ -983,10 +983,12 @@ const allCampaigns = async (req: Request, res: Response) => {
     // every campaign created anywhere in their downline — not just their direct
     // children, but also a reseller's users, sub-resellers, and so on.
     if (!isSuperAdmin(user.role)) {
-      const downlineIds = await collectDownlineIds(
-        new mongoose.Types.ObjectId(user._id)
-      );
-      filter = { createdBy: { $in: downlineIds } };
+      const selfId = new mongoose.Types.ObjectId(user._id);
+      // Include the manager's own campaigns — collectDownlineIds excludes the
+      // manager themselves, so without selfId an admin's own campaigns never
+      // appear here (and the Edit-Status action lives only on this list).
+      const downlineIds = await collectDownlineIds(selfId);
+      filter = { createdBy: { $in: [selfId, ...downlineIds] } };
     }
 
     // Fetch latest 50 campaigns
