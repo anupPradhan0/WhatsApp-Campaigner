@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   X, MessageSquare,
   LayoutDashboard, Send, Wallet,
-  Users, UserCheck, ShieldCheck,
+  Users,
   BarChart3,
   Newspaper, GitBranch, AlertCircle, Building2,
 } from 'lucide-react';
@@ -15,9 +15,7 @@ const ICONS: Record<string, React.FC<{ size?: number; color?: string }>> = {
   '/home':            LayoutDashboard,
   '/send-whatsapp':   Send,
   '/credits':         Wallet,
-  '/manage-admin':    ShieldCheck,
-  '/manage-reseller': Users,
-  '/manage-users':    UserCheck,
+  '/manage-accounts': Users,
   '/whatsapp-report': BarChart3,
   '/news':            Newspaper,
   '/tree-view':       GitBranch,

@@ -14,9 +14,7 @@ import DashboardPage from './pages/Dashboard';
 import CreditReportsPage from './pages/CreditReports';
 import NewsPage from './pages/News';
 import ComplaintsPage from './pages/Complaints';
-import ManageResellerPage from './pages/ManageReseller';
-import ManageUserPage from './pages/ManageUser';
-import ManageAdminPage from './pages/ManageAdmin';
+import ManageAccountsPage from './pages/ManageAccounts';
 import TreeViewPage from './pages/TreeView';
 import ReportsPage from './pages/Reports';
 import CampaignDetailsPage from './pages/CampaignDetails';
@@ -42,9 +40,10 @@ function App() {
               <Route path="/home"           element={wrapped(DashboardPage)} />
               <Route path="/send-whatsapp"  element={wrapped(SendWhatsapp)} />
               <Route path="/credits"        element={wrapped(CreditReportsPage)} />
-              <Route path="/manage-admin"   element={wrapped(ManageAdminPage)} />
-              <Route path="/manage-reseller"element={wrapped(ManageResellerPage)} />
-              <Route path="/manage-users"   element={wrapped(ManageUserPage)} />
+              <Route path="/manage-accounts" element={wrapped(ManageAccountsPage)} />
+              <Route path="/manage-admin"   element={<Navigate to="/manage-accounts" replace />} />
+              <Route path="/manage-reseller"element={<Navigate to="/manage-accounts" replace />} />
+              <Route path="/manage-users"   element={<Navigate to="/manage-accounts" replace />} />
               <Route path="/whatsapp-report"element={wrapped(ReportsPage)} />
               <Route path="/whatsapp-report/:campaignId" element={wrapped(CampaignDetailsPage)} />
               <Route path="/all-campaign"   element={<Navigate to="/whatsapp-report" replace />} />
