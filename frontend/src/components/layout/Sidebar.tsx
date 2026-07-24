@@ -4,7 +4,7 @@ import {
   X, MessageSquare,
   LayoutDashboard, Send, Wallet,
   Users, UserCheck, ShieldCheck,
-  BarChart3, Megaphone,
+  BarChart3,
   Newspaper, GitBranch, AlertCircle, Building2,
 } from 'lucide-react';
 import { menuConfig, UserRole, type MenuSection } from '../../constants/Roles';
@@ -19,7 +19,6 @@ const ICONS: Record<string, React.FC<{ size?: number; color?: string }>> = {
   '/manage-reseller': Users,
   '/manage-users':    UserCheck,
   '/whatsapp-report': BarChart3,
-  '/all-campaign':    Megaphone,
   '/news':            Newspaper,
   '/tree-view':       GitBranch,
   '/complaints':      AlertCircle,

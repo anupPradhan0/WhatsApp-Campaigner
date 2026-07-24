@@ -25,7 +25,7 @@ const stripHtml = (h: string) => {
 const trunc = (s: string, n = 80) => s.length <= n ? s : s.slice(0, n) + '…';
 const dateInpCls = "bg-surface2 border border-line rounded-[7px] text-fg text-xs px-2.5 py-1.5 outline-none [color-scheme:dark]";
 
-export default function AllCampaigns() {
+export default function AllCampaigns({ embedded = false }: { embedded?: boolean }) {
   const userRole = getUserRole();
   // Admins and the super admin can edit a campaign's delivery status (backend
   // authorizes the super admin via userCanViewCampaign).
@@ -82,7 +82,7 @@ export default function AllCampaigns() {
       )}
 
       <div className="flex flex-col gap-4">
-        <PageHeader title="All Campaigns" subtitle="Latest 50 campaigns from all users" />
+        {!embedded && <PageHeader title="All Campaigns" subtitle="Latest 50 campaigns from all users" />}
 
         {error && <div className="px-3.5 py-2.5 bg-danger-dim border border-danger-border rounded-lg"><p className="text-danger text-[13px]">{error}</p></div>}
 

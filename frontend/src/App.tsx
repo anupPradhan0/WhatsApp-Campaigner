@@ -18,9 +18,8 @@ import ManageResellerPage from './pages/ManageReseller';
 import ManageUserPage from './pages/ManageUser';
 import ManageAdminPage from './pages/ManageAdmin';
 import TreeViewPage from './pages/TreeView';
-import WhatsAppReportsPage from './pages/WhatsAppReports';
+import ReportsPage from './pages/Reports';
 import CampaignDetailsPage from './pages/CampaignDetails';
-import AllCampaignPage from './pages/AllCampaigns';
 import DocumentationPage from './pages/Documentation';
 import SupportPage from './pages/Support';
 import NotFoundPage from './pages/NotFound';
@@ -46,9 +45,9 @@ function App() {
               <Route path="/manage-admin"   element={wrapped(ManageAdminPage)} />
               <Route path="/manage-reseller"element={wrapped(ManageResellerPage)} />
               <Route path="/manage-users"   element={wrapped(ManageUserPage)} />
-              <Route path="/whatsapp-report"element={wrapped(WhatsAppReportsPage)} />
+              <Route path="/whatsapp-report"element={wrapped(ReportsPage)} />
               <Route path="/whatsapp-report/:campaignId" element={wrapped(CampaignDetailsPage)} />
-              <Route path="/all-campaign"   element={wrapped(AllCampaignPage)} />
+              <Route path="/all-campaign"   element={<Navigate to="/whatsapp-report" replace />} />
               <Route path="/all-campaign/:campaignId" element={wrapped(CampaignDetailsPage)} />
               <Route path="/news"           element={wrapped(NewsPage)} />
               <Route path="/tree-view"      element={wrapped(TreeViewPage)} />

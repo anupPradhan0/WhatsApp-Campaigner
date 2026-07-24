@@ -24,7 +24,7 @@ const trunc = (s: string, n = 80) => s.length <= n ? s : s.slice(0, n) + '…';
 const fmtDate = (s: string) => { try { return format(new Date(s), 'dd MMM yyyy, hh:mm a'); } catch { return s; } };
 const dateInpCls = "bg-surface2 border border-line rounded-[7px] text-fg text-xs px-2.5 py-1.5 outline-none [color-scheme:dark]";
 
-export default function WhatsAppReports() {
+export default function WhatsAppReports({ embedded = false }: { embedded?: boolean }) {
   const navigate = useNavigate();
   const { data, loading, error, refetch, downloadExcel, downloading, dlError, clearDlError } = useCampaigns('/api/dashboard/whatsapp-reports');
   const [page, setPage] = useState(1);
@@ -109,15 +109,17 @@ export default function WhatsAppReports() {
       )}
 
       <div className="flex flex-col gap-4">
-        <PageHeader
-          title="WhatsApp Reports"
-          subtitle={`${data?.totalCampaigns ?? 0} total campaigns`}
-          action={
-            <button onClick={() => navigate('/send-whatsapp')} className="flex items-center gap-[7px] px-4 py-[9px] bg-brand text-white font-semibold text-[13px] border-none rounded-lg cursor-pointer">
-              <Plus size={15} /> New Campaign
-            </button>
-          }
-        />
+        {!embedded && (
+          <PageHeader
+            title="WhatsApp Reports"
+            subtitle={`${data?.totalCampaigns ?? 0} total campaigns`}
+            action={
+              <button onClick={() => navigate('/send-whatsapp')} className="flex items-center gap-[7px] px-4 py-[9px] bg-brand text-white font-semibold text-[13px] border-none rounded-lg cursor-pointer">
+                <Plus size={15} /> New Campaign
+              </button>
+            }
+          />
+        )}
 
         {error && <div className="px-3.5 py-2.5 bg-danger-dim border border-danger-border rounded-lg"><p className="text-danger text-[13px]">{error}</p></div>}
 

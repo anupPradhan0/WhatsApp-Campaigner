@@ -65,15 +65,10 @@ export enum UserRole {
         //   path: '/credit-reports',
         //   allowedRoles: [UserRole.ADMIN, UserRole.RESELLER, UserRole.USER]
         // },
-        { 
-          label: 'WhatsApp Report', 
+        {
+          label: 'WhatsApp Report',
           path: '/whatsapp-report',
           allowedRoles: [UserRole.ADMIN, UserRole.RESELLER, UserRole.USER]
-        },
-        {
-          label: 'All Campaign',
-          path: '/all-campaign',
-          allowedRoles: [UserRole.ADMIN, UserRole.RESELLER]
         }
       ]
     },
