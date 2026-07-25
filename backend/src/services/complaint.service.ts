@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
-import type { Types } from "mongoose";
+import type { Types, ClientSession } from "mongoose";
+import { supportsTransactions } from "../utils/transaction-support.utils.js";
 import {
   ComplaintStatus,
 } from "../models/complaint.model.js";
@@ -22,8 +23,13 @@ export async function createComplaintWithLink(
   userId: Types.ObjectId,
   body: CreateComplaintBody
 ): Promise<{ complaintId: Types.ObjectId; createdAt: Date }> {
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  // Standalone Mongo can't run transactions; fall back to session-less writes.
+  const useTransaction = await supportsTransactions();
+  const session: ClientSession | null = useTransaction
+    ? await mongoose.startSession()
+    : null;
+  if (session) session.startTransaction();
+  const sOpt = session ?? undefined;
 
   try {
     const created = await createComplaints(
@@ -35,7 +41,7 @@ export async function createComplaintWithLink(
           status: ComplaintStatus.PENDING,
         },
       ],
-      session
+      sOpt
     );
 
     const newComplaint = created[0];
@@ -43,20 +49,20 @@ export async function createComplaintWithLink(
     await updateOneUser(
       { _id: userId },
       { $push: { allComplaint: newComplaint._id } },
-      { session }
+      { session: sOpt }
     );
 
-    await session.commitTransaction();
+    if (session) await session.commitTransaction();
 
     return {
       complaintId: newComplaint._id as Types.ObjectId,
       createdAt: newComplaint.createdAt,
     };
   } catch (error) {
-    await session.abortTransaction();
+    if (session) await session.abortTransaction();
     throw error;
   } finally {
-    await session.endSession();
+    if (session) await session.endSession();
   }
 }
 
@@ -65,11 +71,15 @@ export async function deleteComplaintWithLink(
   userRole: UserRole,
   complaintId: string
 ): Promise<void> {
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  const useTransaction = await supportsTransactions();
+  const session: ClientSession | null = useTransaction
+    ? await mongoose.startSession()
+    : null;
+  if (session) session.startTransaction();
+  const sOpt = session ?? undefined;
 
   try {
-    const complaint = await findComplaintById(complaintId, session);
+    const complaint = await findComplaintById(complaintId, sOpt);
 
     if (!complaint) {
       throw new Error("NOT_FOUND");
@@ -95,20 +105,20 @@ export async function deleteComplaintWithLink(
       }
     }
 
-    await deleteComplaintById(complaintId, session);
+    await deleteComplaintById(complaintId, sOpt);
 
     await updateOneUser(
       { _id: complaint.createdBy },
       { $pull: { allComplaint: complaintId } },
-      { session }
+      { session: sOpt }
     );
 
-    await session.commitTransaction();
+    if (session) await session.commitTransaction();
   } catch (error) {
-    await session.abortTransaction();
+    if (session) await session.abortTransaction();
     throw error;
   } finally {
-    await session.endSession();
+    if (session) await session.endSession();
   }
 }
 
