@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { format } from 'date-fns';
-import { Plus, Eye, Edit2, DollarSign, Minus, Lock, Unlock, Trash2, CheckCircle2 } from 'lucide-react';
-import { getUserRole } from '../utils/Auth';
+import { Plus, Eye, Edit2, DollarSign, Minus, Lock, Unlock, Trash2, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { getUserRole, hasPermission } from '../utils/Auth';
+import { PERMISSIONS } from '../constants/Permissions';
+import { PermissionsModal } from '../components/PermissionsModal';
 import { UserRole } from '../constants/Roles';
 import { useUserManagement } from '../hooks/useUserManagement';
 import { cn } from '../lib/utils';
@@ -27,8 +29,10 @@ const ManageAdmin = () => {
     total, items,
     setCreateForm, setEditForm, setCreditAmt, setDebitAmt,
     openModal, closeModal,
-    handleCreate, handleEdit, handleAddCredit, handleRemoveCredit, handleFreeze, handleDelete,
+    handleCreate, handleEdit, handleAddCredit, handleRemoveCredit, handleFreeze, handleDelete, handleSetPermissions,
   } = useUserManagement('manage-admin', 'admins');
+
+  const canGrantAny = PERMISSIONS.some(p => hasPermission(p.key));
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -109,6 +113,7 @@ const ManageAdmin = () => {
                       <div className="flex gap-[5px]">
                         <ActionBtn icon={Eye}         color="var(--color-info)"        bg="var(--color-info-dim)"  title="View"          onClick={() => openModal('view', r)} />
                         <ActionBtn icon={Edit2}        color="var(--color-warning)"     bg="var(--color-warning-dim)" title="Edit"          onClick={() => openModal('edit', r)} />
+                        {canGrantAny && <ActionBtn icon={ShieldCheck} color="var(--color-brand-light)" bg="var(--color-brand-dim)" title="Permissions" onClick={() => openModal('permissions', r)} />}
                         <ActionBtn icon={DollarSign}   color="var(--color-brand-light)" bg="var(--color-brand-dim)" title="Add Credit"   onClick={() => openModal('addCredit', r)} />
                         <ActionBtn icon={Minus}        color="var(--color-danger)"      bg="var(--color-danger-dim)"   title="Remove Credit" onClick={() => openModal('removeCredit', r)} />
                         <ActionBtn icon={r.status === 'active' ? Lock : Unlock} color={r.status === 'active' ? 'var(--color-danger)' : 'var(--color-brand-light)'} bg={r.status === 'active' ? 'var(--color-danger-dim)' : 'var(--color-brand-dim)'} title={r.status === 'active' ? 'Freeze' : 'Unfreeze'} onClick={() => openModal('freeze', r)} />
@@ -145,6 +150,7 @@ const ManageAdmin = () => {
               <div className="grid grid-cols-6 gap-1.5">
                 <ActionBtn icon={Eye}         color="var(--color-info)"        bg="var(--color-info-dim)"  title="View"          onClick={() => openModal('view', r)} />
                 <ActionBtn icon={Edit2}        color="var(--color-warning)"     bg="var(--color-warning-dim)" title="Edit"          onClick={() => openModal('edit', r)} />
+                        {canGrantAny && <ActionBtn icon={ShieldCheck} color="var(--color-brand-light)" bg="var(--color-brand-dim)" title="Permissions" onClick={() => openModal('permissions', r)} />}
                 <ActionBtn icon={DollarSign}   color="var(--color-brand-light)" bg="var(--color-brand-dim)" title="Add Credit"   onClick={() => openModal('addCredit', r)} />
                 <ActionBtn icon={Minus}        color="var(--color-danger)"      bg="var(--color-danger-dim)"   title="Remove Credit" onClick={() => openModal('removeCredit', r)} />
                 <ActionBtn icon={r.status === 'active' ? Lock : Unlock} color={r.status === 'active' ? 'var(--color-danger)' : 'var(--color-brand-light)'} bg={r.status === 'active' ? 'var(--color-danger-dim)' : 'var(--color-brand-dim)'} title={r.status === 'active' ? 'Freeze' : 'Unfreeze'} onClick={() => openModal('freeze', r)} />
@@ -347,6 +353,17 @@ const ManageAdmin = () => {
             </ModalFooter>
           </div>
         </ModalOverlay>
+      )}
+
+      {modal === 'permissions' && selected && (
+        <PermissionsModal
+          name={selected.companyName}
+          initial={selected.permissions ?? []}
+          loading={actionLoading}
+          error={error}
+          onClose={closeModal}
+          onSave={handleSetPermissions}
+        />
       )}
     </>
   );

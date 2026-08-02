@@ -10,6 +10,8 @@ import {
   unfreezeUserAccount,
   updateManagedUser,
 } from "../services/user.service.js";
+import { setUserPermissions } from "../services/permission.service.js";
+import type { SetPermissionsBody } from "../validation/user.schemas.js";
 
 function mapUserServiceError(err: unknown): { status: number; message: string } {
   const code = err instanceof Error ? (err as Error & { code?: string }).code : undefined;
@@ -84,6 +86,11 @@ function mapUserServiceError(err: unknown): { status: number; message: string } 
         status: 403,
         message:
           "You can only manage accounts in your own downline (the accounts you created).",
+      };
+    case "PERMISSION_DENIED":
+      return {
+        status: 403,
+        message: "You can only grant permissions that you hold yourself.",
       };
     case "CANNOT_TARGET_SELF":
       return {
@@ -303,6 +310,43 @@ export async function changePassword(req: Request, res: Response): Promise<Respo
     });
   } catch (error: unknown) {
     console.error("Error changing password:", error);
+    const { status, message } = mapUserServiceError(error);
+    return res.status(status).json({
+      success: false,
+      message,
+      error: error instanceof Error ? error.message : undefined,
+    });
+  }
+}
+
+export async function updatePermissions(
+  req: Request,
+  res: Response
+): Promise<Response> {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required.",
+      });
+    }
+
+    const targetId = pathParam(req.params.userId);
+    const body = req.body as SetPermissionsBody;
+
+    const permissions = await setUserPermissions(
+      req.user,
+      targetId,
+      body.permissions
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Permissions updated successfully.",
+      data: { permissions },
+    });
+  } catch (error: unknown) {
+    console.error("Error updating permissions:", error);
     const { status, message } = mapUserServiceError(error);
     return res.status(status).json({
       success: false,

@@ -8,7 +8,7 @@ import axios from 'axios';
 import { api, getErrorMessage } from '../api/client';
 import { Send, Phone, Link2, ImageIcon, Users, X, Hash, Upload, FileSpreadsheet, UserCircle, Save, AlertTriangle, Eye } from 'lucide-react';
 import { WhatsAppPreview } from '../components/WhatsAppPreview';
-import { getUserRole } from '../utils/Auth';
+import { getUserRole, hasPermission } from '../utils/Auth';
 import { UserRole } from '../constants/Roles';
 import { cn } from '../lib/utils';
 import { fieldCls } from '../theme/classes';
@@ -77,16 +77,25 @@ const SendWhatsapp = () => {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [partialConfirm, setPartialConfirm] = useState<{ affordable: number; requested: number } | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
+  const [canActionButtons, setCanActionButtons] = useState(hasPermission('actionButtons'));
   const userRole = getUserRole();
   const isSuperAdmin = userRole === UserRole.SUPER_ADMIN;
 
   // Fetch the current balance so we can warn (live) before the user even clicks
-  // Send. Best-effort — the server re-checks on submit regardless.
+  // Send. Best-effort — the server re-checks on submit regardless. Also refresh
+  // the stored permissions so a just-granted capability shows without re-login.
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await api.get<{ success: boolean; data?: { balance?: number } }>('/api/dashboard/home');
+        const { data } = await api.get<{ success: boolean; data?: { balance?: number; permissions?: string[] } }>('/api/dashboard/home');
         if (data.success && typeof data.data?.balance === 'number') setBalance(data.data.balance);
+        if (data.success && Array.isArray(data.data?.permissions)) {
+          try {
+            const u = JSON.parse(localStorage.getItem('user') || '{}');
+            localStorage.setItem('user', JSON.stringify({ ...u, permissions: data.data.permissions }));
+          } catch { /* ignore */ }
+          setCanActionButtons(hasPermission('actionButtons'));
+        }
       } catch { /* ignore — balance warning is optional */ }
     })();
   }, []);
@@ -382,7 +391,8 @@ const SendWhatsapp = () => {
             </div>
           </SectionCard>
 
-          {/* Action Buttons */}
+          {/* Action Buttons — gated behind the actionButtons permission */}
+          {canActionButtons && (
           <SectionCard>
             <SectionTitle icon={Phone}>Action Buttons (Optional)</SectionTitle>
             <div className="grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">
@@ -402,6 +412,7 @@ const SendWhatsapp = () => {
               </div>
             </div>
           </SectionCard>
+          )}
 
           {/* Media */}
           <SectionCard>

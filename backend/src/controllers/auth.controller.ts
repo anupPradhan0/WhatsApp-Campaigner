@@ -9,6 +9,7 @@ import {
 import { clearAuthCookie, setAuthCookie } from "../utils/cookie.utils.js";
 import { generateToken } from "../utils/generate-token.utils.js";
 import { revokeToken } from "../services/token-denylist.service.js";
+import { effectivePermissions } from "../utils/permission.utils.js";
 
 function mapAuthError(err: unknown): { status: number; message: string } {
   if (!(err instanceof Error)) {
@@ -69,6 +70,7 @@ export async function registration(
         role: user.role,
         balance: user.balance,
         image: user.image,
+        permissions: effectivePermissions(user),
         _id: user._id,
       },
     });
@@ -96,6 +98,7 @@ export async function login(req: Request, res: Response): Promise<Response> {
         role: user.role,
         companyName: user.companyName,
         image: user.image,
+        permissions: effectivePermissions(user),
       },
     });
   } catch (error: unknown) {
@@ -147,6 +150,7 @@ export async function bootstrapAdminHandler(
         role: user.role,
         balance: user.balance,
         image: user.image,
+        permissions: effectivePermissions(user),
         _id: user._id,
       },
     });

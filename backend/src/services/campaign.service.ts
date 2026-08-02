@@ -11,6 +11,8 @@ import {
   findCampaignById,
 } from "../repositories/campaign.repository.js";
 import { isSuperAdmin } from "../utils/role-hierarchy.utils.js";
+import { hasPermission } from "../utils/permission.utils.js";
+import { Permission } from "../constants/permissions.js";
 import {
   findUserById,
   saveUser,
@@ -150,14 +152,16 @@ export async function createCampaignForUser(
         : "Campaign is in the pending state.",
     };
 
-    if (phoneButtonText && phoneButtonNumber) {
+    const canUseActionButtons = hasPermission(user, Permission.ACTION_BUTTONS);
+
+    if (canUseActionButtons && phoneButtonText && phoneButtonNumber) {
       campaignData.phoneButton = {
         text: phoneButtonText,
         number: phoneButtonNumber,
       };
     }
 
-    if (linkButtonText && linkButtonUrl) {
+    if (canUseActionButtons && linkButtonText && linkButtonUrl) {
       campaignData.linkButton = {
         text: linkButtonText,
         url: linkButtonUrl,

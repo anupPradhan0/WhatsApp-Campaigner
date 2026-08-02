@@ -34,7 +34,12 @@ export const updateUserBodySchema = z.object({
   number: z.coerce.number().int().positive().optional(),
 });
 
+export const setPermissionsBodySchema = z.object({
+  permissions: z.array(z.string()).default([]),
+});
+
 export type CreateUserBody = z.infer<typeof createUserBodySchema>;
 export type ChangePasswordBody = z.infer<typeof changePasswordBodySchema>;
 export type ChangeOwnPasswordBody = z.infer<typeof changeOwnPasswordBodySchema>;
 export type UpdateUserBody = z.infer<typeof updateUserBodySchema>;
+export type SetPermissionsBody = z.infer<typeof setPermissionsBodySchema>;

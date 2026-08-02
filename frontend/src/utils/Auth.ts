@@ -4,6 +4,7 @@ import { UserRole } from '../constants/Roles';
 interface StoredUser {
   email: string;
   role: string;
+  permissions?: string[];
 }
 
 interface JwtPayload {
@@ -18,6 +19,18 @@ export const getUserRole = (): UserRole | null => {
     return user.role as UserRole;
   } catch {
     return null;
+  }
+};
+
+export const hasPermission = (perm: string): boolean => {
+  const userStr = localStorage.getItem('user');
+  if (!userStr) return false;
+  try {
+    const user: StoredUser = JSON.parse(userStr);
+    if (user.role === UserRole.SUPER_ADMIN) return true;
+    return Array.isArray(user.permissions) && user.permissions.includes(perm);
+  } catch {
+    return false;
   }
 };
 

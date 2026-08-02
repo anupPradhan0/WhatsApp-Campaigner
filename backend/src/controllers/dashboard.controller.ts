@@ -17,6 +17,7 @@ import Campaign, {
 import { pathParam } from "../utils/route-params.utils.js";
 import { userCanViewCampaign } from "../utils/campaign-access.utils.js";
 import { collectDownlineIds } from "../utils/downline.utils.js";
+import { effectivePermissions } from "../utils/permission.utils.js";
 import Transaction from "../models/transaction.model.js";
 import User from "../models/user.model.js";
 import News from "../models/news.model.js";
@@ -244,6 +245,7 @@ const dashboard = async (req: Request, res: Response) => {
         image: user.image,
         role: user.role,
         balance: user.balance,
+        permissions: effectivePermissions(user),
         totalReseller,
         totalUsers,
         totalCampaigns,
@@ -557,6 +559,7 @@ const manageReseller = async (req: Request, res: Response) => {
       userCount: reseller.allUsers?.length || 0,
       totalCampaigns: reseller.totalCampaigns || 0,
       balance: reseller.balance || 0,
+      permissions: reseller.permissions ?? [],
       status: reseller.status,
       createdAt: reseller.createdAt,
     }));
@@ -647,6 +650,7 @@ const manageUser = async (req: Request, res: Response) => {
       userCount: user.allUsers?.length || 0,
       totalCampaigns: user.totalCampaigns || 0,
       balance: user.balance || 0,
+      permissions: user.permissions ?? [],
       status: user.status,
       createdAt: user.createdAt,
     }));
@@ -712,6 +716,7 @@ const manageAdmin = async (req: Request, res: Response) => {
       userCount: admin.allUsers?.length || 0,
       totalCampaigns: admin.totalCampaigns || 0,
       balance: admin.balance || 0,
+      permissions: admin.permissions ?? [],
       status: admin.status,
       createdAt: admin.createdAt,
     }));

@@ -9,6 +9,7 @@ import {
   updateUser,
   changePassword,
   changeOwnPasswordHandler,
+  updatePermissions,
 } from "../controllers/user.controller.js";
 import checkUserStatus from "../middleware/check-user-status.middleware.js";
 import hasAuthority from "../middleware/role.middleware.js";
@@ -19,6 +20,7 @@ import {
   changePasswordBodySchema,
   createUserBodySchema,
   updateUserBodySchema,
+  setPermissionsBodySchema,
 } from "../validation/user.schemas.js";
 import { userIdParamSchema } from "../validation/auth.schemas.js";
 
@@ -82,6 +84,16 @@ router.put(
   upload.none(),
   validateBody(changeOwnPasswordBodySchema),
   changeOwnPasswordHandler
+);
+router.put(
+  "/permissions/:userId",
+  isLoggedIn,
+  checkUserStatus,
+  hasAuthority,
+  upload.none(),
+  validateParams(userIdParamSchema),
+  validateBody(setPermissionsBodySchema),
+  updatePermissions
 );
 
 export default router;

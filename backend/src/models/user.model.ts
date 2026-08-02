@@ -31,6 +31,7 @@ export interface IUser extends Document {
   allComplaint: mongoose.Types.ObjectId[];
   totalCampaigns: number;
   balance: number;
+  permissions: string[];
   status: UserStatus;
   deletedAt?: Date;
   createdAt: Date;
@@ -126,6 +127,10 @@ const userSchema = new Schema<IUser>(
         ref: "Complaint",
       },
     ],
+    permissions: {
+      type: [String],
+      default: [],
+    },
     status: {
       type: String,
       enum: Object.values(UserStatus),

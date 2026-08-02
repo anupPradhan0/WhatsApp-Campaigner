@@ -16,6 +16,7 @@ export interface ManagedUser {
   status: 'active' | 'inactive' | 'deleted';
   createdAt: string;
   image: string;
+  permissions?: string[];
 }
 
 export interface UsersData {
@@ -84,7 +85,7 @@ export function useUserManagement(endpoint: string, listKey: ListKey) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [selected, setSelected] = useState<ManagedUser | null>(null);
-  const [modal, setModal] = useState<'create' | 'view' | 'edit' | 'addCredit' | 'removeCredit' | 'freeze' | 'delete' | null>(null);
+  const [modal, setModal] = useState<'create' | 'view' | 'edit' | 'addCredit' | 'removeCredit' | 'freeze' | 'delete' | 'permissions' | null>(null);
   const [createForm, setCreateForm] = useState<CreateForm>(blankCreate(listKey));
   const [editForm, setEditForm] = useState<EditForm>({ companyName: '', email: '', number: '', password: '', confirmPassword: '' });
   const [creditAmt, setCreditAmt] = useState('');
@@ -179,6 +180,15 @@ export function useUserManagement(endpoint: string, listKey: ListKey) {
     onError: (e) => setError(getErrorMessage(e)),
   });
 
+  const setPermsMut = useMutation({
+    mutationFn: async ({ id, permissions }: { id: string; permissions: string[] }) => {
+      const { data: r } = await api.put<{ success: boolean; message?: string }>(`/api/user/permissions/${id}`, { permissions });
+      if (!r.success) throw new Error(r.message || 'Failed');
+    },
+    onSuccess: () => { closeModal(); invalidate(); toast('Permissions updated!'); },
+    onError: (e) => setError(getErrorMessage(e)),
+  });
+
   // ─── Helpers ─────────────────────────────────────────────────────────────────
   const openModal = (type: typeof modal, r?: ManagedUser) => {
     setError(''); setSuccess('');
@@ -233,8 +243,14 @@ export function useUserManagement(endpoint: string, listKey: ListKey) {
     deleteMut.mutate(selected.id);
   };
 
+  const handleSetPermissions = (permissions: string[]) => {
+    if (!selected) return;
+    setError('');
+    setPermsMut.mutate({ id: selected.id, permissions });
+  };
+
   const actionLoading = createMut.isPending || editMut.isPending || addCreditMut.isPending
-    || removeCreditMut.isPending || freezeMut.isPending || deleteMut.isPending;
+    || removeCreditMut.isPending || freezeMut.isPending || deleteMut.isPending || setPermsMut.isPending;
 
   const total = listKey === 'resellers'
     ? (data as ResellersData | undefined)?.totalResellers ?? 0
@@ -256,7 +272,7 @@ export function useUserManagement(endpoint: string, listKey: ListKey) {
     total, items,
     setCreateForm, setEditForm, setCreditAmt, setDebitAmt,
     openModal, closeModal,
-    handleCreate, handleEdit, handleAddCredit, handleRemoveCredit, handleFreeze, handleDelete,
+    handleCreate, handleEdit, handleAddCredit, handleRemoveCredit, handleFreeze, handleDelete, handleSetPermissions,
     refetch: () => qc.invalidateQueries({ queryKey }),
   };
 }
