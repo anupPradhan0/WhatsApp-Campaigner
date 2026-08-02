@@ -186,11 +186,11 @@ const SendWhatsapp = () => {
     data.append('mobileNumberEntryType', formData.mobileNumberEntryType);
     data.append('mobileNumbers', formData.mobileNumbers);
     data.append('countryCode', formData.countryCode);
-    if (formData.phoneButtonText && formData.phoneButtonNumber) {
+    if (canActionButtons && formData.phoneButtonText && formData.phoneButtonNumber) {
       data.append('phoneButtonText', formData.phoneButtonText);
       data.append('phoneButtonNumber', formData.phoneButtonNumber);
     }
-    if (formData.linkButtonText && formData.linkButtonUrl) {
+    if (canActionButtons && formData.linkButtonText && formData.linkButtonUrl) {
       data.append('linkButtonText', formData.linkButtonText);
       data.append('linkButtonUrl', formData.linkButtonUrl);
     }

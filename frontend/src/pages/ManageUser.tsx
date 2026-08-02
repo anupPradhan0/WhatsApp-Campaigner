@@ -361,6 +361,7 @@ const ManageUser = () => {
 
       {modal === 'permissions' && selected && (
         <PermissionsModal
+          key={selected.id}
           name={selected.companyName}
           initial={selected.permissions ?? []}
           loading={actionLoading}

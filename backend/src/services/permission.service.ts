@@ -30,7 +30,7 @@ export async function setUserPermissions(
   const clean: string[] = Array.from(new Set(requested.filter(isValidPermission)));
 
   const target = await User.findById(targetId).select(
-    "role permissions"
+    "role permissions userID"
   );
   if (!target) throw codeErr("USER_NOT_FOUND");
   if (target._id.toString() === actor._id.toString())
@@ -38,7 +38,6 @@ export async function setUserPermissions(
   if (target.role === UserRole.SUPER_ADMIN)
     throw codeErr("CANNOT_TARGET_SUPER_ADMIN");
 
-  // Actor must manage the target.
   if (!isSuperAdmin(actor.role)) {
     const downline = await collectDownlineIds(
       new mongoose.Types.ObjectId(actor._id)
@@ -47,19 +46,19 @@ export async function setUserPermissions(
       throw codeErr("NOT_YOUR_USER");
   }
 
-  // Can only grant what the actor holds.
-  const actorPerms = new Set<string>(effectivePermissions(actor));
+  const parent = target.userID
+    ? await User.findById(target.userID).select("role permissions")
+    : null;
+  const ceiling = new Set<string>(
+    parent ? effectivePermissions(parent) : effectivePermissions(actor)
+  );
   for (const p of clean) {
-    if (!actorPerms.has(p)) throw codeErr("PERMISSION_DENIED");
+    if (!ceiling.has(p)) throw codeErr("PERMISSION_DENIED");
   }
 
   const before = new Set(target.permissions ?? []);
   const removed = [...before].filter((p) => !clean.includes(p));
 
-  target.permissions = clean;
-  await target.save();
-
-  // Cascade-revoke removed perms down the target's subtree.
   if (removed.length) {
     const subtree = await collectDownlineIds(
       new mongoose.Types.ObjectId(targetId)
@@ -71,6 +70,9 @@ export async function setUserPermissions(
       );
     }
   }
+
+  target.permissions = clean;
+  await target.save();
 
   return clean;
 }
