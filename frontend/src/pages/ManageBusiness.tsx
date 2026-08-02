@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Building2, Camera, Lock, Phone, Eye, EyeOff, CheckCircle, AlertCircle, X } from 'lucide-react';
+import { Building2, Camera, Lock, Phone, Eye, EyeOff, CheckCircle, AlertCircle, X, Upload } from 'lucide-react';
 import { useBusiness } from '../hooks/useBusiness';
 import { cn } from '../lib/utils';
 import { fieldCls } from '../theme/classes';
@@ -54,7 +54,7 @@ export default function ManageBusiness() {
 
         {/* Profile info */}
         <SectionCard icon={<Building2 size={16} className="text-brand-light" />} title="Profile Information">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FInput label="Company Name" type="text" name="companyName" value={formData.companyName} onChange={e => setFormData(p => ({ ...p, companyName: e.target.value }))} disabled={loading} />
             <FInput label="Email Address" type="email" name="email" value={formData.email} onChange={e => setFormData(p => ({ ...p, email: e.target.value }))} disabled={loading} />
             <div>
@@ -77,23 +77,26 @@ export default function ManageBusiness() {
 
         {/* Logo */}
         <SectionCard icon={<Camera size={16} className="text-info" />} title="Business Logo">
-          {previewUrl && (
-            <div className="mb-3.5">
-              <img src={previewUrl} alt="Logo preview" className="w-20 h-20 object-cover rounded-[10px] border-2 border-brand-border" />
+          <div className="flex items-center gap-4">
+            <div className="w-20 h-20 rounded-xl border-2 border-line-strong bg-surface2 flex items-center justify-center overflow-hidden shrink-0">
+              {previewUrl
+                ? <img src={previewUrl} alt="Logo preview" className="w-full h-full object-cover" />
+                : <Building2 size={26} className="text-fg-subtle" />}
             </div>
-          )}
-          <input
-            type="file" accept="image/*" disabled={loading}
-            onChange={e => handleFile(e.target.files?.[0] ?? null)}
-            className={cn(fieldCls, "px-3 py-2 cursor-pointer [&::file-selector-button]:bg-brand [&::file-selector-button]:text-white [&::file-selector-button]:border-none [&::file-selector-button]:px-3 [&::file-selector-button]:py-1.5 [&::file-selector-button]:rounded-md [&::file-selector-button]:text-xs [&::file-selector-button]:font-semibold [&::file-selector-button]:cursor-pointer [&::file-selector-button]:mr-2.5")}
-          />
-          <p className="text-[11px] text-fg-subtle mt-2">Max 5MB · JPG, PNG, GIF, WebP</p>
+            <div className="flex-1 min-w-0">
+              <label className={cn("inline-flex items-center gap-2 px-4 py-2 text-[13px] font-semibold rounded-lg", loading ? "bg-surface2 text-fg-muted cursor-not-allowed" : "bg-brand hover:bg-brand-hover text-white cursor-pointer")}>
+                <Upload size={14} /> {previewUrl ? 'Change Logo' : 'Upload Logo'}
+                <input type="file" accept="image/*" disabled={loading} onChange={e => handleFile(e.target.files?.[0] ?? null)} className="hidden" />
+              </label>
+              <p className="text-[11px] text-fg-subtle mt-2">Max 5MB · JPG, PNG, GIF, WebP</p>
+            </div>
+          </div>
         </SectionCard>
 
         {/* Password */}
         <SectionCard icon={<Lock size={16} className="text-warning" />} title="Change Password">
           <p className="text-xs text-fg-subtle mb-3.5">Leave blank if you don't want to change your password.</p>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className={fieldLabelCls}>New Password</label>
               <div className="relative">
@@ -113,12 +116,19 @@ export default function ManageBusiness() {
               </div>
             </div>
           </div>
-          <div className="mt-3 px-3 py-2.5 bg-warning-dim border border-warning/20 rounded-lg">
-            <p className="text-[11px] text-fg-subtle leading-[1.7]">
-              <span className="font-bold text-warning">Requirements: </span>
-              Minimum 5 characters · Both fields must match
-            </p>
-          </div>
+          {(passwordData.newPassword || passwordData.confirmPassword) && (
+            <div className="mt-3 flex flex-col gap-1.5">
+              {[
+                { ok: passwordData.newPassword.length >= 5, label: 'At least 5 characters' },
+                { ok: !!passwordData.newPassword && passwordData.newPassword === passwordData.confirmPassword, label: 'Both passwords match' },
+              ].map(r => (
+                <div key={r.label} className="flex items-center gap-1.5">
+                  <CheckCircle size={13} className={r.ok ? 'text-brand-light' : 'text-fg-subtle'} />
+                  <span className={cn('text-[11px]', r.ok ? 'text-brand-light' : 'text-fg-subtle')}>{r.label}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </SectionCard>
 
         <button
