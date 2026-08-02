@@ -114,6 +114,7 @@ export async function exportCampaignToExcel(
         const deliveryStatus = (result?.status ?? fallback).toUpperCase();
         return {
           campaignName: campaign.campaignName,
+          campaignStatus: (campaign.status ?? "").toUpperCase(),
           message: campaign.message,
           phoneButtonText: campaign.phoneButton?.text ?? "",
           phoneButtonNumber: campaign.phoneButton?.number ?? "",
@@ -130,6 +131,7 @@ export async function exportCampaignToExcel(
 
     const allColumns = [
       { header: "Campaign Name", key: "campaignName", width: 30 },
+      { header: "Campaign Status", key: "campaignStatus", width: 18 },
       { header: "Message", key: "message", width: 100 },
       { header: "Phone Button Text", key: "phoneButtonText", width: 20 },
       { header: "Phone Button Number", key: "phoneButtonNumber", width: 20 },
