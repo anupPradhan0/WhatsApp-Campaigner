@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
   ArrowLeft, Download, Loader2, AlertCircle, Users,
-  CheckCircle2, XCircle, Phone,
+  CheckCircle2, XCircle, Phone, Link2, Copy, Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -13,22 +13,26 @@ import { cn } from '../lib/utils';
 import { Spinner } from '../components/ui/Spinner';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { Paginator } from '../components/ui/Paginator';
+import { WhatsAppPreview } from '../components/WhatsAppPreview';
 
-// Strip HTML tags AND decode entities (&nbsp;, &amp;, …) that the rich-text
-// editor stores — a plain tag-regex leaves the entities showing literally.
-const stripHtml = (h: string) => {
-  if (!h) return '';
-  const el = document.createElement('div');
-  el.innerHTML = h;
-  return el.textContent ?? '';
-};
 const fmtDate = (s?: string | null) => {
   if (!s) return '—';
   try { return format(new Date(s), 'dd MMM yyyy, hh:mm a'); } catch { return s; }
 };
+const fmtBubbleTime = (s?: string | null) => {
+  if (!s) return '';
+  try { return format(new Date(s), 'hh:mm a'); } catch { return ''; }
+};
 const fmtTime = (s?: string | null) => {
   if (!s) return '—';
   try { return format(new Date(s), 'dd MMM, hh:mm a'); } catch { return s; }
+};
+// Safe HTML → plain text (textContent off a detached node runs no scripts).
+const stripHtml = (h: string) => {
+  if (!h) return '';
+  const el = document.createElement('div');
+  el.innerHTML = h;
+  return (el.textContent ?? '').trim();
 };
 
 const Card = ({ title, children }: { title: string; children: React.ReactNode }) => (
@@ -60,6 +64,7 @@ export default function CampaignDetails() {
   const navigate = useNavigate();
   const location = useLocation();
   const [page, setPage] = useState(1);
+  const [copied, setCopied] = useState(false);
 
   const fromAllCampaigns = location.pathname.startsWith('/all-campaign');
   const backTo = fromAllCampaigns ? '/all-campaign' : '/whatsapp-report';
@@ -173,19 +178,67 @@ export default function CampaignDetails() {
         )}
       </div>
 
-      {/* Message */}
+      {/* Message — WhatsApp preview */}
       <Card title="Message">
-        <p className="text-[13px] text-fg-muted leading-[1.7] whitespace-pre-wrap">{stripHtml(detail.message)}</p>
-        {(detail.phoneButton || detail.linkButton) && (
-          <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-line">
-            {detail.phoneButton && (
-              <span className="text-xs text-fg bg-surface2 border border-line rounded-md px-2.5 py-1.5">📞 {detail.phoneButton.text} — {detail.phoneButton.number}</span>
-            )}
-            {detail.linkButton && (
-              <span className="text-xs text-fg bg-surface2 border border-line rounded-md px-2.5 py-1.5">🔗 {detail.linkButton.text} — {detail.linkButton.url}</span>
+        <div className="grid lg:grid-cols-[300px_minmax(0,1fr)] gap-5 items-start">
+          <WhatsAppPreview
+            name={detail.createdBy}
+            profileImage={detail.profileImage}
+            message={detail.message}
+            mediaImage={detail.image}
+            phoneButtonText={detail.phoneButton?.text}
+            linkButtonText={detail.linkButton?.text}
+            time={fmtBubbleTime(detail.createdAt)}
+          />
+          <div className="flex flex-col gap-4 min-w-0">
+            {/* Message text + copy */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] text-fg-subtle font-semibold uppercase tracking-[0.06em]">Message Text</p>
+                <button
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(stripHtml(detail.message));
+                      setCopied(true); toast.success('Message copied');
+                      setTimeout(() => setCopied(false), 1500);
+                    } catch { toast.error('Could not copy message'); }
+                  }}
+                  className="flex items-center gap-1.5 px-2.5 py-1 bg-surface2 border border-line rounded-md cursor-pointer text-[11px] font-semibold text-fg-muted hover:text-fg hover:border-line-strong transition-colors"
+                >
+                  {copied ? <><Check size={12} className="text-brand-light" /> Copied</> : <><Copy size={12} /> Copy</>}
+                </button>
+              </div>
+              <div className="bg-surface2 border border-line rounded-lg px-3.5 py-3 text-[13px] text-fg-muted leading-[1.7] whitespace-pre-wrap break-words max-h-[340px] overflow-y-auto">
+                {stripHtml(detail.message) || <span className="italic text-fg-subtle">No message.</span>}
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            {(detail.phoneButton || detail.linkButton) && (
+              <div className="flex flex-col gap-2.5">
+                <p className="text-[10px] text-fg-subtle font-semibold uppercase tracking-[0.06em]">Action Buttons</p>
+                {detail.phoneButton && (
+                  <div className="flex items-center gap-3 bg-surface2 border border-line rounded-lg px-3.5 py-2.5">
+                    <div className="w-9 h-9 rounded-lg bg-brand-dim flex items-center justify-center shrink-0"><Phone size={16} className="text-brand-light" /></div>
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-semibold text-fg truncate">{detail.phoneButton.text}</p>
+                      <a href={`tel:${detail.phoneButton.number}`} className="text-[12px] text-fg-muted hover:text-brand-light truncate block">{detail.phoneButton.number}</a>
+                    </div>
+                  </div>
+                )}
+                {detail.linkButton && (
+                  <div className="flex items-center gap-3 bg-surface2 border border-line rounded-lg px-3.5 py-2.5">
+                    <div className="w-9 h-9 rounded-lg bg-info-dim flex items-center justify-center shrink-0"><Link2 size={16} className="text-info" /></div>
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-semibold text-fg truncate">{detail.linkButton.text}</p>
+                      <a href={detail.linkButton.url} target="_blank" rel="noopener noreferrer" title={detail.linkButton.url} className="text-[12px] text-info hover:underline truncate block">{detail.linkButton.url}</a>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
-        )}
+        </div>
       </Card>
 
       {/* Profile picture */}
