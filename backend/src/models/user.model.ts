@@ -32,6 +32,10 @@ export interface IUser extends Document {
   totalCampaigns: number;
   balance: number;
   permissions: string[];
+  /** White-label host this tenant is served on, e.g. "panel.brand.com". */
+  domain?: string;
+  /** Brand accent colour as #rrggbb; falls back to the platform green. */
+  brandColor?: string;
   status: UserStatus;
   deletedAt?: Date;
   createdAt: Date;
@@ -131,6 +135,16 @@ const userSchema = new Schema<IUser>(
       type: [String],
       default: [],
     },
+    domain: {
+      type: String,
+      lowercase: true,
+      trim: true,
+    },
+    brandColor: {
+      type: String,
+      trim: true,
+      match: [/^#[0-9a-fA-F]{6}$/, "Brand colour must be a #rrggbb hex value"],
+    },
     status: {
       type: String,
       enum: Object.values(UserStatus),
@@ -159,6 +173,17 @@ userSchema.index(
     unique: true,
     partialFilterExpression: { role: UserRole.SUPER_ADMIN },
     name: "unique_super_admin",
+  }
+);
+
+// One tenant per hostname. partialFilterExpression rather than `sparse` so
+// that documents storing an explicit null don't collide with each other.
+userSchema.index(
+  { domain: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { domain: { $type: "string" } },
+    name: "unique_domain",
   }
 );
 

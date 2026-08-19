@@ -10,6 +10,7 @@ import {
 import { menuConfig, UserRole, type MenuSection } from '../../constants/Roles';
 import { getUserRole } from '../../utils/Auth';
 import { cn } from '../../lib/utils';
+import { useBranding } from '../../lib/branding';
 
 const ICONS: Record<string, React.FC<{ size?: number; color?: string }>> = {
   '/home':            LayoutDashboard,
@@ -34,6 +35,11 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const userRole = getUserRole();
   const [collapsed, setCollapsed] = useState(false);
   const [tooltip, setTooltip] = useState<{ label: string; y: number } | null>(null);
+  const branding = useBranding();
+  // First word on top, the rest underneath — reproduces the stock
+  // "WhatsApp / Campaign Manager" lockup for any tenant name.
+  const [brandTitle, ...brandRest] = branding.companyName.split(' ');
+  const brandSubtitle = brandRest.join(' ');
 
   const getFilteredMenuSections = (): MenuSection[] => {
     if (!userRole) return [];
@@ -93,13 +99,17 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
               collapsed ? "justify-center p-1" : "flex-1 justify-start py-1.5 pr-1"
             )}
           >
-            <div className="bg-brand shadow-[0_0_12px_rgba(22,163,74,0.35)] w-9 h-9 rounded-[10px] flex items-center justify-center flex-shrink-0">
-              <MessageSquare size={17} color="#fff" />
+            <div className="bg-brand shadow-[0_0_12px_var(--color-brand-dim)] w-9 h-9 rounded-[10px] flex items-center justify-center flex-shrink-0 overflow-hidden">
+              {branding.logo
+                ? <img src={branding.logo} alt="" className="w-full h-full object-cover" />
+                : <MessageSquare size={17} color="#fff" />}
             </div>
             {!collapsed && (
               <div className="min-w-0">
-                <p className="text-fg text-[13px] font-semibold leading-tight truncate">WhatsApp</p>
-                <p className="text-brand-light text-[10px] font-medium tracking-[0.08em] uppercase truncate">Campaign Manager</p>
+                <p className="text-fg text-[13px] font-semibold leading-tight truncate">{brandTitle}</p>
+                {brandSubtitle && (
+                  <p className="text-brand-light text-[10px] font-medium tracking-[0.08em] uppercase truncate">{brandSubtitle}</p>
+                )}
               </div>
             )}
           </Link>

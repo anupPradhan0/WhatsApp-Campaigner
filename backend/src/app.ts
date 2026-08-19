@@ -17,6 +17,7 @@ import campaignRoutes from "./routes/campaign.routes.js";
 import dashboardRoutes from "./routes/dashboard.routes.js";
 import complaintRoutes from "./routes/complaint.routes.js";
 import supportRoutes from "./routes/support.routes.js";
+import brandingRoutes from "./routes/branding.routes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -63,6 +64,7 @@ export function createApp(): Express {
   app.use("/api/dashboard", dashboardRoutes);
   app.use("/api/complaints", complaintRoutes);
   app.use("/api/support", supportRoutes);
+  app.use("/api/branding", brandingRoutes);
 
   app.use(multerErrorHandler);
   app.use(notFoundHandler);

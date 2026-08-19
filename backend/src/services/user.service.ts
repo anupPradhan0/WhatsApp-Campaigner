@@ -308,6 +308,9 @@ export async function updateManagedUser(
   if (body.number !== undefined) {
     updateFields.number = body.number;
   }
+  if (body.brandColor !== undefined) {
+    updateFields.brandColor = body.brandColor;
+  }
 
   if (Object.keys(updateFields).length === 0) {
     const err = new Error("NO_FIELDS") as Error & { code: string };

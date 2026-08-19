@@ -32,6 +32,10 @@ export const updateUserBodySchema = z.object({
   companyName: z.string().min(1).max(200).optional(),
   email: z.string().email().optional(),
   number: z.coerce.number().int().positive().optional(),
+  brandColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, "Brand colour must be a #rrggbb hex value")
+    .optional(),
 });
 
 export const setPermissionsBodySchema = z.object({

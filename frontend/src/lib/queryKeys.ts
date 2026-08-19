@@ -16,4 +16,5 @@ export const QK = {
   treeView:    () => ['treeView']            as const,
   transactions:() => ['transactions']        as const,
   support:     () => ['support']             as const,
+  branding:    () => ['branding']            as const,
 } as const;

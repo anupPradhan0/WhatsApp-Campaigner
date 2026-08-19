@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { api } from '../api/client';
 import { cn } from '../lib/utils';
+import { useBranding } from '../lib/branding';
 
 /* ─── tiny reusable primitives ──────────────────────────────────────────── */
 
@@ -71,7 +72,7 @@ function Input({
           'disabled:opacity-50 disabled:cursor-not-allowed',
           hasError
             ? 'border-danger shadow-[0_0_0_3px_rgba(248,113,113,0.08)]'
-            : 'border-line focus:border-[#16a34a] focus:shadow-[0_0_0_3px_rgba(22,163,74,0.12)]',
+            : 'border-line focus:border-brand focus:shadow-[0_0_0_3px_var(--color-brand-dim)]',
         )}
       />
       {suffix && (
@@ -111,7 +112,7 @@ function PrimaryButton({
           ? 'bg-[#9ca3af] cursor-not-allowed'
           : color === 'amber'
             ? 'bg-[#d97706] hover:bg-[#b45309] cursor-pointer'
-            : 'bg-[#16a34a] hover:bg-[#15803d] cursor-pointer',
+            : 'bg-brand hover:bg-brand-hover cursor-pointer',
       )}
     >
       {loading && (
@@ -128,6 +129,10 @@ function PrimaryButton({
 /* ─── main component ─────────────────────────────────────────────────────── */
 
 export default function Login() {
+  const branding = useBranding();
+  const [brandTitle, ...brandRest] = branding.companyName.split(' ');
+  const brandSubtitle = brandRest.join(' ');
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -276,23 +281,27 @@ export default function Login() {
           <div className="relative z-[1] flex flex-col items-start justify-center text-left h-full px-16 py-10 gap-9 max-w-[560px] mx-auto w-full">
             {/* logo */}
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-[10px] bg-[linear-gradient(135deg,#16a34a,#15803d)] flex items-center justify-center shadow-[0_0_20px_rgba(22,163,74,0.4)]">
-                <MessageSquare size={18} color="#fff" />
+              <div className="w-9 h-9 rounded-[10px] bg-[linear-gradient(135deg,var(--color-brand),var(--color-brand-hover))] flex items-center justify-center shadow-[0_0_20px_var(--color-brand-dim)] overflow-hidden">
+                {branding.logo
+                  ? <img src={branding.logo} alt="" className="w-full h-full object-cover" />
+                  : <MessageSquare size={18} color="#fff" />}
               </div>
               <div>
-                <div className="text-white text-[15px] font-semibold leading-[1.2]">WhatsApp</div>
-                <div className="text-[#4ade80] text-[11px] font-medium tracking-[0.08em] uppercase">Campaign Manager</div>
+                <div className="text-white text-[15px] font-semibold leading-[1.2]">{brandTitle}</div>
+                {brandSubtitle && (
+                  <div className="text-brand-light text-[11px] font-medium tracking-[0.08em] uppercase">{brandSubtitle}</div>
+                )}
               </div>
             </div>
 
             {/* headline */}
             <div>
-              <p className="text-[#4ade80] text-xs font-semibold tracking-[0.1em] uppercase mb-3.5">
+              <p className="text-brand-light text-xs font-semibold tracking-[0.1em] uppercase mb-3.5">
                 WhatsApp Marketing Platform
               </p>
               <h1 className="text-white text-[42px] font-bold leading-[1.12] tracking-[-0.5px] mb-4">
                 Reach millions.<br />
-                <span className="text-[#4ade80]">Drive results.</span>
+                <span className="text-brand-light">Drive results.</span>
               </h1>
               <p className="text-[#6b7280] text-[15px] leading-[1.6] max-w-[420px]">
                 The all-in-one WhatsApp campaign platform for businesses that want to grow faster and connect deeper with their customers.
@@ -309,7 +318,7 @@ export default function Login() {
                     i < stats.length - 1 ? 'border-r border-white/[0.07]' : '',
                   )}
                 >
-                  <Icon size={16} color="#4ade80" className="block mb-2" />
+                  <Icon size={16} color="var(--color-brand-light)" className="block mb-2" />
                   <div className="text-white text-[22px] font-bold leading-none">{value}</div>
                   <div className="text-[#6b7280] text-[11px] mt-1 font-medium">{label}</div>
                 </div>
@@ -324,7 +333,7 @@ export default function Login() {
                   className="flex items-center gap-2.5 px-3.5 py-3 bg-white/[0.04] border border-white/[0.07] rounded-[10px]"
                 >
                   <div className="w-[30px] h-[30px] rounded-lg bg-[rgba(22,163,74,0.15)] flex items-center justify-center shrink-0">
-                    <Icon size={14} color="#4ade80" />
+                    <Icon size={14} color="var(--color-brand-light)" />
                   </div>
                   <span className="text-[#d1d5db] text-[13px] font-medium leading-[1.3]">{text}</span>
                 </div>
@@ -343,10 +352,12 @@ export default function Login() {
 
             {/* mobile logo */}
             <div className="flex lg:hidden items-center gap-2 mb-8">
-              <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
-                <MessageSquare size={16} color="#fff" />
+              <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center overflow-hidden">
+                {branding.logo
+                  ? <img src={branding.logo} alt="" className="w-full h-full object-cover" />
+                  : <MessageSquare size={16} color="#fff" />}
               </div>
-              <span className="font-bold text-[15px] text-fg">WhatsApp Campaign Manager</span>
+              <span className="font-bold text-[15px] text-fg">{branding.companyName}</span>
             </div>
 
             {/* ── LOGIN FORM ── */}
@@ -578,7 +589,7 @@ export default function Login() {
                 <div className="flex flex-col gap-2.5">
                   <a
                     href="mailto:hello@prominds.digital"
-                    className="flex items-center gap-3.5 px-4 py-3.5 border border-line rounded-[10px] no-underline bg-surface transition-[border-color,background] duration-150 hover:border-[#16a34a] hover:bg-[#18181b]"
+                    className="flex items-center gap-3.5 px-4 py-3.5 border border-line rounded-[10px] no-underline bg-surface transition-[border-color,background] duration-150 hover:border-brand hover:bg-[#18181b]"
                   >
                     <div className="w-[38px] h-[38px] rounded-[10px] bg-[rgba(59,130,246,0.15)] flex items-center justify-center shrink-0">
                       <Mail size={18} color="#60a5fa" />
@@ -591,14 +602,14 @@ export default function Login() {
 
                   <a
                     href="tel:+919090090150"
-                    className="flex items-center gap-3.5 px-4 py-3.5 border border-line rounded-[10px] no-underline bg-surface transition-[border-color,background] duration-150 hover:border-[#16a34a] hover:bg-[#18181b]"
+                    className="flex items-center gap-3.5 px-4 py-3.5 border border-line rounded-[10px] no-underline bg-surface transition-[border-color,background] duration-150 hover:border-brand hover:bg-[#18181b]"
                   >
                     <div className="w-[38px] h-[38px] rounded-[10px] bg-brand-dim flex items-center justify-center shrink-0">
-                      <Phone size={18} color="#4ade80" />
+                      <Phone size={18} color="var(--color-brand-light)" />
                     </div>
                     <div>
                       <p className="text-[11px] font-semibold text-fg-subtle uppercase tracking-[0.06em] mb-0.5">Call Us</p>
-                      <p className="text-sm font-medium text-[#4ade80]">+91 90900 90150</p>
+                      <p className="text-sm font-medium text-brand-light">+91 90900 90150</p>
                     </div>
                   </a>
 
