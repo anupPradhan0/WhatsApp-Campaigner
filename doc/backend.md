@@ -5,7 +5,7 @@ Node.js **Express** API under `backend/`. JSON bodies are validated with **Zod**
 ## Base URL and auth
 
 - Default local server port comes from env (see `backend/src/config/env.ts`).
-- **Same-origin**: nginx (prod) and the Vite dev server (dev) proxy `/api` to Express, so the SPA uses a relative Axios base (`frontend/src/api/client.ts`) with `withCredentials: true` and the auth cookie is first-party `SameSite=Lax`. CORS is only mounted when `CORS_ORIGIN` is set.
+- **Same-origin**: Traefik path-routes `/api` to Express in production, and the Vite dev server proxies it in dev, so the SPA uses a relative Axios base (`frontend/src/api/client.ts`) with `withCredentials: true` and the auth cookie is first-party `SameSite=Lax`. CORS is only mounted when `CORS_ORIGIN` is set.
 - **JWT**: sent as `Authorization: Bearer <token>` (token in `localStorage`) and/or session cookies where applicable—see auth middleware in `backend/src/middleware/`.
 
 ## Architecture (request flow)

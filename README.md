@@ -407,11 +407,12 @@ pnpm --filter ./frontend run preview
    - Add all variables from backend `.env`
    - Set `NODE_ENV=production`
    - Set `CORS_ORIGIN` to your Vercel domain, and `TRUST_PROXY` to the number
-     of proxies in front of the app (Dokploy's Traefik + nginx = 2)
+     of proxies in front of the app (1 behind a single reverse proxy)
 
    > Split-host deploys (backend and frontend on different domains) make the
    > auth cookie third-party, which browsers increasingly block. Prefer the
-   > single-origin Docker deploy, where nginx proxies `/api` to the backend.
+   > single-origin deploy: one domain, with the reverse proxy path-routing
+   > `/api` to the backend and everything else to the frontend.
 
 4. **Deploy**
    - Auto-deploys on push to main
@@ -680,7 +681,8 @@ pnpm --filter ./backend run build
 
 #### CORS Errors
 - On a single-origin deploy there should be no CORS at all — a CORS error means
-  `/api` is not being proxied. Check `BACKEND_URL` on the frontend container.
+  `/api` is not routed to the backend on that domain. Check the proxy's path
+  rule; if `/api/...` returns HTML instead of JSON, it is hitting the SPA.
 - Only if the SPA is genuinely on another origin: set `CORS_ORIGIN` to that
   exact origin. Note the auth cookie is `SameSite=Lax` and will not be sent
   cross-site.

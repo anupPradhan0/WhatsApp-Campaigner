@@ -8,10 +8,8 @@
 #   - Docker File:     frontend/Dockerfile
 #   - Build Context:   . (repository root — the default)
 #
-# nginx serves the SPA and reverse-proxies /api and /uploads to the backend, so
-# the app is single-origin and needs no build-time API URL. Set the backend's
-# internal address at RUNTIME (Dokploy → application → Environment):
-#   - BACKEND_URL=http://<backend-service>:3050   (no trailing slash)
+# No build args needed. The SPA calls /api on its own origin, and Traefik
+# path-routes /api to the backend container — see frontend/nginx.conf.
 
 FROM node:20-bookworm-slim AS build
 ENV PNPM_HOME=/pnpm
@@ -33,11 +31,7 @@ RUN pnpm --filter ./frontend run build
 
 # ---- runtime stage ---------------------------------------------------------
 FROM nginx:1.27-alpine AS runtime
-# The nginx image envsubst's templates/*.template on boot. The filter keeps it
-# to BACKEND_URL so nginx's own $host/$uri/... survive untouched.
-ENV BACKEND_URL=http://backend:3050
-ENV NGINX_ENVSUBST_FILTER=^BACKEND_URL$
-COPY frontend/default.conf.template /etc/nginx/templates/default.conf.template
+COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/frontend/dist /usr/share/nginx/html
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
