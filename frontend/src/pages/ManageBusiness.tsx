@@ -6,6 +6,9 @@ import { fieldCls } from '../theme/classes';
 import { Spinner } from '../components/ui/Spinner';
 import { FInput } from '../components/ui/FormField';
 import { PageHeader } from '../components/ui/PageHeader';
+import CustomDomainCard from '../components/business/CustomDomainCard';
+import { getUserRole } from '../utils/Auth';
+import { UserRole } from '../constants/Roles';
 
 const fieldLabelCls = "text-[11px] text-fg-subtle font-semibold uppercase tracking-[0.07em] block mb-1.5";
 
@@ -25,6 +28,10 @@ export default function ManageBusiness() {
     previewUrl, loading, fetchLoading, success, setSuccess, error, setError,
     handleFile, handleSubmit,
   } = useBusiness();
+
+  const role = getUserRole();
+  const canWhiteLabel =
+    role === UserRole.SUPER_ADMIN || role === UserRole.ADMIN || role === UserRole.RESELLER;
 
   const [showPwd, setShowPwd] = useState(false);
   const [showConfirmPwd, setShowConfirmPwd] = useState(false);
@@ -144,6 +151,10 @@ export default function ManageBusiness() {
           {loading ? 'Saving changes…' : 'Save Changes'}
         </button>
       </form>
+
+      {/* Outside the profile form — it saves and verifies on its own. Plain
+          users never run a white-label portal, so they don't see it. */}
+      {canWhiteLabel && <CustomDomainCard />}
     </div>
   );
 }

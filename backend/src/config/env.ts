@@ -36,6 +36,13 @@ const envSchema = z.object({
   WORKER_MAX_RETRIES: z.coerce.number().int().min(0).default(3),
   REDIS_URL: z.string().min(1).default("redis://localhost:6379"),
   IDEMPOTENCY_TTL_SECONDS: z.coerce.number().int().positive().default(600),
+  /** Host that white-label domains must CNAME to, e.g. "wap.prominds.digital". */
+  PLATFORM_DOMAIN: z.string().optional(),
+  /** Dokploy API — used to attach a verified domain so Traefik issues its cert. */
+  DOKPLOY_URL: z.string().optional(),
+  DOKPLOY_API_KEY: z.string().optional(),
+  DOKPLOY_FRONTEND_APP_ID: z.string().optional(),
+  DOKPLOY_BACKEND_APP_ID: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

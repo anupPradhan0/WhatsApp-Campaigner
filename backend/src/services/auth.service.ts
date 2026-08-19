@@ -10,6 +10,7 @@ import {
 } from "../repositories/user.repository.js";
 import { hashPassword, comparePassword } from "../utils/hash-password.utils.js";
 import { generateToken } from "../utils/generate-token.utils.js";
+import { isWithinTenant } from "../utils/tenant.utils.js";
 import type {
   BootstrapAdminBody,
   LoginBody,
@@ -19,7 +20,8 @@ import type {
 
 export async function registerUser(
   body: RegistrationBody,
-  imagePath: string
+  imagePath: string,
+  tenant: IUser | null = null
 ): Promise<{ user: IUser; token: string }> {
   const existingUser = await findUserByEmail(body.email);
   if (existingUser) {
@@ -40,15 +42,27 @@ export async function registerUser(
     image: imagePath,
     balance: 0,
     role: UserRole.USER,
+    // Signing up on a white-label domain joins that tenant's tree; without a
+    // parent the account would be locked out of the panel it was created on.
+    ...(tenant ? { userID: tenant._id } : {}),
   });
+
+  if (tenant) {
+    await updateUserById(tenant._id, { $push: { allUsers: user._id } });
+  }
 
   const token = generateToken(user);
 
   return { user, token };
 }
 
+/**
+ * @param tenant  White-label owner of the host this request arrived on, or
+ *                null on the platform's own domain.
+ */
 export async function loginUser(
-  body: LoginBody
+  body: LoginBody,
+  tenant: IUser | null = null
 ): Promise<{ user: IUser; token: string }> {
   const user = await findUserByEmailWithPassword(body.email);
   if (!user) {
@@ -74,6 +88,17 @@ export async function loginUser(
     const err = new Error("INVALID_CREDENTIALS") as Error & { code: string };
     err.code = "INVALID_CREDENTIALS";
     throw err;
+  }
+
+  // A white-label panel is only a door into its own tenant. Checked after the
+  // password so it can't be used to probe which accounts exist elsewhere.
+  if (tenant) {
+    const isTenantOwner = user._id.toString() === tenant._id.toString();
+    if (!isTenantOwner && !(await isWithinTenant(user._id, tenant._id))) {
+      const err = new Error("WRONG_TENANT") as Error & { code: string };
+      err.code = "WRONG_TENANT";
+      throw err;
+    }
   }
 
   const token = generateToken(user);

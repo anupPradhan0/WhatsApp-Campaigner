@@ -10,6 +10,7 @@ import { clearAuthCookie, setAuthCookie } from "../utils/cookie.utils.js";
 import { generateToken } from "../utils/generate-token.utils.js";
 import { revokeToken } from "../services/token-denylist.service.js";
 import { effectivePermissions } from "../utils/permission.utils.js";
+import { resolveTenant } from "../utils/tenant.utils.js";
 
 function mapAuthError(err: unknown): { status: number; message: string } {
   if (!(err instanceof Error)) {
@@ -24,6 +25,11 @@ function mapAuthError(err: unknown): { status: number; message: string } {
       };
     case "INVALID_CREDENTIALS":
       return { status: 401, message: "Invalid email or password." };
+    case "WRONG_TENANT":
+      return {
+        status: 403,
+        message: "This account does not belong to this portal.",
+      };
     case "ACCOUNT_INACTIVE":
       return {
         status: 403,
@@ -56,7 +62,7 @@ export async function registration(
     const body = req.body as import("../validation/auth.schemas.js").RegistrationBody;
     const image = req.file?.path ?? "";
 
-    const { user, token } = await registerUser(body, image);
+    const { user, token } = await registerUser(body, image, await resolveTenant(req));
 
     setAuthCookie(res, token);
 
@@ -84,7 +90,7 @@ export async function registration(
 export async function login(req: Request, res: Response): Promise<Response> {
   try {
     const body = req.body as import("../validation/auth.schemas.js").LoginBody;
-    const { user, token } = await loginUser(body);
+    const { user, token } = await loginUser(body, await resolveTenant(req));
 
     setAuthCookie(res, token);
 

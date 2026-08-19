@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { findOneUser, UserStatus } from "../repositories/user.repository.js";
+import { resolveTenant } from "../utils/tenant.utils.js";
 
 /**
  * Public white-label lookup, resolved from the Host header. Unknown hosts —
@@ -8,10 +8,7 @@ import { findOneUser, UserStatus } from "../repositories/user.repository.js";
  */
 export async function getBranding(req: Request, res: Response): Promise<Response> {
   try {
-    const tenant = await findOneUser({
-      domain: req.hostname.toLowerCase(),
-      status: UserStatus.ACTIVE,
-    });
+    const tenant = await resolveTenant(req);
 
     return res.status(200).json({
       success: true,

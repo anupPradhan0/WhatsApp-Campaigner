@@ -36,6 +36,8 @@ export interface IUser extends Document {
   domain?: string;
   /** Brand accent colour as #rrggbb; falls back to the platform green. */
   brandColor?: string;
+  /** Set once the domain's CNAME was seen pointing at the platform. */
+  domainVerifiedAt?: Date;
   status: UserStatus;
   deletedAt?: Date;
   createdAt: Date;
@@ -144,6 +146,10 @@ const userSchema = new Schema<IUser>(
       type: String,
       trim: true,
       match: [/^#[0-9a-fA-F]{6}$/, "Brand colour must be a #rrggbb hex value"],
+    },
+    domainVerifiedAt: {
+      type: Date,
+      default: null,
     },
     status: {
       type: String,
