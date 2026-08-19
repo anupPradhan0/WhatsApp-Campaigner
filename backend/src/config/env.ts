@@ -15,6 +15,7 @@ const envSchema = z.object({
   DB_NAME: z.string().optional(),
   JWT_SECRET: z.string().min(1, "JWT_SECRET is required"),
   CORS_ORIGIN: z.string().optional(),
+  TRUST_PROXY: z.coerce.number().int().min(0).default(0),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().optional(),
   RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().optional(),
   CLOUDINARY_CLOUD_NAME: z.string().optional(),

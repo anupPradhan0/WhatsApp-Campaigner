@@ -32,5 +32,11 @@ export default defineConfig(({ mode }) => ({
   },
   server: {
     port: 5173,
+    // Mirror production: the dev server proxies /api so the browser only ever
+    // sees one origin and the SameSite=Lax auth cookie behaves the same here.
+    proxy: {
+      "/api": process.env.VITE_DEV_API_TARGET || "http://localhost:8080",
+      "/uploads": process.env.VITE_DEV_API_TARGET || "http://localhost:8080",
+    },
   },
 }));

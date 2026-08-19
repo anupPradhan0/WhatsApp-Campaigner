@@ -1,24 +1,14 @@
 import axios, { AxiosError } from "axios";
 
-// Resolve the API base URL:
-// - If VITE_API_URL is provided (build arg), use it.
-// - Otherwise in development talk to the local backend.
-// - In production fall back to a RELATIVE base ("") so requests go to the same
-//   origin the app is served from (e.g. https://wap.prominds.digital/api/...).
-//   This makes a same-domain deploy work with no build-time configuration and
-//   avoids cross-origin/CORS entirely.
-const baseURL =
-  import.meta.env.VITE_API_URL?.replace(/\/+$/, "") ||
-  (import.meta.env.DEV ? "http://localhost:8080" : "");
-
 /**
  * Shared Axios instance for the WhatsApp Campaigner backend.
+ * - Uses a RELATIVE base: /api is proxied to Express on the same origin, both
+ *   in dev (vite proxy) and in production (nginx). No CORS, first-party cookie.
  * - Sends cookies (`withCredentials`) for httpOnly session cookies.
  * - Attaches `Authorization: Bearer <token>` from localStorage.
  * - On 401, clears auth and redirects to login (handled once globally).
  */
 export const api = axios.create({
-  baseURL,
   withCredentials: true,
   timeout: 30_000,
   headers: {

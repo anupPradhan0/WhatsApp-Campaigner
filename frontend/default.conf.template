@@ -1,0 +1,56 @@
+server {
+    listen 80;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Compress text assets on the fly.
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+
+    # Long-cache the hashed build assets.
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+
+    # API + uploads live on the same origin as the SPA so the auth cookie is
+    # first-party. BACKEND_URL must have NO trailing slash.
+    #
+    # proxy_pass goes through a variable on purpose: with a literal hostname
+    # nginx resolves the upstream once at startup, so it refuses to boot if the
+    # backend is down and then pins the old IP after a backend redeploy. The
+    # variable defers lookup to request time. 127.0.0.11 is Docker's embedded
+    # DNS on any user-defined network.
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    set $upstream ${BACKEND_URL};
+
+    location /api/ {
+        proxy_pass $upstream$request_uri;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+        # Multer caps uploads at 5MB (upload.utils.ts); leave headroom.
+        client_max_body_size 6m;
+    }
+
+    location /uploads/ {
+        proxy_pass $upstream$request_uri;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # SPA routing: serve index.html for any unmatched path so client-side
+    # routes (e.g. /manage-admin) work on a hard refresh.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

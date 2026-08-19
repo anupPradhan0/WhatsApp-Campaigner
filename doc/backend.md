@@ -5,7 +5,7 @@ Node.js **Express** API under `backend/`. JSON bodies are validated with **Zod**
 ## Base URL and auth
 
 - Default local server port comes from env (see `backend/src/config/env.ts`).
-- **CORS** allows credentials; the SPA sets `VITE_API_URL` and uses a shared Axios client (`frontend/src/api/client.ts`) with `withCredentials: true`.
+- **Same-origin**: nginx (prod) and the Vite dev server (dev) proxy `/api` to Express, so the SPA uses a relative Axios base (`frontend/src/api/client.ts`) with `withCredentials: true` and the auth cookie is first-party `SameSite=Lax`. CORS is only mounted when `CORS_ORIGIN` is set.
 - **JWT**: sent as `Authorization: Bearer <token>` (token in `localStorage`) and/or session cookies where applicable—see auth middleware in `backend/src/middleware/`.
 
 ## Architecture (request flow)

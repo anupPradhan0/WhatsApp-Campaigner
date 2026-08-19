@@ -24,13 +24,15 @@ const __dirname = path.dirname(__filename);
 export function createApp(): Express {
   const app = express();
 
+  app.set("trust proxy", env.TRUST_PROXY);
+
+  // Same-origin deploy needs no CORS at all. Only mount it when an origin is
+  // explicitly configured — the old `origin: true` fallback reflected any
+  // caller's origin back with credentials enabled.
   const corsOrigin = env.CORS_ORIGIN?.trim();
-  app.use(
-    cors({
-      origin: corsOrigin && corsOrigin.length > 0 ? corsOrigin : true,
-      credentials: true,
-    })
-  );
+  if (corsOrigin) {
+    app.use(cors({ origin: corsOrigin, credentials: true }));
+  }
 
   app.use((req, res, next) => {
     const start = Date.now();

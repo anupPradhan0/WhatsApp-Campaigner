@@ -278,7 +278,10 @@ Create `backend/.env`:
 ```env
 # Server Configuration
 PORT=8080
-CORS_ORIGIN=http://localhost:5173
+# Empty: the Vite dev server proxies /api to this port, so there is no
+# cross-origin request. Only set it if you serve the SPA from another origin.
+CORS_ORIGIN=
+TRUST_PROXY=0
 
 # Database
 MONGO_URI=mongodb://localhost:27017/whatsapp-campaigner
@@ -315,11 +318,12 @@ RATE_LIMIT_MAX_REQUESTS=100
 
 ### Frontend Configuration
 
-Create `frontend/.env`:
+`frontend/.env` is optional — the dev server proxies `/api` to
+`http://localhost:8080` by default. Override only if your backend runs
+elsewhere:
 
 ```env
-# API Configuration
-VITE_API_URL=http://localhost:8080
+VITE_DEV_API_TARGET=http://localhost:8080
 ```
 
 ---
@@ -402,7 +406,12 @@ pnpm --filter ./frontend run preview
 3. **Environment Variables**
    - Add all variables from backend `.env`
    - Set `NODE_ENV=production`
-   - Set `CORS_ORIGIN` to your Vercel domain
+   - Set `CORS_ORIGIN` to your Vercel domain, and `TRUST_PROXY` to the number
+     of proxies in front of the app (Dokploy's Traefik + nginx = 2)
+
+   > Split-host deploys (backend and frontend on different domains) make the
+   > auth cookie third-party, which browsers increasingly block. Prefer the
+   > single-origin Docker deploy, where nginx proxies `/api` to the backend.
 
 4. **Deploy**
    - Auto-deploys on push to main
@@ -423,7 +432,8 @@ pnpm --filter ./frontend run preview
 
 2. **Environment Variables**
    - Add frontend `.env` variables
-   - Update `VITE_API_URL` to Render backend URL
+   - No API URL needed if `/api` is proxied to the backend; on a split host
+     you must also rewrite `/api` in `vercel.json` or CORS will apply
 
 3. **Deploy**
    - Click "Deploy"
@@ -669,9 +679,11 @@ pnpm --filter ./backend run build
 ```
 
 #### CORS Errors
-- Verify `CORS_ORIGIN` in backend `.env` matches your frontend origin exactly
-- Check CORS middleware allows your origin
-- Ensure `credentials: true` in frontend API calls
+- On a single-origin deploy there should be no CORS at all — a CORS error means
+  `/api` is not being proxied. Check `BACKEND_URL` on the frontend container.
+- Only if the SPA is genuinely on another origin: set `CORS_ORIGIN` to that
+  exact origin. Note the auth cookie is `SameSite=Lax` and will not be sent
+  cross-site.
 
 #### Environment Variables Not Loading
 - Restart dev server after changing `.env`
