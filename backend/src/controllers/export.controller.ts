@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import ExcelJS from "exceljs";
+import XLSX from "xlsx";
 import Campaign, {
   CampaignStats,
   DeliveryStatus,
@@ -68,8 +69,11 @@ export async function exportCampaignToExcel(
       });
     }
 
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet("Campaign Data");
+    // ?format=xls → legacy Excel 97-2003 (.xls); anything else → modern .xlsx.
+    const wantsLegacyXls = String(req.query.format ?? "").toLowerCase() === "xls";
+    const workbook = wantsLegacyXls ? null : new ExcelJS.Workbook();
+    let worksheet: ExcelJS.Worksheet | null = null;
+    let xlsBuffer: Buffer | null = null;
 
     const formatDate = (dateString: string | Date): string => {
       const date = new Date(dateString);
@@ -151,47 +155,66 @@ export async function exportCampaignToExcel(
     );
 
     // Fall back to all columns only in the impossible case of zero rows.
-    worksheet.columns = columns.length > 0 ? columns : allColumns;
+    const finalColumns = columns.length > 0 ? columns : allColumns;
 
-    worksheet.getRow(1).font = { bold: true, size: 12 };
-    worksheet.getRow(1).fill = {
-      type: "pattern",
-      pattern: "solid",
-      fgColor: { argb: "FF22C55E" },
-    };
-    worksheet.getRow(1).alignment = {
-      vertical: "middle",
-      horizontal: "center",
-    };
-    worksheet.getRow(1).height = 25;
+    // Legacy .xls (BIFF8) — plain data only, the 97-2003 format via SheetJS
+    // carries no styling, which is fine: it exists for old Excel/ERP imports.
+    if (wantsLegacyXls) {
+      const aoa = [
+        finalColumns.map((c) => c.header),
+        ...rows.map((row) => finalColumns.map((c) => row[c.key] ?? "")),
+      ];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.aoa_to_sheet(aoa),
+        "Campaign Data"
+      );
+      xlsBuffer = XLSX.write(wb, { bookType: "biff8", type: "buffer" });
+    } else {
+      worksheet = workbook!.addWorksheet("Campaign Data");
+      worksheet.columns = finalColumns;
 
-    // addRow maps by column key, so keys without a matching column are ignored.
-    rows.forEach((row) => worksheet.addRow(row));
+      worksheet.getRow(1).font = { bold: true, size: 12 };
+      worksheet.getRow(1).fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF22C55E" },
+      };
+      worksheet.getRow(1).alignment = {
+        vertical: "middle",
+        horizontal: "center",
+      };
+      worksheet.getRow(1).height = 25;
 
-    worksheet.eachRow((row, rowNumber) => {
-      if (rowNumber > 1 && rowNumber % 2 === 0) {
-        row.fill = {
-          type: "pattern",
-          pattern: "solid",
-          fgColor: { argb: "FFF3F4F6" },
-        };
-      }
-    });
+      // addRow maps by column key, so keys without a matching column are ignored.
+      rows.forEach((row) => worksheet!.addRow(row));
 
-    worksheet.eachRow((row) => {
-      row.eachCell((cell) => {
-        cell.border = {
-          top: { style: "thin", color: { argb: "FFE5E7EB" } },
-          left: { style: "thin", color: { argb: "FFE5E7EB" } },
-          bottom: { style: "thin", color: { argb: "FFE5E7EB" } },
-          right: { style: "thin", color: { argb: "FFE5E7EB" } },
-        };
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber > 1 && rowNumber % 2 === 0) {
+          row.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "FFF3F4F6" },
+          };
+        }
       });
-    });
+
+      worksheet.eachRow((row) => {
+        row.eachCell((cell) => {
+          cell.border = {
+            top: { style: "thin", color: { argb: "FFE5E7EB" } },
+            left: { style: "thin", color: { argb: "FFE5E7EB" } },
+            bottom: { style: "thin", color: { argb: "FFE5E7EB" } },
+            right: { style: "thin", color: { argb: "FFE5E7EB" } },
+          };
+        });
+      });
+    }
 
     // Sanitize to a pure-ASCII, filesystem-safe name. A raw campaign name can
     // hold quotes, slashes, or unicode that break the Content-Disposition header
-    // and mangle the .xlsx extension on some clients (Mac Numbers/Safari), so the
+    // and mangle the file extension on some clients (Mac Numbers/Safari), so the
     // downloaded file won't open.
     const safeBase =
       `campaign_${campaign.campaignName}_${createdDate}`
@@ -201,15 +224,22 @@ export async function exportCampaignToExcel(
         .replace(/\s+/g, "_")
         .replace(/_+/g, "_")
         .replace(/^_+|_+$/g, "") || "campaign";
-    const fileName = `${safeBase}.xlsx`;
+    const fileName = `${safeBase}.${wantsLegacyXls ? "xls" : "xlsx"}`;
 
     res.setHeader(
       "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      wantsLegacyXls
+        ? "application/vnd.ms-excel"
+        : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
     res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
 
-    await workbook.xlsx.write(res);
+    if (wantsLegacyXls) {
+      res.end(xlsBuffer);
+      return;
+    }
+
+    await workbook!.xlsx.write(res);
     res.end();
   } catch (error: unknown) {
     console.error("Error in exportCampaignToExcel controller:", error);

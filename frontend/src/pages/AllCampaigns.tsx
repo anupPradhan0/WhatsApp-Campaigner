@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
-import { X, Eye, Edit2, Calendar, Download, Loader2, Check, AlertCircle } from 'lucide-react';
+import { X, Eye, Edit2, Calendar, Loader2, Check, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { UserRole } from '../constants/Roles';
 import { getUserRole } from '../utils/Auth';
@@ -13,6 +13,7 @@ import { Spinner } from '../components/ui/Spinner';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { Paginator } from '../components/ui/Paginator';
 import { PageHeader } from '../components/ui/PageHeader';
+import { DownloadMenu } from '../components/ui/DownloadMenu';
 
 // Strip HTML tags AND decode entities (&nbsp;, &amp;, …) that the rich-text
 // editor stores — a plain tag-regex leaves the entities showing literally.
@@ -164,9 +165,7 @@ export default function AllCampaigns({ embedded = false }: { embedded?: boolean 
                           <button onClick={() => openDetails(c.campaignId)} title="View" className="w-[30px] h-[30px] rounded-[7px] bg-brand-dim border-none flex items-center justify-center cursor-pointer">
                             <Eye size={13} className="text-brand-light" />
                           </button>
-                          <button onClick={() => downloadExcel(c.campaignId)} disabled={downloading.has(c.campaignId)} title="Download" className={cn("w-[30px] h-[30px] rounded-[7px] bg-info-dim border-none flex items-center justify-center cursor-pointer", downloading.has(c.campaignId) ? "opacity-50" : "opacity-100")}>
-                            {downloading.has(c.campaignId) ? <Loader2 size={13} className="text-info animate-spin" /> : <Download size={13} className="text-info" />}
-                          </button>
+                          <DownloadMenu onPick={f => downloadExcel(c.campaignId, f)} busy={downloading.has(c.campaignId)} />
                         </div>
                       </td>
                     </tr>
@@ -202,9 +201,7 @@ export default function AllCampaigns({ embedded = false }: { embedded?: boolean 
                     </button>
                   )}
                   <button onClick={() => openDetails(c.campaignId)} className="flex items-center gap-[5px] px-2.5 py-[5px] bg-brand-dim border-none rounded-md cursor-pointer text-brand-light text-xs font-semibold"><Eye size={12} /> View</button>
-                  <button onClick={() => downloadExcel(c.campaignId)} disabled={downloading.has(c.campaignId)} className="w-7 h-7 rounded-md bg-info-dim border-none flex items-center justify-center cursor-pointer">
-                    {downloading.has(c.campaignId) ? <Loader2 size={12} className="text-info animate-spin" /> : <Download size={12} className="text-info" />}
-                  </button>
+                  <DownloadMenu onPick={f => downloadExcel(c.campaignId, f)} busy={downloading.has(c.campaignId)} className="w-7 h-7 rounded-md" iconSize={12} />
                 </div>
               </div>
             ))}

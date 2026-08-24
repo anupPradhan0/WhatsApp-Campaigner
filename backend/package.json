@@ -32,6 +32,7 @@
     "node-schedule": "^2.1.1",
     "nodemailer": "^7.0.10",
     "rate-limit-redis": "^5.0.0",
+    "xlsx": "^0.18.5",
     "zod": "^4.4.2"
   },
   "devDependencies": {

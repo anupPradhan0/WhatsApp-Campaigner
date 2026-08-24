@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { QK } from '../lib/queryKeys';
+import type { ExcelFormat } from './useCampaigns';
 
 export interface CampaignDetail {
   campaignId: string;
@@ -113,12 +114,12 @@ export function useDownloadCampaign() {
   const [downloading, setDownloading] = useState(false);
   const [dlError, setDlError] = useState<string | null>(null);
 
-  const downloadExcel = async (id: string) => {
+  const downloadExcel = async (id: string, fileFormat: ExcelFormat = 'xlsx') => {
     if (downloading) return;
     setDownloading(true);
     setDlError(null);
     try {
-      const res = await api.get(`/api/dashboard/export-campaign/${id}`, {
+      const res = await api.get(`/api/dashboard/export-campaign/${id}?format=${fileFormat}`, {
         responseType: 'blob',
         validateStatus: () => true,
       });
@@ -129,7 +130,7 @@ export function useDownloadCampaign() {
         throw new Error(msg);
       }
       const cd = res.headers['content-disposition'] || '';
-      const fn = cd.match(/filename="?(.+)"?/i)?.[1] || `Campaign_${id}.xlsx`;
+      const fn = cd.match(/filename="?(.+)"?/i)?.[1] || `Campaign_${id}.${fileFormat}`;
       const url = URL.createObjectURL(res.data as Blob);
       const a = document.createElement('a');
       a.href = url; a.download = fn;

@@ -14,6 +14,7 @@ import { Spinner } from '../components/ui/Spinner';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { Paginator } from '../components/ui/Paginator';
 import { WhatsAppPreview } from '../components/WhatsAppPreview';
+import { DownloadMenu } from '../components/ui/DownloadMenu';
 
 const fmtDate = (s?: string | null) => {
   if (!s) return '—';
@@ -130,13 +131,7 @@ export default function CampaignDetails() {
           </div>
           <p className="text-[13px] text-fg-muted mt-1">Created {fmtDate(detail.createdAt)} by {detail.createdBy}</p>
         </div>
-        <button
-          onClick={() => downloadExcel(detail.campaignId)}
-          disabled={downloading}
-          className="flex items-center gap-[7px] px-4 py-[9px] bg-brand text-white font-semibold text-[13px] border-none rounded-lg cursor-pointer disabled:opacity-60"
-        >
-          {downloading ? <><Loader2 size={15} className="animate-spin" /> Exporting…</> : <><Download size={15} /> Download Excel</>}
-        </button>
+<DownloadMenu onPick={f => downloadExcel(detail.campaignId, f)} busy={downloading} variant="button" iconSize={15} />
       </div>
 
       {/* Stats */}

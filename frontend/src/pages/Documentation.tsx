@@ -331,7 +331,7 @@ const Documentation = () => {
                 { icon: Image, title: 'Media & Profile Picture', desc: 'Attach an image, video or PDF (max 5 MB) and a display picture shown with the campaign.', accent: '#a78bfa' },
                 { icon: Link2, title: 'Interactive Buttons', desc: 'Add a Call button (phone number) and a Link button (URL) to drive replies and clicks.', accent: '#4ade80' },
                 { icon: Coins, title: 'Credit System', desc: '1 credit = 1 message. Insufficient balance? You’re warned and can send a partial batch.', accent: '#fbbf24' },
-                { icon: Download, title: 'Excel Export', desc: 'Download campaign data — including full +country-code phone numbers — as a formatted .xlsx.', accent: '#a78bfa' },
+                { icon: Download, title: 'Excel Export', desc: 'Download campaign data — including full +country-code phone numbers — as a newer .xlsx or an old Excel 97-2003 .xls.', accent: '#a78bfa' },
                 { icon: Calendar, title: 'Filtering & Pagination', desc: 'Filter reports by date range and page through results (10 / 25 / 50 per page).', accent: '#3b82f6' },
                 { icon: Shield, title: 'Role-Based Access', desc: 'Super Admin, Admin, Reseller and User — each scoped to their own downline.', accent: '#f87171' },
                 { icon: BarChart3, title: 'Reports & Tree View', desc: 'Track every campaign and visualise your whole account network in Tree View.', accent: '#4ade80' },
@@ -435,8 +435,8 @@ const Documentation = () => {
               ]} />
               <HowToCard icon={Download} title="7. Download Campaign Data" accent="#a78bfa" steps={[
                 'Click the Download icon on the Reports page',
-                'An Excel file generates automatically',
-                'File name: <code style="background:#27272a;padding:1px 5px;border-radius:4px">CampaignName_YYYY-MM-DD.xlsx</code>',
+                'Choose <strong>Excel (.xlsx)</strong> — the newer version — or <strong>Excel 97-2003 (.xls)</strong> — the old version',
+                'File name: <code style="background:#27272a;padding:1px 5px;border-radius:4px">CampaignName_YYYY-MM-DD.xlsx</code> (or <code style="background:#27272a;padding:1px 5px;border-radius:4px">.xls</code>)',
                 'Contains all details and recipient phone numbers',
               ]} />
             </div>
@@ -470,7 +470,7 @@ const Documentation = () => {
                 A campaign's content can't be edited once created — create a new one instead. Its <strong className="text-fg">status</strong>, however, can be changed by an Admin or Super Admin.
               </FaqItem>
               <FaqItem q="How do I export campaign data?">
-                Click the Download button on the Reports page. An Excel (.xlsx) file is generated automatically, with recipients listed in a single full-number column (e.g. <code style={{ background: '#27272a', padding: '1px 5px', borderRadius: 4 }}>+919090090150</code>).
+                Click the Download button on the Reports page and pick a format: <strong className="text-fg">Excel (.xlsx)</strong> — the newer version, keeps the styled sheet — or <strong className="text-fg">Excel 97-2003 (.xls)</strong> — the old version, plain data, for older Excel and ERP imports. Either way recipients are listed in a single full-number column (e.g. <code style={{ background: '#27272a', padding: '1px 5px', borderRadius: 4 }}>+919090090150</code>).
               </FaqItem>
               <FaqItem q="Is my data secure?">
                 Yes. All data is encrypted, passwords are hashed, and auth uses JWT tokens with regular backups.

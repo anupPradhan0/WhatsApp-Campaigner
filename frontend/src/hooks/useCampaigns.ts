@@ -3,6 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { QK } from '../lib/queryKeys';
 
+/** Excel flavours offered on download: legacy 97-2003 (.xls) or modern (.xlsx). */
+export type ExcelFormat = 'xlsx' | 'xls';
+
 export interface Campaign {
   campaignId: string;
   campaignName: string;
@@ -49,12 +52,12 @@ export function useCampaigns(endpoint: string) {
     queryFn: () => fetchCampaigns(endpoint),
   });
 
-  const downloadExcel = async (id: string) => {
+  const downloadExcel = async (id: string, fileFormat: ExcelFormat = 'xlsx') => {
     if (downloading.has(id)) return;
     setDownloading(p => new Set(p).add(id));
     setDlError(null);
     try {
-      const res = await api.get(`/api/dashboard/export-campaign/${id}`, { responseType: 'blob', validateStatus: () => true });
+      const res = await api.get(`/api/dashboard/export-campaign/${id}?format=${fileFormat}`, { responseType: 'blob', validateStatus: () => true });
       if (res.status >= 400) {
         const t = await (res.data as Blob).text();
         let msg = 'Failed to download campaign';
@@ -64,7 +67,7 @@ export function useCampaigns(endpoint: string) {
       const cd = res.headers['content-disposition'] || '';
       // Non-greedy, quote-excluding capture — a greedy `.+` swallows the closing
       // quote into the name, producing a `…xlsx"` extension that won't open on Mac.
-      const fn = cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)?.[1] || `Campaign_${id}.xlsx`;
+      const fn = cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)?.[1] || `Campaign_${id}.${fileFormat}`;
       const url = URL.createObjectURL(res.data as Blob);
       const a = document.createElement('a');
       a.href = url; a.download = fn;
