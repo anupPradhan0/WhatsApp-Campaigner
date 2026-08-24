@@ -10,6 +10,7 @@
     "dev": "tsx watch src/server.ts",
     "promote-super-admin": "tsx src/scripts/promote-super-admin.ts",
     "clean": "rm -rf dist",
+    "check:token": "tsx src/utils/generate-token.selfcheck.ts",
     "prebuild": "pnpm run clean"
   },
   "author": "Anup Pradhan (Mors)",

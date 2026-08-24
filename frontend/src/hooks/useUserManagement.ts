@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, getErrorMessage } from '../api/client';
 import { QK } from '../lib/queryKeys';
+import { toast as notify } from 'sonner';
+import { beginImpersonation } from '../utils/Auth';
 
 export interface ManagedUser {
   id: string;
@@ -180,6 +182,27 @@ export function useUserManagement(endpoint: string, listKey: ListKey) {
     onError: (e) => setError(getErrorMessage(e)),
   });
 
+  /** Super admin only: sign in as this account for a short, self-expiring window. */
+  const sessionSwitchMut = useMutation({
+    mutationFn: async (r: ManagedUser) => {
+      const { data: res } = await api.post<{
+        success: boolean; message?: string; token: string; expiresAt: number;
+        user: { role: string; companyName: string };
+      }>(`/api/auth/impersonate/${r.id}`);
+      if (!res.success) throw new Error(res.message || 'Failed');
+      beginImpersonation({
+        token: res.token,
+        user: res.user,
+        expiresAt: res.expiresAt,
+        name: res.user.companyName,
+        role: res.user.role,
+      });
+    },
+    // Full reload: every cached query and stored role belongs to the old session.
+    onSuccess: () => { window.location.assign('/dashboard'); },
+    onError: (e) => notify.error(getErrorMessage(e)),
+  });
+
   const setPermsMut = useMutation({
     mutationFn: async ({ id, permissions }: { id: string; permissions: string[] }) => {
       const { data: r } = await api.put<{ success: boolean; message?: string }>(`/api/user/permissions/${id}`, { permissions });
@@ -249,7 +272,8 @@ export function useUserManagement(endpoint: string, listKey: ListKey) {
   };
 
   const actionLoading = createMut.isPending || editMut.isPending || addCreditMut.isPending
-    || removeCreditMut.isPending || freezeMut.isPending || deleteMut.isPending || setPermsMut.isPending;
+    || removeCreditMut.isPending || freezeMut.isPending || deleteMut.isPending || setPermsMut.isPending
+    || sessionSwitchMut.isPending;
 
   const total = listKey === 'resellers'
     ? (data as ResellersData | undefined)?.totalResellers ?? 0
@@ -272,6 +296,7 @@ export function useUserManagement(endpoint: string, listKey: ListKey) {
     setCreateForm, setEditForm, setCreditAmt, setDebitAmt,
     openModal, closeModal,
     handleCreate, handleEdit, handleAddCredit, handleRemoveCredit, handleFreeze, handleDelete, handleSetPermissions,
+    handleSessionSwitch: (r: ManagedUser) => sessionSwitchMut.mutate(r),
     refetch: () => qc.invalidateQueries({ queryKey }),
   };
 }

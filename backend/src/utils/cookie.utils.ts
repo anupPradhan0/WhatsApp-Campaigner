@@ -12,8 +12,12 @@ const COOKIE_OPTS = {
   sameSite: "lax",
 } as const;
 
-export function setAuthCookie(res: Response, token: string): void {
-  res.cookie("token", token, { ...COOKIE_OPTS, maxAge: THIRTY_DAYS_MS });
+export function setAuthCookie(
+  res: Response,
+  token: string,
+  maxAgeMs: number = THIRTY_DAYS_MS
+): void {
+  res.cookie("token", token, { ...COOKIE_OPTS, maxAge: maxAgeMs });
 }
 
 export function clearAuthCookie(res: Response): void {

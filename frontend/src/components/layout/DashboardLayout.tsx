@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import Footer from './Footer';
+import { ImpersonationBanner } from '../ImpersonationBanner';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -15,6 +16,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     <div className="flex min-h-screen bg-bg">
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       <div className="flex-1 flex flex-col min-w-0">
+        <ImpersonationBanner />
         <Header onToggleSidebar={() => setIsSidebarOpen(v => !v)} isSidebarOpen={isSidebarOpen} />
         <main className="flex-grow p-3 sm:p-4 md:p-6">
           <div className="max-w-7xl mx-auto w-full">

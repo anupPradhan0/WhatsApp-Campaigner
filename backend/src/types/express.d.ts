@@ -4,6 +4,8 @@ declare global {
   namespace Express {
     interface Request {
       user?: IUser;
+      /** Super admin id when this request runs inside a session switch. */
+      impersonatorId?: string;
     }
   }
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { format } from 'date-fns';
-import { Plus, Eye, Edit2, DollarSign, Lock, Unlock, Trash2, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { Plus, Eye, Edit2, UserCog, DollarSign, Lock, Unlock, Trash2, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { getUserRole, hasPermission } from '../utils/Auth';
 import { PERMISSIONS } from '../constants/Permissions';
 import { PermissionsModal } from '../components/PermissionsModal';
@@ -33,10 +33,12 @@ const ManageReseller = () => {
     total, items,
     setCreateForm, setEditForm, setCreditAmt, setDebitAmt,
     openModal, closeModal,
-    handleCreate, handleEdit, handleAddCredit, handleRemoveCredit, handleFreeze, handleDelete, handleSetPermissions,
+    handleCreate, handleEdit, handleAddCredit, handleRemoveCredit, handleFreeze, handleDelete, handleSetPermissions, handleSessionSwitch,
   } = useUserManagement('manage-reseller', 'resellers');
 
   const canGrantAny = PERMISSIONS.some(p => hasPermission(p.key));
+  // Session switch is super-admin-only; the server enforces this too.
+  const canSwitchSession = userRole === UserRole.SUPER_ADMIN;
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -119,6 +121,7 @@ const ManageReseller = () => {
                         {canGrantAny && <ActionBtn icon={ShieldCheck} color="var(--color-brand-light)" bg="var(--color-brand-dim)" title="Permissions" onClick={() => openModal('permissions', r)} />}
                         <ActionBtn icon={DollarSign} color="var(--color-brand-light)" bg="var(--color-brand-dim)" title="Manage Credit" onClick={() => openModal('credit', r)} />
                         <RowMenu items={[
+                          ...(canSwitchSession ? [{ icon: UserCog, label: 'Session Switch', onClick: () => handleSessionSwitch(r) }] : []),
                           { icon: Edit2, label: 'Edit', onClick: () => openModal('edit', r) },
                           { icon: r.status === 'active' ? Lock : Unlock, label: r.status === 'active' ? 'Freeze Account' : 'Unfreeze Account', onClick: () => openModal('freeze', r), danger: r.status === 'active' },
                           { icon: Trash2, label: 'Delete', onClick: () => openModal('delete', r), danger: true },
@@ -157,6 +160,7 @@ const ManageReseller = () => {
                 {canGrantAny && <ActionBtn icon={ShieldCheck} color="var(--color-brand-light)" bg="var(--color-brand-dim)" title="Permissions" onClick={() => openModal('permissions', r)} />}
                 <ActionBtn icon={DollarSign} color="var(--color-brand-light)" bg="var(--color-brand-dim)" title="Manage Credit" onClick={() => openModal('credit', r)} />
                 <RowMenu items={[
+                  ...(canSwitchSession ? [{ icon: UserCog, label: 'Session Switch', onClick: () => handleSessionSwitch(r) }] : []),
                   { icon: Edit2, label: 'Edit', onClick: () => openModal('edit', r) },
                   { icon: r.status === 'active' ? Lock : Unlock, label: r.status === 'active' ? 'Freeze Account' : 'Unfreeze Account', onClick: () => openModal('freeze', r), danger: r.status === 'active' },
                   { icon: Trash2, label: 'Delete', onClick: () => openModal('delete', r), danger: true },

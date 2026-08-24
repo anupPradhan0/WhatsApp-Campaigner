@@ -7,6 +7,10 @@ import {
   bootstrapStatus,
   bootstrapAdminHandler,
 } from "../controllers/auth.controller.js";
+import {
+  startImpersonation,
+  stopImpersonation,
+} from "../controllers/impersonation.controller.js";
 import isLoggedIn from "../middleware/is-logged-in.middleware.js";
 import upload from "../utils/upload.utils.js";
 import { uploadUserImageToCloudinary } from "../middleware/upload-to-cloudinary.middleware.js";
@@ -36,6 +40,10 @@ router.post(
   bootstrapAdminHandler
 );
 router.post("/logout", isLoggedIn, logout);
+
+// Super-admin session switch. "/stop" must be declared before "/:userId".
+router.post("/impersonate/stop", isLoggedIn, stopImpersonation);
+router.post("/impersonate/:userId", isLoggedIn, startImpersonation);
 router.put(
   "/update-profile",
   isLoggedIn,

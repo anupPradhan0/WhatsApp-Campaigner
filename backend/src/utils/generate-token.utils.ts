@@ -9,12 +9,25 @@ export interface TokenUserInput {
   role: UserRole;
 }
 
-export function generateToken(user: TokenUserInput): string {
+export interface TokenOptions {
+  /** jsonwebtoken duration string, e.g. "10m". Defaults to the normal 30d session. */
+  expiresIn?: string;
+  /** Set on session-switch tokens: the super admin who opened this session. */
+  impersonatorId?: string;
+}
+
+export function generateToken(
+  user: TokenUserInput,
+  opts: TokenOptions = {}
+): string {
   const payload = {
     id: typeof user._id === "string" ? user._id : user._id.toString(),
     email: user.email,
     role: user.role,
+    ...(opts.impersonatorId ? { imp: opts.impersonatorId } : {}),
   };
 
-  return jwt.sign(payload, env.JWT_SECRET, { expiresIn: "30d" });
+  return jwt.sign(payload, env.JWT_SECRET, {
+    expiresIn: (opts.expiresIn ?? "30d") as jwt.SignOptions["expiresIn"],
+  });
 }

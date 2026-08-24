@@ -10,6 +10,8 @@ interface DecodedJwtPayload {
   id: string;
   email: string;
   role: string;
+  /** Present only on session-switch tokens: the super admin behind this session. */
+  imp?: string;
 }
 
 async function isLoggedIn(
@@ -50,6 +52,7 @@ async function isLoggedIn(
     }
 
     req.user = user;
+    req.impersonatorId = decoded.imp;
     next();
   } catch (error: unknown) {
     if (error instanceof TokenExpiredError) {
