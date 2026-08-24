@@ -1,5 +1,5 @@
 import axios, { AxiosError } from "axios";
-import { exitImpersonation, isImpersonating } from "../utils/Auth";
+import { exitImpersonation, isImpersonating, reloadIntoDashboard } from "../utils/Auth";
 
 /**
  * Shared Axios instance for the WhatsApp Campaigner backend.
@@ -38,7 +38,7 @@ api.interceptors.response.use(
       // A switched session that expired: restore the super admin instead of
       // dumping them at the login page.
       if (isImpersonating()) {
-        void exitImpersonation().then(() => window.location.assign("/dashboard"));
+        void exitImpersonation().then(reloadIntoDashboard);
         return Promise.reject(error);
       }
       localStorage.removeItem("token");

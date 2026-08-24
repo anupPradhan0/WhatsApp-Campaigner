@@ -44,6 +44,15 @@ export const clearAuth = (): void => {
 
 const IMPERSONATION_KEY = 'impersonation';
 
+/** The app's dashboard route. Not "/dashboard" — that falls through to /404. */
+export const HOME_ROUTE = '/home';
+
+/**
+ * Hard reload into the dashboard. Used after switching sessions in either
+ * direction: every cached query and the stored role belong to the old session.
+ */
+export const reloadIntoDashboard = (): void => window.location.assign(HOME_ROUTE);
+
 export interface Impersonation {
   /** The super admin's own token and stored user, kept so we can hand it back. */
   originalToken: string;

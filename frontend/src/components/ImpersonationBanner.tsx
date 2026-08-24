@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { ShieldAlert, LogOut } from 'lucide-react';
-import { getImpersonation, exitImpersonation } from '../utils/Auth';
+import { getImpersonation, exitImpersonation, reloadIntoDashboard } from '../utils/Auth';
 
 const mmss = (ms: number) => {
   const total = Math.max(0, Math.ceil(ms / 1000));
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 };
 
-const leave = () => { void exitImpersonation().then(() => window.location.assign('/dashboard')); };
+const leave = () => { void exitImpersonation().then(reloadIntoDashboard); };
 
 /**
  * Sticky bar shown while a super admin is signed in as someone else.

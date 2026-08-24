@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, getErrorMessage } from '../api/client';
 import { QK } from '../lib/queryKeys';
 import { toast as notify } from 'sonner';
-import { beginImpersonation } from '../utils/Auth';
+import { beginImpersonation, reloadIntoDashboard } from '../utils/Auth';
 
 export interface ManagedUser {
   id: string;
@@ -199,7 +199,7 @@ export function useUserManagement(endpoint: string, listKey: ListKey) {
       });
     },
     // Full reload: every cached query and stored role belongs to the old session.
-    onSuccess: () => { window.location.assign('/dashboard'); },
+    onSuccess: reloadIntoDashboard,
     onError: (e) => notify.error(getErrorMessage(e)),
   });
 
