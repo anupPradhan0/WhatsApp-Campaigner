@@ -175,7 +175,7 @@ export default function CampaignDetails() {
 
       {/* Message — WhatsApp preview */}
       <Card title="Message">
-        <div className="grid lg:grid-cols-[300px_minmax(0,1fr)] gap-5 items-start">
+        <div className="grid lg:grid-cols-[340px_minmax(0,1fr)] gap-5 items-start">
           <WhatsAppPreview
             name={detail.createdBy}
             profileImage={detail.profileImage}

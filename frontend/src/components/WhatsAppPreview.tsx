@@ -29,7 +29,7 @@ export function WhatsAppPreview({
   const text = stripHtml(message ?? '');
 
   return (
-    <div className="mx-auto w-full max-w-[300px] rounded-[2.4rem] border-[8px] border-[#0a0a0a] bg-[#0b141a] shadow-[0_24px_60px_-15px_rgba(0,0,0,0.85)] overflow-hidden select-none">
+    <div className="mx-auto w-full max-w-[340px] rounded-[2.4rem] border-[8px] border-[#0a0a0a] bg-[#0b141a] shadow-[0_24px_60px_-15px_rgba(0,0,0,0.85)] overflow-hidden select-none">
       {/* Header + status bar */}
       <div style={{ background: '#202c33' }}>
         <div className="relative flex items-center justify-between px-5 pt-2 pb-1 text-[10px] font-medium text-[#e9edef]">
@@ -54,21 +54,21 @@ export function WhatsAppPreview({
 
       {/* Chat area */}
       <div
-        className="px-3 py-4 min-h-[380px]"
+        className="px-3 py-4 h-[460px] overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         style={{ backgroundColor: '#0b141a', backgroundImage: 'radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1px)', backgroundSize: '18px 18px' }}
       >
         <div className="flex justify-center mb-3">
           <span className="text-[10px] px-2.5 py-1 rounded-md" style={{ background: '#182229', color: '#8696a0' }}>TODAY</span>
         </div>
 
-        <div className="max-w-[85%] rounded-lg rounded-tl-none overflow-hidden shadow-[0_1px_1px_rgba(0,0,0,0.35)]" style={{ background: '#202c33' }}>
+        <div className="max-w-[88%] rounded-lg rounded-tl-none overflow-hidden shadow-[0_1px_1px_rgba(0,0,0,0.35)]" style={{ background: '#202c33' }}>
           {mediaImage && <img src={mediaImage} alt="" className="w-full max-h-44 object-cover" />}
           {!mediaImage && mediaIsVideo && (
             <div className="h-24 flex items-center justify-center" style={{ background: '#111b21' }}><Video size={22} className="text-[#8696a0]" /></div>
           )}
           <div className="px-2.5 py-2">
             {text
-              ? <p className="text-[13px] leading-[1.5] break-words whitespace-pre-wrap" style={{ color: '#e9edef' }}>{text}</p>
+              ? <p className="text-[13px] leading-[1.45] whitespace-pre-line break-words" style={{ color: '#e9edef' }}>{text}</p>
               : <p className="text-[13px] italic" style={{ color: '#8696a0' }}>Your message preview appears here…</p>}
             <div className="text-right text-[10px] mt-1" style={{ color: '#8696a0' }}>{time}</div>
           </div>
