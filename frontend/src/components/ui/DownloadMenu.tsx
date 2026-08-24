@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Download, Loader2 } from 'lucide-react';
 import type { ExcelFormat } from '../../hooks/useCampaigns';
 import { cn } from '../../lib/utils';
@@ -20,10 +20,15 @@ const OPTIONS: { fileFormat: ExcelFormat; label: string; hint: string }[] = [
 /** Download button that lets the user choose the old or the new Excel format. */
 export function DownloadMenu({ onPick, busy = false, variant = 'icon', className, iconSize = 13 }: DownloadMenuProps) {
   const [open, setOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  // Fixed positioning, not absolute: the table wrapper is `overflow-x-auto`,
+  // which would clip an absolutely-positioned menu inside the row.
+  const rect = open ? btnRef.current?.getBoundingClientRect() : undefined;
 
   return (
     <div className="relative inline-flex">
       <button
+        ref={btnRef}
         onClick={() => setOpen(o => !o)}
         disabled={busy}
         title="Download Excel"
@@ -48,7 +53,10 @@ export function DownloadMenu({ onPick, busy = false, variant = 'icon', className
           {/* click-away backdrop */}
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
 
-          <div role="menu" className="absolute right-0 top-full mt-2 w-60 z-50 bg-surface border border-line rounded-xl shadow-[0_16px_40px_-12px_rgba(0,0,0,0.7)] overflow-hidden p-1.5">
+          <div
+            role="menu"
+            style={rect ? { top: rect.bottom + 8, right: window.innerWidth - rect.right } : undefined}
+            className="fixed w-60 z-50 bg-surface border border-line rounded-xl shadow-[0_16px_40px_-12px_rgba(0,0,0,0.7)] overflow-hidden p-1.5">
             {OPTIONS.map(o => (
               <button
                 key={o.fileFormat}

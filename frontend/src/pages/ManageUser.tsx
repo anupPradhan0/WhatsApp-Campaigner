@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { format } from 'date-fns';
-import { Plus, Eye, Edit2, DollarSign, Minus, Lock, Unlock, Trash2, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { Plus, Eye, Edit2, DollarSign, Lock, Unlock, Trash2, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { getUserRole, hasPermission } from '../utils/Auth';
 import { UserRole } from '../constants/Roles';
 import { PERMISSIONS } from '../constants/Permissions';
@@ -13,6 +13,8 @@ import { StatusBadge } from '../components/ui/StatusBadge';
 import { ModalOverlay, ModalHeader, ModalBody, ModalFooter } from '../components/ui/Modal';
 import { FInput, FLabel, FSelect } from '../components/ui/FormField';
 import { PrimaryBtn, GhostBtn, ActionBtn } from '../components/ui/ActionButton';
+import { RowMenu } from '../components/ui/RowMenu';
+import { CreditModal } from '../components/ui/CreditModal';
 import { InlineAlert } from '../components/ui/Alert';
 import { Avatar } from '../components/ui/UserAvatar';
 import { Paginator } from '../components/ui/Paginator';
@@ -113,13 +115,14 @@ const ManageUser = () => {
                     <td className="px-4 py-2.5 group-hover:bg-white/[0.025]"><StatusBadge status={r.status} /></td>
                     <td className="px-4 py-2.5 group-hover:bg-white/[0.025]">
                       <div className="flex gap-[5px]">
-                        <ActionBtn icon={Eye}        color="var(--color-info)"        bg="var(--color-info-dim)"  title="View"          onClick={() => openModal('view', r)} />
-                        <ActionBtn icon={Edit2}       color="var(--color-warning)"     bg="var(--color-warning-dim)" title="Edit"          onClick={() => openModal('edit', r)} />
+                        <ActionBtn icon={Eye} color="var(--color-info)" bg="var(--color-info-dim)" title="View" onClick={() => openModal('view', r)} />
                         {canGrantAny && <ActionBtn icon={ShieldCheck} color="var(--color-brand-light)" bg="var(--color-brand-dim)" title="Permissions" onClick={() => openModal('permissions', r)} />}
-                        <ActionBtn icon={DollarSign}  color="var(--color-brand-light)" bg="var(--color-brand-dim)" title="Add Credit"   onClick={() => openModal('addCredit', r)} />
-                        <ActionBtn icon={Minus}       color="var(--color-danger)"      bg="var(--color-danger-dim)"   title="Remove Credit" onClick={() => openModal('removeCredit', r)} />
-                        <ActionBtn icon={r.status === 'active' ? Lock : Unlock} color={r.status === 'active' ? 'var(--color-danger)' : 'var(--color-brand-light)'} bg={r.status === 'active' ? 'var(--color-danger-dim)' : 'var(--color-brand-dim)'} title={r.status === 'active' ? 'Freeze' : 'Unfreeze'} onClick={() => openModal('freeze', r)} />
-                        <ActionBtn icon={Trash2}      color="var(--color-danger)"      bg="var(--color-danger-dim)"   title="Delete"        onClick={() => openModal('delete', r)} />
+                        <ActionBtn icon={DollarSign} color="var(--color-brand-light)" bg="var(--color-brand-dim)" title="Manage Credit" onClick={() => openModal('credit', r)} />
+                        <RowMenu items={[
+                          { icon: Edit2, label: 'Edit', onClick: () => openModal('edit', r) },
+                          { icon: r.status === 'active' ? Lock : Unlock, label: r.status === 'active' ? 'Freeze Account' : 'Unfreeze Account', onClick: () => openModal('freeze', r), danger: r.status === 'active' },
+                          { icon: Trash2, label: 'Delete', onClick: () => openModal('delete', r), danger: true },
+                        ]} />
                       </div>
                     </td>
                   </tr>
@@ -149,13 +152,15 @@ const ManageUser = () => {
                 <div><p className="text-[10px] text-fg-subtle mb-0.5">PHONE</p><p className="text-xs text-fg-muted">{r.number}</p></div>
                 <div className="text-right"><p className="text-[10px] text-fg-subtle mb-0.5">BALANCE</p><p className="text-base font-bold text-brand-light">₹{r.balance.toLocaleString()}</p></div>
               </div>
-              <div className="grid grid-cols-6 gap-1.5">
-                <ActionBtn icon={Eye}        color="var(--color-info)"        bg="var(--color-info-dim)"  title="View"          onClick={() => openModal('view', r)} />
-                <ActionBtn icon={Edit2}       color="var(--color-warning)"     bg="var(--color-warning-dim)" title="Edit"          onClick={() => openModal('edit', r)} />
-                <ActionBtn icon={DollarSign}  color="var(--color-brand-light)" bg="var(--color-brand-dim)" title="Add Credit"   onClick={() => openModal('addCredit', r)} />
-                <ActionBtn icon={Minus}       color="var(--color-danger)"      bg="var(--color-danger-dim)"   title="Remove Credit" onClick={() => openModal('removeCredit', r)} />
-                <ActionBtn icon={r.status === 'active' ? Lock : Unlock} color={r.status === 'active' ? 'var(--color-danger)' : 'var(--color-brand-light)'} bg={r.status === 'active' ? 'var(--color-danger-dim)' : 'var(--color-brand-dim)'} title={r.status === 'active' ? 'Freeze' : 'Unfreeze'} onClick={() => openModal('freeze', r)} />
-                <ActionBtn icon={Trash2}      color="var(--color-danger)"      bg="var(--color-danger-dim)"   title="Delete"        onClick={() => openModal('delete', r)} />
+              <div className="flex gap-1.5">
+                <ActionBtn icon={Eye} color="var(--color-info)" bg="var(--color-info-dim)" title="View" onClick={() => openModal('view', r)} />
+                {canGrantAny && <ActionBtn icon={ShieldCheck} color="var(--color-brand-light)" bg="var(--color-brand-dim)" title="Permissions" onClick={() => openModal('permissions', r)} />}
+                <ActionBtn icon={DollarSign} color="var(--color-brand-light)" bg="var(--color-brand-dim)" title="Manage Credit" onClick={() => openModal('credit', r)} />
+                <RowMenu items={[
+                  { icon: Edit2, label: 'Edit', onClick: () => openModal('edit', r) },
+                  { icon: r.status === 'active' ? Lock : Unlock, label: r.status === 'active' ? 'Freeze Account' : 'Unfreeze Account', onClick: () => openModal('freeze', r), danger: r.status === 'active' },
+                  { icon: Trash2, label: 'Delete', onClick: () => openModal('delete', r), danger: true },
+                ]} />
               </div>
             </div>
           ))}
@@ -266,46 +271,22 @@ const ManageUser = () => {
         </ModalOverlay>
       )}
 
-      {/* Add Credit modal */}
-      {modal === 'addCredit' && selected && (
-        <ModalOverlay onClose={closeModal}>
-          <div className="max-w-[400px] mx-auto">
-            <ModalHeader title="Add Credit" onClose={closeModal} />
-            <ModalBody>
-              {error && <InlineAlert msg={error} type="error" />}
-              <div className="bg-brand-dim border border-brand-border rounded-lg px-3 py-2.5 mb-3.5">
-                <p className="text-xs text-fg-muted">User: <span className="text-fg font-semibold">{selected.companyName}</span></p>
-                <p className="text-xs text-fg-muted mt-1">Current Balance: <span className="text-brand-light font-bold text-[15px]">₹{selected.balance.toLocaleString()}</span></p>
-              </div>
-              <FInput label="Amount to Credit *" type="number" placeholder="Enter amount" min="0" value={creditAmt} onChange={e => setCreditAmt(e.target.value)} />
-            </ModalBody>
-            <ModalFooter>
-              <PrimaryBtn onClick={handleAddCredit} disabled={actionLoading}>{actionLoading ? 'Processing…' : 'Add Credit'}</PrimaryBtn>
-              <GhostBtn onClick={closeModal}>Cancel</GhostBtn>
-            </ModalFooter>
-          </div>
-        </ModalOverlay>
-      )}
-
-      {/* Remove Credit modal */}
-      {modal === 'removeCredit' && selected && (
-        <ModalOverlay onClose={closeModal}>
-          <div className="max-w-[400px] mx-auto">
-            <ModalHeader title="Remove Credit" onClose={closeModal} />
-            <ModalBody>
-              {error && <InlineAlert msg={error} type="error" />}
-              <div className="bg-danger-dim border border-danger-border rounded-lg px-3 py-2.5 mb-3.5">
-                <p className="text-xs text-fg-muted">User: <span className="text-fg font-semibold">{selected.companyName}</span></p>
-                <p className="text-xs text-fg-muted mt-1">Current Balance: <span className="text-brand-light font-bold text-[15px]">₹{selected.balance.toLocaleString()}</span></p>
-              </div>
-              <FInput label="Amount to Debit *" type="number" placeholder="Enter amount" min="0" value={debitAmt} onChange={e => setDebitAmt(e.target.value)} />
-            </ModalBody>
-            <ModalFooter>
-              <PrimaryBtn danger onClick={handleRemoveCredit} disabled={actionLoading}>{actionLoading ? 'Processing…' : 'Remove Credit'}</PrimaryBtn>
-              <GhostBtn onClick={closeModal}>Cancel</GhostBtn>
-            </ModalFooter>
-          </div>
-        </ModalOverlay>
+      {/* Credit modal — add and remove in one popup */}
+      {modal === 'credit' && selected && (
+        <CreditModal
+          roleLabel="User"
+          name={selected.companyName}
+          balance={selected.balance}
+          error={error}
+          busy={actionLoading}
+          creditAmt={creditAmt}
+          debitAmt={debitAmt}
+          setCreditAmt={setCreditAmt}
+          setDebitAmt={setDebitAmt}
+          onAdd={handleAddCredit}
+          onRemove={handleRemoveCredit}
+          onClose={closeModal}
+        />
       )}
 
       {/* Freeze modal */}

@@ -85,7 +85,7 @@ export function useUserManagement(endpoint: string, listKey: ListKey) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [selected, setSelected] = useState<ManagedUser | null>(null);
-  const [modal, setModal] = useState<'create' | 'view' | 'edit' | 'addCredit' | 'removeCredit' | 'freeze' | 'delete' | 'permissions' | null>(null);
+  const [modal, setModal] = useState<'create' | 'view' | 'edit' | 'credit' | 'freeze' | 'delete' | 'permissions' | null>(null);
   const [createForm, setCreateForm] = useState<CreateForm>(blankCreate(listKey));
   const [editForm, setEditForm] = useState<EditForm>({ companyName: '', email: '', number: '', password: '', confirmPassword: '' });
   const [creditAmt, setCreditAmt] = useState('');
@@ -194,8 +194,7 @@ export function useUserManagement(endpoint: string, listKey: ListKey) {
     setError(''); setSuccess('');
     if (r) setSelected(r);
     if (type === 'edit' && r) setEditForm({ companyName: r.companyName, email: r.email, number: r.number, password: '', confirmPassword: '' });
-    if (type === 'addCredit') setCreditAmt('');
-    if (type === 'removeCredit') setDebitAmt('');
+    if (type === 'credit') { setCreditAmt(''); setDebitAmt(''); }
     setModal(type);
   };
 
