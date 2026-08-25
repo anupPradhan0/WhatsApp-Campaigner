@@ -254,7 +254,7 @@ export default function CampaignDetails() {
       {detail.image && (
         <Card title="Media">
           <img src={detail.image} alt="Campaign media" className="w-full max-h-[320px] object-contain rounded-lg bg-surface2" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-          <button onClick={() => downloadImage(detail.image!, detail.campaignName)} className="mt-2.5 flex items-center gap-1.5 px-3 py-1.5 bg-surface2 border border-line rounded-[7px] cursor-pointer text-fg-muted text-xs font-semibold">
+          <button onClick={() => downloadImage(detail.image!, detail.campaignName)} className="mt-2.5 flex items-center gap-1.5 px-3 py-1.5 bg-brand-dim border border-brand-border rounded-[7px] cursor-pointer text-brand-light text-xs font-semibold">
             <Download size={12} /> Download Media
           </button>
         </Card>
