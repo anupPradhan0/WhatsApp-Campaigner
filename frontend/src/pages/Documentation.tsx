@@ -170,7 +170,7 @@ const Documentation = () => {
 
       {/* Hero banner */}
       <div className="border border-brand-border rounded-[14px] px-8 pt-8 pb-7 text-center bg-[linear-gradient(135deg,rgba(22,163,74,0.18)_0%,rgba(59,130,246,0.1)_100%)]">
-        <span className="text-[10px] font-bold text-brand-light bg-brand-dim border border-brand-border rounded-[20px] px-3 py-[3px] uppercase tracking-[0.1em]">v1.0.0 · Production Ready</span>
+        <span className="text-[10px] font-bold text-brand-light bg-brand-dim border border-brand-border rounded-[20px] px-3 py-[3px] uppercase tracking-[0.1em]">v1.2.0 · Production Ready</span>
         <h1 className="text-[28px] font-extrabold text-fg mt-3.5 mb-2 tracking-[-0.5px]">WhatsApp Campaign Manager</h1>
         <p className="text-sm text-fg-muted leading-[1.7] max-w-[520px] mx-auto mb-5">
           Your complete solution for bulk WhatsApp marketing campaigns with advanced tracking and analytics.
