@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { Download, Loader2 } from 'lucide-react';
-import type { ExcelFormat } from '../../hooks/useCampaigns';
+import type { ExcelFormat } from '../../utils/downloadCampaign';
 import { cn } from '../../lib/utils';
 
 interface DownloadMenuProps {

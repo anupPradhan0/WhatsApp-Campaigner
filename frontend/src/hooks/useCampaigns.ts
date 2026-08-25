@@ -2,9 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { QK } from '../lib/queryKeys';
-
-/** Excel flavours offered on download: legacy 97-2003 (.xls) or modern (.xlsx). */
-export type ExcelFormat = 'xlsx' | 'xls';
+import { downloadCampaignExcel, type ExcelFormat } from '../utils/downloadCampaign';
 
 export interface Campaign {
   campaignId: string;
@@ -57,23 +55,7 @@ export function useCampaigns(endpoint: string) {
     setDownloading(p => new Set(p).add(id));
     setDlError(null);
     try {
-      const res = await api.get(`/api/dashboard/export-campaign/${id}?format=${fileFormat}`, { responseType: 'blob', validateStatus: () => true });
-      if (res.status >= 400) {
-        const t = await (res.data as Blob).text();
-        let msg = 'Failed to download campaign';
-        try { msg = JSON.parse(t)?.message || msg; } catch { /* non-JSON error body — keep fallback */ }
-        throw new Error(msg);
-      }
-      const cd = res.headers['content-disposition'] || '';
-      // Non-greedy, quote-excluding capture — a greedy `.+` swallows the closing
-      // quote into the name, producing a `…xlsx"` extension that won't open on Mac.
-      const fn = cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)?.[1] || `Campaign_${id}.${fileFormat}`;
-      const url = URL.createObjectURL(res.data as Blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = fn;
-      document.body.appendChild(a); a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      await downloadCampaignExcel(id, fileFormat);
     } catch (e) {
       setDlError(e instanceof Error ? e.message : 'Failed');
       setTimeout(() => setDlError(null), 5000);

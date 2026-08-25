@@ -1,3 +1,4 @@
+import { gzipSync } from "node:zlib";
 import type { Request, Response } from "express";
 import ExcelJS from "exceljs";
 import XLSX from "xlsx";
@@ -7,6 +8,9 @@ import Campaign, {
 } from "../models/campaign.model.js";
 import { pathParam } from "../utils/route-params.utils.js";
 import { userCanViewCampaign } from "../utils/campaign-access.utils.js";
+
+/** Excel 97-2003 stores at most 65,536 rows, header included. */
+const BIFF8_MAX_ROWS = 65_535;
 
 /** Best-effort per-number status for campaigns sent before per-number tracking. */
 function fallbackStatus(campaignStatus?: string): DeliveryStatus {
@@ -160,6 +164,14 @@ export async function exportCampaignToExcel(
     // Legacy .xls (BIFF8) — plain data only, the 97-2003 format via SheetJS
     // carries no styling, which is fine: it exists for old Excel/ERP imports.
     if (wantsLegacyXls) {
+      // Hard format limit; past it Excel silently truncates or refuses the file.
+      if (rows.length > BIFF8_MAX_ROWS) {
+        return res.status(400).json({
+          success: false,
+          message: `This campaign has ${rows.length.toLocaleString()} recipients. The old Excel 97-2003 format tops out at ${BIFF8_MAX_ROWS.toLocaleString()} rows — download the newer .xlsx instead.`,
+        });
+      }
+
       const aoa = [
         finalColumns.map((c) => c.header),
         ...rows.map((row) => finalColumns.map((c) => row[c.key] ?? "")),
@@ -235,6 +247,16 @@ export async function exportCampaignToExcel(
     res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
 
     if (wantsLegacyXls) {
+      // BIFF8 repeats every string on every row — a 10k-recipient campaign is
+      // ~7 MB of mostly the same message text, and compresses ~27x. .xlsx is
+      // already a zip, so only this branch is worth compressing.
+      const acceptsGzip = /\bgzip\b/.test(req.headers["accept-encoding"] ?? "");
+      if (acceptsGzip && xlsBuffer) {
+        res.setHeader("Content-Encoding", "gzip");
+        res.setHeader("Vary", "Accept-Encoding");
+        res.end(gzipSync(xlsBuffer));
+        return;
+      }
       res.end(xlsBuffer);
       return;
     }

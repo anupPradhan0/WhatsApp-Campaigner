@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { QK } from '../lib/queryKeys';
-import type { ExcelFormat } from './useCampaigns';
+import { downloadCampaignExcel, type ExcelFormat } from '../utils/downloadCampaign';
 
 export interface CampaignDetail {
   campaignId: string;
@@ -119,24 +119,7 @@ export function useDownloadCampaign() {
     setDownloading(true);
     setDlError(null);
     try {
-      const res = await api.get(`/api/dashboard/export-campaign/${id}?format=${fileFormat}`, {
-        responseType: 'blob',
-        validateStatus: () => true,
-      });
-      if (res.status >= 400) {
-        const t = await (res.data as Blob).text();
-        let msg = 'Failed to download campaign';
-        try { msg = JSON.parse(t)?.message || msg; } catch { /* non-JSON error body — keep fallback */ }
-        throw new Error(msg);
-      }
-      const cd = res.headers['content-disposition'] || '';
-      const fn = cd.match(/filename="?(.+)"?/i)?.[1] || `Campaign_${id}.${fileFormat}`;
-      const url = URL.createObjectURL(res.data as Blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = fn;
-      document.body.appendChild(a); a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      await downloadCampaignExcel(id, fileFormat);
     } catch (e) {
       setDlError(e instanceof Error ? e.message : 'Failed');
       setTimeout(() => setDlError(null), 5000);
