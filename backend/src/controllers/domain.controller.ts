@@ -63,7 +63,7 @@ export async function postVerifyDomain(req: Request, res: Response): Promise<Res
       success: true,
       message: state.routed
         ? "Domain verified and routed. The certificate is issued on first visit."
-        : "Domain verified. Routing was not configured automatically — add it in Dokploy.",
+        : `Domain verified, but routing failed — add it in Dokploy. ${state.routingError ?? ""}`.trim(),
       data: state,
     });
   } catch (error: unknown) {

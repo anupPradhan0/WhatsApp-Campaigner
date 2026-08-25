@@ -37,6 +37,9 @@ export async function registerDomainWithDokploy(host: string): Promise<boolean> 
         https: true,
         certificateType: "letsencrypt",
         stripPath: false,
+        // Dokploy requires these — omitting domainType fails schema validation.
+        domainType: "application",
+        internalPath: "/",
         ...entry,
       }),
     });

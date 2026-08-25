@@ -67,7 +67,7 @@ export async function clearDomain(actor: IUser): Promise<DomainState> {
  */
 export async function verifyDomain(
   actor: IUser
-): Promise<DomainState & { routed: boolean }> {
+): Promise<DomainState & { routed: boolean; routingError?: string }> {
   ensureCanWhiteLabel(actor);
 
   const domain = actor.domain;
@@ -95,11 +95,16 @@ export async function verifyDomain(
   // Routing failure must not undo verification — the DNS half is done, and
   // registration can be retried by hitting verify again.
   let routed = false;
+  let routingError: string | undefined;
   try {
     routed = await registerDomainWithDokploy(domain);
+    if (!routed) routingError = "Dokploy is not configured on the server.";
   } catch (error) {
+    // Surface the reason instead of burying it in the logs — without it the UI
+    // only says "not routed", which is undebuggable for the operator.
+    routingError = error instanceof Error ? error.message : String(error);
     console.error("[domain] Dokploy registration failed:", error);
   }
 
-  return { domain, verified: true, cnameTarget: expected, routed };
+  return { domain, verified: true, cnameTarget: expected, routed, routingError };
 }
