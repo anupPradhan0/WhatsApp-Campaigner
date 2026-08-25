@@ -38,6 +38,10 @@ function buildRedisLimiter(): RateLimitRequestHandler | null {
     standardHeaders: true,
     legacyHeaders: false,
     handler: limitHitHandler,
+    // Built lazily on the first request after Redis is ready (see loginLimiter),
+    // so the "created in a request handler" check is expected here — it is
+    // cached, not rebuilt per request.
+    validate: { creationStack: false },
     store: new RedisStore({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       sendCommand: (...args: string[]) => (client as any).call(...args),

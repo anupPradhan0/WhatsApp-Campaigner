@@ -33,6 +33,7 @@ export default function ManageBusiness() {
   const canWhiteLabel =
     role === UserRole.SUPER_ADMIN || role === UserRole.ADMIN || role === UserRole.RESELLER;
 
+  const [tab, setTab] = useState<'profile' | 'domain'>('profile');
   const [showPwd, setShowPwd] = useState(false);
   const [showConfirmPwd, setShowConfirmPwd] = useState(false);
 
@@ -40,8 +41,31 @@ export default function ManageBusiness() {
 
   return (
     <div className="max-w-[680px] mx-auto flex flex-col gap-5">
-      <PageHeader title="Manage Business" subtitle="Update your profile information, logo, and password" />
+      <PageHeader
+        title="Manage Business"
+        subtitle={tab === 'profile'
+          ? 'Update your profile information, logo, and password'
+          : 'Run the panel on your own web address'}
+      />
 
+      {canWhiteLabel && (
+        <div className="flex gap-1 bg-surface border border-line rounded-[10px] p-1 w-fit">
+          {([['profile', 'Business Profile'], ['domain', 'Custom Domain']] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={cn(
+                "px-4 py-[7px] rounded-[7px] text-[13px] font-semibold cursor-pointer border-none transition-colors",
+                tab === key ? "bg-brand text-white" : "bg-transparent text-fg-muted",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {(!canWhiteLabel || tab === 'profile') && (<>
       {success && (
         <div className="flex items-center gap-2.5 px-4 py-3 bg-brand-dim border border-brand-border rounded-[10px]">
           <CheckCircle size={16} className="text-brand-light shrink-0" />
@@ -151,10 +175,11 @@ export default function ManageBusiness() {
           {loading ? 'Saving changes…' : 'Save Changes'}
         </button>
       </form>
+      </>)}
 
-      {/* Outside the profile form — it saves and verifies on its own. Plain
-          users never run a white-label portal, so they don't see it. */}
-      {canWhiteLabel && <CustomDomainCard />}
+      {/* Its own tab — it saves and verifies independently of the profile form.
+          Plain users never run a white-label portal, so they don't see it. */}
+      {canWhiteLabel && tab === 'domain' && <CustomDomainCard />}
     </div>
   );
 }

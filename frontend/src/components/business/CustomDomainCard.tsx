@@ -33,7 +33,7 @@ function CopyRow({ label, value, hint }: { label: string; value: string; hint?: 
         }}
         className="group flex items-center gap-2 bg-surface border border-line hover:border-line-strong rounded-md px-2.5 py-2 text-left transition-colors"
       >
-        <code className="flex-1 text-[12px] font-mono text-fg break-all">{value}</code>
+        <code className="flex-1 min-w-0 text-[12px] font-mono text-fg truncate" title={value}>{value}</code>
         {done
           ? <Check size={13} className="text-brand-light shrink-0" />
           : <Copy size={13} className="text-fg-subtle group-hover:text-fg shrink-0" />}
@@ -150,7 +150,7 @@ export default function CustomDomainCard() {
         {/* Step 2 — the DNS record */}
         <Step n={2} title="Add this record at your domain registrar" done={verified}>
           {saved ? (
-            <div className="grid gap-2.5 sm:grid-cols-3 bg-surface2 border border-line rounded-lg p-3">
+            <div className="grid gap-2.5 sm:grid-cols-[minmax(0,7rem)_minmax(0,9rem)_minmax(0,1fr)] bg-surface2 border border-line rounded-lg p-3">
               <CopyRow label="Type" value="CNAME" />
               <CopyRow label="Name" value={label} hint="Some registrars want the full host" />
               <CopyRow label="Value" value={data?.cnameTarget ?? '—'} />
