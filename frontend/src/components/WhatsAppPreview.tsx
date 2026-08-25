@@ -1,14 +1,6 @@
 import { ArrowLeft, Video, Phone, MoreVertical, UserCircle, Link2, Smile, Paperclip, Camera, Mic, Signal, Wifi, BatteryFull } from 'lucide-react';
+import { stripHtml } from '../lib/stripHtml';
 
-// Strip HTML tags + decode entities to plain text. Reading textContent off a
-// detached node does NOT execute scripts or load images, so this is safe for
-// rendering another user's stored message (no HTML injection).
-const stripHtml = (h: string) => {
-  if (!h) return '';
-  const el = document.createElement('div');
-  el.innerHTML = h;
-  return (el.textContent ?? '').trim();
-};
 
 interface Props {
   name?: string;

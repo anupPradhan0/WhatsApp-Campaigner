@@ -12,15 +12,8 @@ import { StatusBadge } from '../components/ui/StatusBadge';
 import { Paginator } from '../components/ui/Paginator';
 import { PageHeader } from '../components/ui/PageHeader';
 import { DownloadMenu } from '../components/ui/DownloadMenu';
+import { stripHtml } from '../lib/stripHtml';
 
-// Strip HTML tags AND decode entities (&nbsp;, &amp;, …) that the rich-text
-// editor stores — a plain tag-regex leaves the entities showing literally.
-const stripHtml = (h: string) => {
-  if (!h) return '';
-  const el = document.createElement('div');
-  el.innerHTML = h;
-  return el.textContent ?? '';
-};
 const trunc = (s: string, n = 80) => s.length <= n ? s : s.slice(0, n) + '…';
 const fmtDate = (s: string) => { try { return format(new Date(s), 'dd MMM yyyy, hh:mm a'); } catch { return s; } };
 const dateInpCls = "bg-surface2 border border-line rounded-[7px] text-fg text-xs px-2.5 py-1.5 outline-none [color-scheme:dark]";

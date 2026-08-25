@@ -15,6 +15,7 @@ import { StatusBadge } from '../components/ui/StatusBadge';
 import { Paginator } from '../components/ui/Paginator';
 import { WhatsAppPreview } from '../components/WhatsAppPreview';
 import { DownloadMenu } from '../components/ui/DownloadMenu';
+import { stripHtml } from '../lib/stripHtml';
 
 const fmtDate = (s?: string | null) => {
   if (!s) return '—';
@@ -27,13 +28,6 @@ const fmtBubbleTime = (s?: string | null) => {
 const fmtTime = (s?: string | null) => {
   if (!s) return '—';
   try { return format(new Date(s), 'dd MMM, hh:mm a'); } catch { return s; }
-};
-// Safe HTML → plain text (textContent off a detached node runs no scripts).
-const stripHtml = (h: string) => {
-  if (!h) return '';
-  const el = document.createElement('div');
-  el.innerHTML = h;
-  return (el.textContent ?? '').trim();
 };
 
 const Card = ({ title, children }: { title: string; children: React.ReactNode }) => (

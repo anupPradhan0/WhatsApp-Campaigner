@@ -14,6 +14,7 @@ import { cn } from '../lib/utils';
 import { fieldCls } from '../theme/classes';
 import { PageHeader } from '../components/ui/PageHeader';
 import { parseRecipientsFile } from '../utils/parseRecipients';
+import { stripHtml } from '../lib/stripHtml';
 
 interface CampaignForm {
   campaignName: string;
@@ -47,7 +48,6 @@ const fieldLabelCls = "block text-[11px] font-semibold text-fg-muted uppercase t
 
 // Backend validates the raw (HTML) message string, so count the same thing.
 const MESSAGE_LIMIT = 12000;
-const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').trim();
 
 // Inline error shown directly under the offending field.
 const FieldError = ({ msg }: { msg?: string }) =>
