@@ -99,8 +99,11 @@ export default function CustomDomainCard() {
   const busy = save.isPending || verify.isPending || remove.isPending;
   const saved = !!data?.domain;
   const verified = !!data?.verified;
-  // Most registrars want only the subdomain label in the Name field.
-  const label = (data?.domain ?? '').split('.')[0];
+  // Most registrars want only the subdomain label in the Name field. Before the
+  // domain is saved we preview the record from whatever they're typing, so the
+  // step isn't an empty box — that's the part people get stuck on.
+  const shownHost = (saved ? data?.domain : host) || 'panel.yourbrand.com';
+  const label = shownHost.split('.')[0];
 
   return (
     <div className="bg-surface border border-line rounded-xl overflow-hidden">
@@ -149,15 +152,22 @@ export default function CustomDomainCard() {
 
         {/* Step 2 — the DNS record */}
         <Step n={2} title="Add this record at your domain registrar" done={verified}>
-          {saved ? (
-            <div className="grid gap-2.5 sm:grid-cols-[minmax(0,7rem)_minmax(0,9rem)_minmax(0,1fr)] bg-surface2 border border-line rounded-lg p-3">
+          <div className={cn("rounded-lg border p-3", saved ? "bg-surface2 border-line" : "bg-surface2/50 border-dashed border-line")}>
+            {!saved && (
+              <p className="text-[11px] text-fg-subtle mb-2.5">
+                <span className="font-semibold text-warning">Example</span> — this is the record you'll add. Save your subdomain to confirm it.
+              </p>
+            )}
+            <div className="grid gap-2.5 sm:grid-cols-[minmax(0,7rem)_minmax(0,9rem)_minmax(0,1fr)]">
               <CopyRow label="Type" value="CNAME" />
               <CopyRow label="Name" value={label} hint="Some registrars want the full host" />
               <CopyRow label="Value" value={data?.cnameTarget ?? '—'} />
             </div>
-          ) : (
-            <p className="text-xs text-fg-subtle">Save your subdomain above to see the exact record to copy.</p>
-          )}
+            <p className="text-[11px] text-fg-subtle mt-2.5 leading-[1.6]">
+              Points <code className="font-mono text-fg-muted">{shownHost}</code> at our servers.
+              Leave TTL at its default, and don't add an A record — only a CNAME verifies.
+            </p>
+          </div>
         </Step>
 
         {/* Step 3 — verify */}
