@@ -14,6 +14,7 @@ const navItems = [
   { id: 'features',        label: 'Features',            icon: Sparkles },
   { id: 'create-campaign', label: 'Creating a Campaign', icon: Send },
   { id: 'media',           label: 'Media & Uploads',     icon: Image },
+  { id: 'custom-domain',   label: 'Custom Domain',       icon: Globe },
   { id: 'how-to-use',      label: 'How to Use',          icon: Book },
   { id: 'faq',             label: 'FAQ',                 icon: HelpCircle },
   { id: 'about',           label: 'About Creator',       icon: User },
@@ -394,6 +395,95 @@ const Documentation = () => {
             </div>
           </Section>
 
+          {/* Custom Domain */}
+          <Section id="custom-domain" icon={Globe} title="Custom Domain (White Label)" accent="#3b82f6">
+            <p className="text-[13px] text-fg-muted leading-[1.7] mb-4">
+              Run the panel on <strong className="text-fg">your own web address</strong> instead of ours —
+              your customers see <code className="font-mono text-brand-light">panel.yourbrand.com</code> and your
+              branding, never the platform's. HTTPS is set up automatically once the domain is verified.
+            </p>
+
+            <div className="bg-surface2 border border-line rounded-[10px] border-l-[3px] border-l-[#f87171] px-[18px] py-3.5 mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Shield size={15} color="#f87171" />
+                <p className="text-[13px] font-bold text-fg m-0">Who can set this up?</p>
+              </div>
+              <ul className="m-0 pl-[18px] flex flex-col gap-1.5">
+                <li className="text-xs text-fg-muted leading-[1.6]"><strong className="text-fg">Super Admin, Admin and Reseller</strong> — the tab appears under <strong className="text-fg">Manage Business → Custom Domain</strong>.</li>
+                <li className="text-xs text-fg-muted leading-[1.6]"><strong className="text-fg">Users</strong> cannot — they don't run their own portal, so the tab is hidden for them.</li>
+                <li className="text-xs text-fg-muted leading-[1.6]">Each account gets <strong className="text-fg">one</strong> domain, and a domain can't be claimed by two accounts.</li>
+              </ul>
+            </div>
+
+            <p className="text-[13px] font-bold text-fg mb-3">Step by step</p>
+            <div className="flex flex-col gap-3.5 mb-4">
+              <Step n={1} title="Pick a subdomain" desc="Go to Manage Business → Custom Domain and type the address you want, e.g. panel.yourbrand.com. It must be a subdomain — a root domain like yourbrand.com cannot hold a CNAME record. Click Save." />
+              <Step n={2} title="Add the DNS record at your registrar" desc="Log in wherever your domain is registered (GoDaddy, Hostinger, Cloudflare, Namecheap…), open its DNS / Manage DNS page, and add the record shown on screen. Every field has a copy button — paste them exactly." />
+              <Step n={3} title="Click Verify" desc="Come back and press Verify now. We look up your DNS and confirm it points at us. If it isn't visible yet, wait and press Re-check — DNS can take a few minutes to a few hours to spread worldwide." />
+              <Step n={4} title="Open your new address" desc="Once it says Verified, visit your domain. The security certificate is issued on the first visit, so the very first load can take a few extra seconds." />
+            </div>
+
+            <p className="text-[13px] font-bold text-fg mb-2">The DNS record</p>
+            <div className="overflow-x-auto mb-2">
+              <table className="w-full border-collapse bg-surface2 border border-line rounded-[10px] overflow-hidden">
+                <thead>
+                  <tr className="border-b border-line">
+                    {['Field', 'What to enter'].map(h => (
+                      <th key={h} className="px-3.5 py-2.5 text-left text-[10px] text-fg-subtle font-bold uppercase tracking-[0.08em]">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ['Type', 'CNAME', 'Not an A record — only a CNAME will verify.'],
+                    ['Name', 'panel', 'Just the subdomain part. Some registrars want the full host instead.'],
+                    ['Value', 'shown in the app', 'Copy it from the Custom Domain tab — it points at our servers.'],
+                    ['TTL', 'leave default', 'Any value works; lower simply updates sooner.'],
+                  ].map(([f, v, note]) => (
+                    <tr key={f} className="border-b border-line/50">
+                      <td className="px-3.5 py-2.5 text-xs font-semibold text-fg whitespace-nowrap">{f}</td>
+                      <td className="px-3.5 py-2.5">
+                        <code className="text-xs font-mono text-brand-light">{v}</code>
+                        <p className="text-[11px] text-fg-subtle mt-0.5">{note}</p>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-[11px] text-fg-subtle leading-[1.6] mb-4">
+              The exact record is always shown in the app — it previews live as you type, so you can see it before saving.
+            </p>
+
+            <p className="text-[13px] font-bold text-fg mb-3">If something goes wrong</p>
+            <div className="flex flex-col gap-2.5">
+              <FaqItem q={'"No CNAME record found for that domain yet"'}>
+                The record hasn't spread yet, or it was saved under a different name. Check the <strong className="text-fg">Name</strong> field
+                at your registrar (try the full host if just the label didn't work), then wait a few minutes and press <strong className="text-fg">Re-check</strong>.
+              </FaqItem>
+              <FaqItem q={'"The CNAME does not point at the platform"'}>
+                A record exists, but its value is something else — often a leftover parking or hosting record.
+                Delete any other A or CNAME record for that same subdomain, leaving only ours.
+              </FaqItem>
+              <FaqItem q="I added an A record with an IP address — why doesn't it work?">
+                Verification only accepts a <strong className="text-fg">CNAME</strong>. An A record pins you to one fixed IP that can change,
+                which would silently break your panel. Delete the A record and add the CNAME instead.
+              </FaqItem>
+              <FaqItem q="Can I use my main domain, like yourbrand.com?">
+                No. The DNS standard doesn't allow a CNAME on a root domain — it would clash with your email and website records.
+                Use a subdomain such as <code className="font-mono text-brand-light">panel.</code>, <code className="font-mono text-brand-light">app.</code> or <code className="font-mono text-brand-light">wa.</code>
+              </FaqItem>
+              <FaqItem q="My site shows 404 / the certificate looks wrong">
+                Give it a minute after verifying and reload — the certificate is requested on the first visit.
+                If it persists, press <strong className="text-fg">Re-check</strong>; that re-runs the routing setup safely.
+              </FaqItem>
+              <FaqItem q="How do I change or remove my domain?">
+                Type a new address and press <strong className="text-fg">Update</strong>, or use <strong className="text-fg">Remove domain</strong>.
+                Removing frees the address for another account and sends your panel back to the default web address.
+              </FaqItem>
+            </div>
+          </Section>
+
           {/* How to Use */}
           <Section id="how-to-use" icon={Book} title="How to Use" accent="#a78bfa">
             <div className="flex flex-col gap-3">
@@ -521,11 +611,11 @@ const Documentation = () => {
                   </div>
                   <div>
                     <p className="text-[15px] font-bold text-fg">Anup Pradhan</p>
-                    <p className="text-xs text-brand-light">Software Developer</p>
+                    <p className="text-xs text-brand-light">Software Engineer</p>
                   </div>
                 </div>
                 <p className="text-xs text-fg-muted leading-[1.7] mb-3.5">
-                  Software developer and sole architect of the WhatsApp Campaign Management System, which he designed and built end to end — from initial concept through to production. The platform was developed in collaboration with <strong className="text-fg">ProMinds Digital</strong>.
+                  Software engineer and sole architect of the WhatsApp Campaign Management System, which he designed and built end to end — from initial concept through to production. The platform was developed in collaboration with <strong className="text-fg">ProMinds Digital</strong>.
                 </p>
                 <div className="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(160px,1fr))]">
                   <ExtLink href="https://github.com/M0rs-Ruki/WhatsApp-Campaigner" icon={Github} title="GitHub Repository" sub="View source code" />
