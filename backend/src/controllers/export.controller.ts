@@ -8,6 +8,7 @@ import Campaign, {
 } from "../models/campaign.model.js";
 import { pathParam } from "../utils/route-params.utils.js";
 import { userCanViewCampaign } from "../utils/campaign-access.utils.js";
+import { stripHtml } from "../utils/strip-html.utils.js";
 
 /** Excel 97-2003 stores at most 65,536 rows, header included. */
 const BIFF8_MAX_ROWS = 65_535;
@@ -123,7 +124,7 @@ export async function exportCampaignToExcel(
         return {
           campaignName: campaign.campaignName,
           campaignStatus: (campaign.status ?? "").toUpperCase(),
-          message: campaign.message,
+          message: stripHtml(campaign.message ?? ""),
           phoneButtonText: campaign.phoneButton?.text ?? "",
           phoneButtonNumber: campaign.phoneButton?.number ?? "",
           linkButtonText: campaign.linkButton?.text ?? "",
