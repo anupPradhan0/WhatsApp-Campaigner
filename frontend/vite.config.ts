@@ -24,7 +24,6 @@ export default defineConfig(({ mode }) => ({
           if (id.match(/node_modules[\\/](react|react-dom|scheduler)[\\/]/)) return "react";
           if (id.includes("@tanstack")) return "query";
           if (id.includes("recharts") || id.includes("d3-")) return "charts";
-          if (id.includes("react-quill") || id.includes("quill")) return "editor";
           if (id.includes("lucide-react")) return "icons";
         },
       },

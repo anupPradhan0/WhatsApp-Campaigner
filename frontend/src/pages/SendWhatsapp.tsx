@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import ReactQuill from 'react-quill-new';
 import type { FormEvent, ChangeEvent } from 'react';
 import { toast } from 'sonner';
-import 'react-quill-new/dist/quill.snow.css';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { api, getErrorMessage } from '../api/client';
@@ -14,7 +12,6 @@ import { cn } from '../lib/utils';
 import { fieldCls } from '../theme/classes';
 import { PageHeader } from '../components/ui/PageHeader';
 import { parseRecipientsFile } from '../utils/parseRecipients';
-import { stripHtml } from '../lib/stripHtml';
 
 interface CampaignForm {
   campaignName: string;
@@ -46,7 +43,6 @@ const SectionTitle = ({ icon: Icon, children }: { icon: React.FC<{ size?: number
 
 const fieldLabelCls = "block text-[11px] font-semibold text-fg-muted uppercase tracking-[0.07em] mb-1.5";
 
-// Backend validates the raw (HTML) message string, so count the same thing.
 const MESSAGE_LIMIT = 12000;
 
 // Inline error shown directly under the offending field.
@@ -99,9 +95,6 @@ const SendWhatsapp = () => {
       } catch { /* ignore — balance warning is optional */ }
     })();
   }, []);
-
-  const modules = { toolbar: [['bold', 'italic'], [{ list: 'ordered' }, { list: 'bullet' }], ['blockquote'], ['link']] };
-  const formats = ['bold', 'italic', 'list', 'blockquote', 'link'];
 
   // Clear a field's inline error as soon as the user starts fixing it.
   const clearFieldError = (name: string) =>
@@ -259,7 +252,7 @@ const SendWhatsapp = () => {
     else if (name.length < 3) e.campaignName = 'Campaign name must be at least 3 characters.';
     else if (name.length > 100) e.campaignName = 'Campaign name cannot exceed 100 characters.';
 
-    if (!stripHtml(formData.message)) e.message = 'Message is required.';
+    if (!formData.message.trim()) e.message = 'Message is required.';
     else if (formData.message.length > MESSAGE_LIMIT)
       e.message = `Message is too long (${formData.message.length}/${MESSAGE_LIMIT}). Please shorten it.`;
 
@@ -344,14 +337,6 @@ const SendWhatsapp = () => {
         </div>
       )}
       <style>{`
-        .ql-toolbar.ql-snow { background: #18181b !important; border: 1px solid #27272a !important; border-bottom: none !important; border-radius: 8px 8px 0 0 !important; }
-        .ql-container.ql-snow { background: #111113 !important; border: 1px solid #27272a !important; border-radius: 0 0 8px 8px !important; font-size: 14px !important; color: #f4f4f5 !important; }
-        .ql-editor { min-height: 140px; color: #f4f4f5 !important; }
-        .ql-editor.ql-blank::before { color: #52525b !important; font-style: normal !important; }
-        .ql-snow .ql-stroke { stroke: #71717a !important; } .ql-snow .ql-fill { fill: #71717a !important; }
-        .ql-snow .ql-picker-label { color: #71717a !important; } .ql-snow .ql-picker-options { background: #18181b !important; border-color: #27272a !important; }
-        .ql-snow .ql-active .ql-stroke { stroke: #4ade80 !important; } .ql-snow .ql-active .ql-fill { fill: #4ade80 !important; }
-        .ql-toolbar.ql-snow .ql-formats button:hover .ql-stroke { stroke: #f4f4f5 !important; } .ql-toolbar.ql-snow .ql-formats button:hover .ql-fill { fill: #f4f4f5 !important; }
         .file-input::file-selector-button { background: rgba(22,163,74,0.15); border: 1px solid rgba(22,163,74,0.3); color: #4ade80; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; margin-right: 10px; transition: background 0.15s; }
         .file-input::file-selector-button:hover { background: rgba(22,163,74,0.25); }
       `}</style>
@@ -382,7 +367,15 @@ const SendWhatsapp = () => {
           {/* Message */}
           <SectionCard>
             <SectionTitle icon={Send}>Message *</SectionTitle>
-            <ReactQuill theme="snow" value={formData.message} onChange={content => { setFormData(prev => ({ ...prev, message: content })); clearFieldError('message'); }} modules={modules} formats={formats} placeholder="Type your message here…" />
+            <textarea
+              name="message"
+              value={formData.message}
+              onChange={handleInput}
+              placeholder="Type your message here…"
+              disabled={loading}
+              rows={7}
+              className={cn(fieldCls, 'min-h-[140px] resize-y')}
+            />
             <div className="flex items-center justify-between mt-1.5">
               <FieldError msg={fieldErrors.message} />
               <span className={cn("text-[12px] font-medium ml-auto", formData.message.length > MESSAGE_LIMIT ? "text-danger" : "text-fg-subtle")}>

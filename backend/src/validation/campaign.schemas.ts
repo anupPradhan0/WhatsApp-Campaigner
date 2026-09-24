@@ -4,6 +4,7 @@ import {
   MediaType,
   MobileNumberEntryType,
 } from "../models/campaign.model.js";
+import { stripHtml } from "../utils/strip-html.utils.js";
 
 const mobileNumbersField = z.union([
   z.string(),
@@ -12,10 +13,20 @@ const mobileNumbersField = z.union([
 
 export const createCampaignBodySchema = z.object({
   campaignName: z.string().min(1).max(100),
+  // Quill (and any rich editor) may post HTML; WhatsApp is plain text, so
+  // strip tags/entities before validating length and persisting.
   message: z
     .string()
-    .min(1, "Message cannot be empty")
-    .max(12000, "You have reached the message length limit of 12000 characters."),
+    .transform(stripHtml)
+    .pipe(
+      z
+        .string()
+        .min(1, "Message cannot be empty")
+        .max(
+          12000,
+          "You have reached the message length limit of 12000 characters."
+        )
+    ),
   phoneButtonText: z.string().max(20).optional(),
   phoneButtonNumber: z.string().optional(),
   linkButtonText: z.string().max(20).optional(),
