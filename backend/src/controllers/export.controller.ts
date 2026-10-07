@@ -105,17 +105,17 @@ export async function exportCampaignToExcel(
 
     // Keep only columns with at least one non-empty value, so fields that are
     // empty for the whole campaign (e.g. no button or media) are omitted.
-    // Combine the country code and the phone number into one full international
-    // number (e.g. "+919090090150") in a single column. The stored number often
-    // already includes the country-code digits, so guard against double-prefix.
+    // Combine the country code and phone number into one full international
+    // number without a leading plus (e.g. "919090090150"). Stored numbers
+    // often already include the country-code digits, so avoid duplicating them.
     const ccDigits = (campaign.countryCode ?? "").replace(/\D/g, "");
     const cleanMessage = stripHtml(campaign.message ?? "");
     const campaignStatus = (campaign.status ?? "").toUpperCase();
     const toFullNumber = (raw: string): string => {
       const numDigits = (raw ?? "").replace(/\D/g, "");
       if (!numDigits) return "";
-      if (ccDigits && numDigits.startsWith(ccDigits)) return `+${numDigits}`;
-      return `+${ccDigits}${numDigits}`;
+      if (ccDigits && numDigits.startsWith(ccDigits)) return numDigits;
+      return `${ccDigits}${numDigits}`;
     };
 
     const makeRow = (phoneNumber: string, index: number): Record<string, string> => ({
@@ -123,7 +123,7 @@ export async function exportCampaignToExcel(
       campaignStatus,
       message: cleanMessage,
       phoneButtonText: campaign.phoneButton?.text ?? "",
-      phoneButtonNumber: campaign.phoneButton?.number ?? "",
+      phoneButtonNumber: (campaign.phoneButton?.number ?? "").replace(/\D/g, ""),
       linkButtonText: campaign.linkButton?.text ?? "",
       linkButtonUrl: campaign.linkButton?.url ?? "",
       phoneNumber: toFullNumber(phoneNumber),
