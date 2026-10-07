@@ -560,7 +560,7 @@ const Documentation = () => {
                 A campaign's content can't be edited once created — create a new one instead. Its <strong className="text-fg">status</strong>, however, can be changed by an Admin or Super Admin.
               </FaqItem>
               <FaqItem q="How do I export campaign data?">
-                Click the Download button on the Reports page and pick a format: <strong className="text-fg">Excel (.xlsx)</strong> — the newer version, keeps the styled sheet — or <strong className="text-fg">Excel 97-2003 (.xls)</strong> — the old version, plain data, for older Excel and ERP imports. Either way recipients are listed in a single full-number column (e.g. <code style={{ background: '#27272a', padding: '1px 5px', borderRadius: 4 }}>+919090090150</code>).
+                Click the Download button on the Reports page and pick a format: <strong className="text-fg">Excel (.xlsx)</strong> — the newer version, keeps the styled sheet — or <strong className="text-fg">Excel 97-2003 (.xls)</strong> — the old version, plain data, for older Excel and ERP imports. Large .xls exports are split across sheets to fit the older format. Either way recipients are listed in a single full-number column (e.g. <code style={{ background: '#27272a', padding: '1px 5px', borderRadius: 4 }}>+919090090150</code>).
               </FaqItem>
               <FaqItem q="Is my data secure?">
                 Yes. All data is encrypted, passwords are hashed, and auth uses JWT tokens with regular backups.

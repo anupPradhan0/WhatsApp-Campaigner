@@ -10,8 +10,8 @@ import { pathParam } from "../utils/route-params.utils.js";
 import { userCanViewCampaign } from "../utils/campaign-access.utils.js";
 import { stripHtml } from "../utils/strip-html.utils.js";
 
-/** Excel 97-2003 stores at most 65,536 rows, header included. */
-const BIFF8_MAX_ROWS = 65_535;
+/** Excel 97-2003 stores at most 65,536 rows per sheet, including the header. */
+const BIFF8_MAX_RECIPIENTS_PER_SHEET = 65_535;
 /** Modern Excel stores at most 1,048,576 rows, header included. */
 const XLSX_MAX_ROWS = 1_048_575;
 
@@ -165,27 +165,27 @@ export async function exportCampaignToExcel(
     // Legacy .xls (BIFF8) — plain data only, the 97-2003 format via SheetJS
     // carries no styling, which is fine: it exists for old Excel/ERP imports.
     if (wantsLegacyXls) {
-      // Hard format limit; past it Excel silently truncates or refuses the file.
-      if (campaign.mobileNumbers.length > BIFF8_MAX_ROWS) {
-        return res.status(400).json({
-          success: false,
-          message: `This campaign has ${campaign.mobileNumbers.length.toLocaleString()} recipients. The old Excel 97-2003 format tops out at ${BIFF8_MAX_ROWS.toLocaleString()} rows — download the newer .xlsx instead.`,
-        });
-      }
-
-      const aoa = [
-        finalColumns.map((c) => c.header),
-        ...campaign.mobileNumbers.map((phoneNumber, index) => {
-          const row = makeRow(phoneNumber, index);
-          return finalColumns.map((c) => row[c.key] ?? "");
-        }),
-      ];
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(
-        wb,
-        XLSX.utils.aoa_to_sheet(aoa),
-        "Campaign Data"
+      const sheetCount = Math.max(
+        1,
+        Math.ceil(campaign.mobileNumbers.length / BIFF8_MAX_RECIPIENTS_PER_SHEET)
       );
+      for (let sheetIndex = 0; sheetIndex < sheetCount; sheetIndex += 1) {
+        const start = sheetIndex * BIFF8_MAX_RECIPIENTS_PER_SHEET;
+        const end = Math.min(
+          start + BIFF8_MAX_RECIPIENTS_PER_SHEET,
+          campaign.mobileNumbers.length
+        );
+        const aoa: string[][] = [finalColumns.map((column) => column.header)];
+        for (let index = start; index < end; index += 1) {
+          const row = makeRow(campaign.mobileNumbers[index], index);
+          aoa.push(finalColumns.map((column) => row[column.key] ?? ""));
+        }
+        const sheetName = sheetIndex === 0
+          ? "Campaign Data"
+          : `Campaign Data ${sheetIndex + 1}`;
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), sheetName);
+      }
       xlsBuffer = XLSX.write(wb, { bookType: "biff8", type: "buffer" });
     } else if (campaign.mobileNumbers.length > XLSX_MAX_ROWS) {
       return res.status(400).json({

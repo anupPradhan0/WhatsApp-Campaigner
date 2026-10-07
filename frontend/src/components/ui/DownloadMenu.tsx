@@ -15,7 +15,7 @@ interface DownloadMenuProps {
 
 const OPTIONS: { fileFormat: ExcelFormat; label: string; hint: string }[] = [
   { fileFormat: 'xlsx', label: 'Excel (.xlsx)', hint: 'Newer version — Excel 2007 and later' },
-  { fileFormat: 'xls', label: 'Excel 97-2003 (.xls)', hint: 'Old version — for older Excel' },
+  { fileFormat: 'xls', label: 'Excel 97-2003 (.xls)', hint: 'Old version — large exports use multiple sheets' },
 ];
 
 /** Download button that lets the user choose the old or the new Excel format. */
