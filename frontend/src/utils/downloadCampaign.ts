@@ -1,8 +1,8 @@
 import { api } from '../api/client';
 import { toast } from 'sonner';
 
-/** Excel flavours offered on download: legacy 97-2003 (.xls) or modern (.xlsx). */
-export type ExcelFormat = 'xlsx' | 'xls';
+/** Content included in a modern Excel campaign download. */
+export type CampaignExportType = 'all' | 'numbers';
 
 /**
  * Filename out of a Content-Disposition header.
@@ -22,7 +22,7 @@ const filenameFrom = (cd: string): string | undefined =>
  */
 export async function downloadCampaignExcel(
   id: string,
-  fileFormat: ExcelFormat = 'xlsx',
+  exportType: CampaignExportType = 'all',
   recipientCount?: number,
 ): Promise<void> {
   const statusMessage = recipientCount && recipientCount >= 10_000
@@ -31,7 +31,8 @@ export async function downloadCampaignExcel(
   const toastId = toast.loading(statusMessage, { duration: Infinity });
 
   try {
-    const res = await api.get(`/api/dashboard/export-campaign/${id}?format=${fileFormat}`, {
+    const numbersOnly = exportType === 'numbers';
+    const res = await api.get(`/api/dashboard/export-campaign/${id}?numbersOnly=${numbersOnly}`, {
       responseType: 'blob',
       // Large campaigns can take longer than the API client's normal 30 second
       // timeout while ExcelJS builds the workbook.
@@ -51,7 +52,7 @@ export async function downloadCampaignExcel(
     }
 
     const name = filenameFrom(res.headers['content-disposition'] || '')
-      || `Campaign_${id}.${fileFormat}`;
+      || `Campaign_${id}${numbersOnly ? '_numbers' : ''}.xlsx`;
 
     const url = URL.createObjectURL(res.data as Blob);
     const a = document.createElement('a');

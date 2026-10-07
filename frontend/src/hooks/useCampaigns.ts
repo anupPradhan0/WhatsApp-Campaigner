@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { QK } from '../lib/queryKeys';
-import { downloadCampaignExcel, type ExcelFormat } from '../utils/downloadCampaign';
+import { downloadCampaignExcel, type CampaignExportType } from '../utils/downloadCampaign';
 
 export interface Campaign {
   campaignId: string;
@@ -50,12 +50,12 @@ export function useCampaigns(endpoint: string) {
     queryFn: () => fetchCampaigns(endpoint),
   });
 
-  const downloadExcel = async (id: string, fileFormat: ExcelFormat = 'xlsx', recipientCount?: number) => {
+  const downloadExcel = async (id: string, exportType: CampaignExportType = 'all', recipientCount?: number) => {
     if (downloading.has(id)) return;
     setDownloading(p => new Set(p).add(id));
     setDlError(null);
     try {
-      await downloadCampaignExcel(id, fileFormat, recipientCount);
+      await downloadCampaignExcel(id, exportType, recipientCount);
     } catch (e) {
       setDlError(e instanceof Error ? e.message : 'Failed');
       setTimeout(() => setDlError(null), 5000);

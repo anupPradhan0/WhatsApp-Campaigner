@@ -1,7 +1,5 @@
-import { gzipSync } from "node:zlib";
 import type { Request, Response } from "express";
 import ExcelJS from "exceljs";
-import XLSX from "xlsx";
 import Campaign, {
   CampaignStats,
   DeliveryStatus,
@@ -10,8 +8,6 @@ import { pathParam } from "../utils/route-params.utils.js";
 import { userCanViewCampaign } from "../utils/campaign-access.utils.js";
 import { stripHtml } from "../utils/strip-html.utils.js";
 
-/** Excel 97-2003 stores at most 65,536 rows per sheet, including the header. */
-const BIFF8_MAX_RECIPIENTS_PER_SHEET = 65_535;
 /** Modern Excel stores at most 1,048,576 rows, header included. */
 const XLSX_MAX_ROWS = 1_048_575;
 
@@ -76,9 +72,7 @@ export async function exportCampaignToExcel(
       });
     }
 
-    // ?format=xls → legacy Excel 97-2003 (.xls); anything else → modern .xlsx.
-    const wantsLegacyXls = String(req.query.format ?? "").toLowerCase() === "xls";
-    let xlsBuffer: Buffer | null = null;
+    const numbersOnly = String(req.query.numbersOnly ?? "").toLowerCase() === "true";
 
     const formatDate = (dateString: string | Date): string => {
       const date = new Date(dateString);
@@ -153,41 +147,18 @@ export async function exportCampaignToExcel(
     const firstRow = campaign.mobileNumbers.length
       ? makeRow(campaign.mobileNumbers[0], 0)
       : null;
-    const columns = allColumns.filter((col) =>
-      col.key === "phoneNumber"
-        ? campaign.mobileNumbers.some((phoneNumber) => !isEmpty(toFullNumber(phoneNumber)))
-        : firstRow ? !isEmpty(firstRow[col.key]) : false
-    );
+    const columns = numbersOnly
+      ? allColumns.filter((col) => col.key === "phoneNumber")
+      : allColumns.filter((col) =>
+          col.key === "phoneNumber"
+            ? campaign.mobileNumbers.some((phoneNumber) => !isEmpty(toFullNumber(phoneNumber)))
+            : firstRow ? !isEmpty(firstRow[col.key]) : false
+        );
 
     // Fall back to all columns only in the impossible case of zero rows.
     const finalColumns = columns.length > 0 ? columns : allColumns;
 
-    // Legacy .xls (BIFF8) — plain data only, the 97-2003 format via SheetJS
-    // carries no styling, which is fine: it exists for old Excel/ERP imports.
-    if (wantsLegacyXls) {
-      const wb = XLSX.utils.book_new();
-      const sheetCount = Math.max(
-        1,
-        Math.ceil(campaign.mobileNumbers.length / BIFF8_MAX_RECIPIENTS_PER_SHEET)
-      );
-      for (let sheetIndex = 0; sheetIndex < sheetCount; sheetIndex += 1) {
-        const start = sheetIndex * BIFF8_MAX_RECIPIENTS_PER_SHEET;
-        const end = Math.min(
-          start + BIFF8_MAX_RECIPIENTS_PER_SHEET,
-          campaign.mobileNumbers.length
-        );
-        const aoa: string[][] = [finalColumns.map((column) => column.header)];
-        for (let index = start; index < end; index += 1) {
-          const row = makeRow(campaign.mobileNumbers[index], index);
-          aoa.push(finalColumns.map((column) => row[column.key] ?? ""));
-        }
-        const sheetName = sheetIndex === 0
-          ? "Campaign Data"
-          : `Campaign Data ${sheetIndex + 1}`;
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), sheetName);
-      }
-      xlsBuffer = XLSX.write(wb, { bookType: "biff8", type: "buffer" });
-    } else if (campaign.mobileNumbers.length > XLSX_MAX_ROWS) {
+    if (campaign.mobileNumbers.length > XLSX_MAX_ROWS) {
       return res.status(400).json({
         success: false,
         message: `This campaign has ${campaign.mobileNumbers.length.toLocaleString()} recipients. Excel supports up to ${XLSX_MAX_ROWS.toLocaleString()} recipients per sheet.`,
@@ -206,29 +177,13 @@ export async function exportCampaignToExcel(
         .replace(/\s+/g, "_")
         .replace(/_+/g, "_")
         .replace(/^_+|_+$/g, "") || "campaign";
-    const fileName = `${safeBase}.${wantsLegacyXls ? "xls" : "xlsx"}`;
+    const fileName = `${safeBase}${numbersOnly ? "_numbers" : ""}.xlsx`;
 
     res.setHeader(
       "Content-Type",
-      wantsLegacyXls
-        ? "application/vnd.ms-excel"
-        : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
     res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
-
-    if (wantsLegacyXls) {
-      // BIFF8 repeats every string on every row, so gzip this legacy format
-      // when supported. The modern XLSX is already compressed by its ZIP writer.
-      const acceptsGzip = /\bgzip\b/.test(req.headers["accept-encoding"] ?? "");
-      if (acceptsGzip && xlsBuffer) {
-        res.setHeader("Content-Encoding", "gzip");
-        res.setHeader("Vary", "Accept-Encoding");
-        res.end(gzipSync(xlsBuffer));
-      } else {
-        res.end(xlsBuffer);
-      }
-      return;
-    }
 
     // Stream the workbook directly to the response. The document writer kept
     // all rows, styles and shared strings in memory; the streaming writer
@@ -241,7 +196,7 @@ export async function exportCampaignToExcel(
       useSharedStrings: false,
       zip: { zlib: { level: 1 } },
     });
-    const worksheet = workbook.addWorksheet("Campaign Data");
+    const worksheet = workbook.addWorksheet(numbersOnly ? "Phone Numbers" : "Campaign Data");
     worksheet.columns = finalColumns;
 
     worksheet.getRow(1).font = { bold: true, size: 12 };
@@ -258,7 +213,10 @@ export async function exportCampaignToExcel(
 
     // Header only styling keeps workbook generation fast on large exports.
     for (let index = 0; index < campaign.mobileNumbers.length; index += 1) {
-      worksheet.addRow(makeRow(campaign.mobileNumbers[index], index)).commit();
+      const row = numbersOnly
+        ? { phoneNumber: toFullNumber(campaign.mobileNumbers[index]) }
+        : makeRow(campaign.mobileNumbers[index], index);
+      worksheet.addRow(row).commit();
     }
     worksheet.commit();
     await workbook.commit();

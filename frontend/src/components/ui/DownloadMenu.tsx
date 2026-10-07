@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react';
 import { Download, Loader2 } from 'lucide-react';
-import type { ExcelFormat } from '../../utils/downloadCampaign';
+import type { CampaignExportType } from '../../utils/downloadCampaign';
 import { cn } from '../../lib/utils';
 
 interface DownloadMenuProps {
-  onPick: (fileFormat: ExcelFormat) => void;
+  onPick: (exportType: CampaignExportType) => void;
   busy?: boolean;
   recipientCount?: number;
   /** 'icon' = compact square in a table row, 'button' = labelled page action. */
@@ -13,12 +13,12 @@ interface DownloadMenuProps {
   iconSize?: number;
 }
 
-const OPTIONS: { fileFormat: ExcelFormat; label: string; hint: string }[] = [
-  { fileFormat: 'xlsx', label: 'Excel (.xlsx)', hint: 'Newer version — Excel 2007 and later' },
-  { fileFormat: 'xls', label: 'Excel 97-2003 (.xls)', hint: 'Old version — large exports use multiple sheets' },
+const OPTIONS: { exportType: CampaignExportType; label: string; hint: string }[] = [
+  { exportType: 'all', label: 'Full campaign (.xlsx)', hint: 'All campaign data — Excel 2007 and later' },
+  { exportType: 'numbers', label: 'Phone numbers only (.xlsx)', hint: 'A simple spreadsheet with recipient numbers' },
 ];
 
-/** Download button that lets the user choose the old or the new Excel format. */
+/** Download button for the full campaign or only its recipient numbers. */
 export function DownloadMenu({ onPick, busy = false, recipientCount, variant = 'icon', className, iconSize = 13 }: DownloadMenuProps) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -64,9 +64,9 @@ export function DownloadMenu({ onPick, busy = false, recipientCount, variant = '
             className="fixed w-60 z-50 bg-surface border border-line rounded-xl shadow-[0_16px_40px_-12px_rgba(0,0,0,0.7)] overflow-hidden p-1.5">
             {OPTIONS.map(o => (
               <button
-                key={o.fileFormat}
+                key={o.exportType}
                 role="menuitem"
-                onClick={() => { setOpen(false); onPick(o.fileFormat); }}
+                onClick={() => { setOpen(false); onPick(o.exportType); }}
                 className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/[0.05] transition-colors cursor-pointer bg-transparent border-none"
               >
                 <span className="block text-[13px] text-fg font-medium">{o.label}</span>
