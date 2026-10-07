@@ -50,12 +50,12 @@ export function useCampaigns(endpoint: string) {
     queryFn: () => fetchCampaigns(endpoint),
   });
 
-  const downloadExcel = async (id: string, fileFormat: ExcelFormat = 'xlsx') => {
+  const downloadExcel = async (id: string, fileFormat: ExcelFormat = 'xlsx', recipientCount?: number) => {
     if (downloading.has(id)) return;
     setDownloading(p => new Set(p).add(id));
     setDlError(null);
     try {
-      await downloadCampaignExcel(id, fileFormat);
+      await downloadCampaignExcel(id, fileFormat, recipientCount);
     } catch (e) {
       setDlError(e instanceof Error ? e.message : 'Failed');
       setTimeout(() => setDlError(null), 5000);

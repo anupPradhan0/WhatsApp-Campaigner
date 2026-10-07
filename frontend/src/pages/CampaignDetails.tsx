@@ -125,7 +125,7 @@ export default function CampaignDetails() {
           </div>
           <p className="text-[13px] text-fg-muted mt-1">Created {fmtDate(detail.createdAt)} by {detail.createdBy}</p>
         </div>
-<DownloadMenu onPick={f => downloadExcel(detail.campaignId, f)} busy={downloading} variant="button" iconSize={15} />
+<DownloadMenu onPick={f => downloadExcel(detail.campaignId, f, detail.mobileNumberCount)} busy={downloading} recipientCount={detail.mobileNumberCount} variant="button" iconSize={15} />
       </div>
 
       {/* Stats */}

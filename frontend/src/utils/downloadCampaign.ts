@@ -1,4 +1,5 @@
 import { api } from '../api/client';
+import { toast } from 'sonner';
 
 /** Excel flavours offered on download: legacy 97-2003 (.xls) or modern (.xlsx). */
 export type ExcelFormat = 'xlsx' | 'xls';
@@ -22,36 +23,47 @@ const filenameFrom = (cd: string): string | undefined =>
 export async function downloadCampaignExcel(
   id: string,
   fileFormat: ExcelFormat = 'xlsx',
+  recipientCount?: number,
 ): Promise<void> {
-  const res = await api.get(`/api/dashboard/export-campaign/${id}?format=${fileFormat}`, {
-    responseType: 'blob',
-    // Large campaigns can take longer than the API client's normal 30 second
-    // timeout while ExcelJS builds the workbook (the report can contain tens
-    // of thousands of rows).
-    timeout: 180_000,
-    validateStatus: () => true,
-  });
+  const statusMessage = recipientCount && recipientCount >= 10_000
+    ? `Preparing Excel for ${recipientCount.toLocaleString()} recipients. This large file may take a little while…`
+    : 'Preparing your Excel file…';
+  const toastId = toast.loading(statusMessage, { duration: Infinity });
 
-  if (res.status >= 400) {
-    const body = await (res.data as Blob).text();
-    let msg = 'Failed to download campaign';
-    try {
-      msg = JSON.parse(body)?.message || msg;
-    } catch {
-      if (body.trim()) msg = body.slice(0, 240);
+  try {
+    const res = await api.get(`/api/dashboard/export-campaign/${id}?format=${fileFormat}`, {
+      responseType: 'blob',
+      // Large campaigns can take longer than the API client's normal 30 second
+      // timeout while ExcelJS builds the workbook.
+      timeout: 180_000,
+      validateStatus: () => true,
+    });
+
+    if (res.status >= 400) {
+      const body = await (res.data as Blob).text();
+      let msg = 'Failed to download campaign';
+      try {
+        msg = JSON.parse(body)?.message || msg;
+      } catch {
+        if (body.trim()) msg = body.slice(0, 240);
+      }
+      throw new Error(msg);
     }
-    throw new Error(msg);
+
+    const name = filenameFrom(res.headers['content-disposition'] || '')
+      || `Campaign_${id}.${fileFormat}`;
+
+    const url = URL.createObjectURL(res.data as Blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('Your Excel download is ready.', { id: toastId, duration: 4000 });
+  } catch (error) {
+    toast.dismiss(toastId);
+    throw error;
   }
-
-  const name = filenameFrom(res.headers['content-disposition'] || '')
-    || `Campaign_${id}.${fileFormat}`;
-
-  const url = URL.createObjectURL(res.data as Blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
 }
