@@ -25,13 +25,21 @@ export async function downloadCampaignExcel(
 ): Promise<void> {
   const res = await api.get(`/api/dashboard/export-campaign/${id}?format=${fileFormat}`, {
     responseType: 'blob',
+    // Large campaigns can take longer than the API client's normal 30 second
+    // timeout while ExcelJS builds the workbook (the report can contain tens
+    // of thousands of rows).
+    timeout: 180_000,
     validateStatus: () => true,
   });
 
   if (res.status >= 400) {
     const body = await (res.data as Blob).text();
     let msg = 'Failed to download campaign';
-    try { msg = JSON.parse(body)?.message || msg; } catch { /* non-JSON error body — keep fallback */ }
+    try {
+      msg = JSON.parse(body)?.message || msg;
+    } catch {
+      if (body.trim()) msg = body.slice(0, 240);
+    }
     throw new Error(msg);
   }
 

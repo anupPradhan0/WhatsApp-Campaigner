@@ -176,7 +176,7 @@ export default function WhatsAppReports({ embedded = false }: { embedded?: boole
                               {sending.has(c.campaignId) ? <Loader2 size={13} className="text-white animate-spin" /> : <Send size={13} className="text-white" />}
                             </button>
                           )}
-                          <DownloadMenu onPick={f => downloadExcel(c.campaignId, f)} busy={downloading.has(c.campaignId)} />
+                          <DownloadMenu onPick={f => downloadExcel(c.campaignId, f)} busy={downloading.has(c.campaignId)} recipientCount={c.mobileNumberCount} />
                         </div>
                       </td>
                     </tr>
@@ -213,7 +213,7 @@ export default function WhatsAppReports({ embedded = false }: { embedded?: boole
                         {sending.has(c.campaignId) ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Send
                       </button>
                     )}
-                    <DownloadMenu onPick={f => downloadExcel(c.campaignId, f)} busy={downloading.has(c.campaignId)} className="w-7 h-7 rounded-md" iconSize={12} />
+                    <DownloadMenu onPick={f => downloadExcel(c.campaignId, f)} busy={downloading.has(c.campaignId)} recipientCount={c.mobileNumberCount} className="w-7 h-7 rounded-md" iconSize={12} />
                   </div>
                 </div>
               </div>

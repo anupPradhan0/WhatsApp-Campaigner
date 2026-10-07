@@ -158,7 +158,7 @@ export default function AllCampaigns({ embedded = false }: { embedded?: boolean 
                           <button onClick={() => openDetails(c.campaignId)} title="View" className="w-[30px] h-[30px] rounded-[7px] bg-brand-dim border-none flex items-center justify-center cursor-pointer">
                             <Eye size={13} className="text-brand-light" />
                           </button>
-                          <DownloadMenu onPick={f => downloadExcel(c.campaignId, f)} busy={downloading.has(c.campaignId)} />
+                          <DownloadMenu onPick={f => downloadExcel(c.campaignId, f)} busy={downloading.has(c.campaignId)} recipientCount={c.mobileNumberCount} />
                         </div>
                       </td>
                     </tr>
@@ -194,7 +194,7 @@ export default function AllCampaigns({ embedded = false }: { embedded?: boolean 
                     </button>
                   )}
                   <button onClick={() => openDetails(c.campaignId)} className="flex items-center gap-[5px] px-2.5 py-[5px] bg-brand-dim border-none rounded-md cursor-pointer text-brand-light text-xs font-semibold"><Eye size={12} /> View</button>
-                  <DownloadMenu onPick={f => downloadExcel(c.campaignId, f)} busy={downloading.has(c.campaignId)} className="w-7 h-7 rounded-md" iconSize={12} />
+                  <DownloadMenu onPick={f => downloadExcel(c.campaignId, f)} busy={downloading.has(c.campaignId)} recipientCount={c.mobileNumberCount} className="w-7 h-7 rounded-md" iconSize={12} />
                 </div>
               </div>
             ))}

@@ -6,6 +6,7 @@ import { cn } from '../../lib/utils';
 interface DownloadMenuProps {
   onPick: (fileFormat: ExcelFormat) => void;
   busy?: boolean;
+  recipientCount?: number;
   /** 'icon' = compact square in a table row, 'button' = labelled page action. */
   variant?: 'icon' | 'button';
   className?: string;
@@ -18,7 +19,7 @@ const OPTIONS: { fileFormat: ExcelFormat; label: string; hint: string }[] = [
 ];
 
 /** Download button that lets the user choose the old or the new Excel format. */
-export function DownloadMenu({ onPick, busy = false, variant = 'icon', className, iconSize = 13 }: DownloadMenuProps) {
+export function DownloadMenu({ onPick, busy = false, recipientCount, variant = 'icon', className, iconSize = 13 }: DownloadMenuProps) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   // Fixed positioning, not absolute: the table wrapper is `overflow-x-auto`,
@@ -31,7 +32,9 @@ export function DownloadMenu({ onPick, busy = false, variant = 'icon', className
         ref={btnRef}
         onClick={() => setOpen(o => !o)}
         disabled={busy}
-        title="Download Excel"
+        title={busy && recipientCount && recipientCount >= 10_000
+          ? `Preparing Excel file for ${recipientCount.toLocaleString()} recipients…`
+          : busy ? 'Preparing Excel file…' : 'Download Excel'}
         aria-haspopup="menu"
         aria-expanded={open}
         className={cn(
@@ -45,7 +48,9 @@ export function DownloadMenu({ onPick, busy = false, variant = 'icon', className
         {busy
           ? <Loader2 size={iconSize} className={cn('animate-spin', variant === 'icon' && 'text-info')} />
           : <Download size={iconSize} className={cn(variant === 'icon' && 'text-info')} />}
-        {variant === 'button' && (busy ? 'Exporting…' : 'Download Excel')}
+        {variant === 'button' && (busy
+          ? recipientCount && recipientCount >= 10_000 ? 'Preparing large file…' : 'Preparing file…'
+          : 'Download Excel')}
       </button>
 
       {open && (

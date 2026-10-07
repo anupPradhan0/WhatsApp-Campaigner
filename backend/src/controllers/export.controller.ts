@@ -12,6 +12,8 @@ import { stripHtml } from "../utils/strip-html.utils.js";
 
 /** Excel 97-2003 stores at most 65,536 rows, header included. */
 const BIFF8_MAX_ROWS = 65_535;
+/** Modern Excel stores at most 1,048,576 rows, header included. */
+const XLSX_MAX_ROWS = 1_048_575;
 
 /** Best-effort per-number status for campaigns sent before per-number tracking. */
 function fallbackStatus(campaignStatus?: string): DeliveryStatus {
@@ -76,8 +78,6 @@ export async function exportCampaignToExcel(
 
     // ?format=xls → legacy Excel 97-2003 (.xls); anything else → modern .xlsx.
     const wantsLegacyXls = String(req.query.format ?? "").toLowerCase() === "xls";
-    const workbook = wantsLegacyXls ? null : new ExcelJS.Workbook();
-    let worksheet: ExcelJS.Worksheet | null = null;
     let xlsBuffer: Buffer | null = null;
 
     const formatDate = (dateString: string | Date): string => {
@@ -103,40 +103,35 @@ export async function exportCampaignToExcel(
       ? "Please check the All Campaigns or WhatsApp Report section to download media."
       : "";
 
-    // Build every row first, then keep only the columns that have at least one
-    // non-empty value — so fields that are empty for the whole campaign (e.g. no
-    // phone button, no link button, no media) are dropped from the sheet.
+    // Keep only columns with at least one non-empty value, so fields that are
+    // empty for the whole campaign (e.g. no button or media) are omitted.
     // Combine the country code and the phone number into one full international
     // number (e.g. "+919090090150") in a single column. The stored number often
     // already includes the country-code digits, so guard against double-prefix.
+    const ccDigits = (campaign.countryCode ?? "").replace(/\D/g, "");
+    const cleanMessage = stripHtml(campaign.message ?? "");
+    const campaignStatus = (campaign.status ?? "").toUpperCase();
     const toFullNumber = (raw: string): string => {
-      const ccDigits = (campaign.countryCode ?? "").replace(/\D/g, "");
       const numDigits = (raw ?? "").replace(/\D/g, "");
       if (!numDigits) return "";
       if (ccDigits && numDigits.startsWith(ccDigits)) return `+${numDigits}`;
       return `+${ccDigits}${numDigits}`;
     };
 
-    const rows: Record<string, string>[] = campaign.mobileNumbers.map(
-      (phoneNumber, i) => {
-        const result = deliveryResults[i];
-        const deliveryStatus = (result?.status ?? fallback).toUpperCase();
-        return {
-          campaignName: campaign.campaignName,
-          campaignStatus: (campaign.status ?? "").toUpperCase(),
-          message: stripHtml(campaign.message ?? ""),
-          phoneButtonText: campaign.phoneButton?.text ?? "",
-          phoneButtonNumber: campaign.phoneButton?.number ?? "",
-          linkButtonText: campaign.linkButton?.text ?? "",
-          linkButtonUrl: campaign.linkButton?.url ?? "",
-          phoneNumber: toFullNumber(phoneNumber),
-          deliveryStatus,
-          createdBy: createdByName,
-          createdDate,
-          mediaUrl: mediaNote,
-        };
-      }
-    );
+    const makeRow = (phoneNumber: string, index: number): Record<string, string> => ({
+      campaignName: campaign.campaignName,
+      campaignStatus,
+      message: cleanMessage,
+      phoneButtonText: campaign.phoneButton?.text ?? "",
+      phoneButtonNumber: campaign.phoneButton?.number ?? "",
+      linkButtonText: campaign.linkButton?.text ?? "",
+      linkButtonUrl: campaign.linkButton?.url ?? "",
+      phoneNumber: toFullNumber(phoneNumber),
+      deliveryStatus: (deliveryResults[index]?.status ?? fallback).toUpperCase(),
+      createdBy: createdByName,
+      createdDate,
+      mediaUrl: mediaNote,
+    });
 
     const allColumns = [
       { header: "Campaign Name", key: "campaignName", width: 30 },
@@ -155,8 +150,13 @@ export async function exportCampaignToExcel(
 
     const isEmpty = (v: unknown): boolean =>
       v === undefined || v === null || String(v).trim() === "";
+    const firstRow = campaign.mobileNumbers.length
+      ? makeRow(campaign.mobileNumbers[0], 0)
+      : null;
     const columns = allColumns.filter((col) =>
-      rows.some((row) => !isEmpty(row[col.key]))
+      col.key === "phoneNumber"
+        ? campaign.mobileNumbers.some((phoneNumber) => !isEmpty(toFullNumber(phoneNumber)))
+        : firstRow ? !isEmpty(firstRow[col.key]) : false
     );
 
     // Fall back to all columns only in the impossible case of zero rows.
@@ -166,16 +166,19 @@ export async function exportCampaignToExcel(
     // carries no styling, which is fine: it exists for old Excel/ERP imports.
     if (wantsLegacyXls) {
       // Hard format limit; past it Excel silently truncates or refuses the file.
-      if (rows.length > BIFF8_MAX_ROWS) {
+      if (campaign.mobileNumbers.length > BIFF8_MAX_ROWS) {
         return res.status(400).json({
           success: false,
-          message: `This campaign has ${rows.length.toLocaleString()} recipients. The old Excel 97-2003 format tops out at ${BIFF8_MAX_ROWS.toLocaleString()} rows — download the newer .xlsx instead.`,
+          message: `This campaign has ${campaign.mobileNumbers.length.toLocaleString()} recipients. The old Excel 97-2003 format tops out at ${BIFF8_MAX_ROWS.toLocaleString()} rows — download the newer .xlsx instead.`,
         });
       }
 
       const aoa = [
         finalColumns.map((c) => c.header),
-        ...rows.map((row) => finalColumns.map((c) => row[c.key] ?? "")),
+        ...campaign.mobileNumbers.map((phoneNumber, index) => {
+          const row = makeRow(phoneNumber, index);
+          return finalColumns.map((c) => row[c.key] ?? "");
+        }),
       ];
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(
@@ -184,56 +187,22 @@ export async function exportCampaignToExcel(
         "Campaign Data"
       );
       xlsBuffer = XLSX.write(wb, { bookType: "biff8", type: "buffer" });
-    } else {
-      worksheet = workbook!.addWorksheet("Campaign Data");
-      worksheet.columns = finalColumns;
-
-      worksheet.getRow(1).font = { bold: true, size: 12 };
-      worksheet.getRow(1).fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "FF22C55E" },
-      };
-      worksheet.getRow(1).alignment = {
-        vertical: "middle",
-        horizontal: "center",
-      };
-      worksheet.getRow(1).height = 25;
-
-      // addRow maps by column key, so keys without a matching column are ignored.
-      rows.forEach((row) => worksheet!.addRow(row));
-
-      worksheet.eachRow((row, rowNumber) => {
-        if (rowNumber > 1 && rowNumber % 2 === 0) {
-          row.fill = {
-            type: "pattern",
-            pattern: "solid",
-            fgColor: { argb: "FFF3F4F6" },
-          };
-        }
-      });
-
-      worksheet.eachRow((row) => {
-        row.eachCell((cell) => {
-          cell.border = {
-            top: { style: "thin", color: { argb: "FFE5E7EB" } },
-            left: { style: "thin", color: { argb: "FFE5E7EB" } },
-            bottom: { style: "thin", color: { argb: "FFE5E7EB" } },
-            right: { style: "thin", color: { argb: "FFE5E7EB" } },
-          };
-        });
+    } else if (campaign.mobileNumbers.length > XLSX_MAX_ROWS) {
+      return res.status(400).json({
+        success: false,
+        message: `This campaign has ${campaign.mobileNumbers.length.toLocaleString()} recipients. Excel supports up to ${XLSX_MAX_ROWS.toLocaleString()} recipients per sheet.`,
       });
     }
 
     // Sanitize to a pure-ASCII, filesystem-safe name. A raw campaign name can
     // hold quotes, slashes, or unicode that break the Content-Disposition header
-    // and mangle the file extension on some clients (Mac Numbers/Safari), so the
-    // downloaded file won't open.
+    // and mangle the file extension on some clients (Mac Numbers/Safari), so
+    // the downloaded file won't open.
     const safeBase =
       `campaign_${campaign.campaignName}_${createdDate}`
         .normalize("NFKD")
-        .replace(/[^\x20-\x7E]/g, "") // drop non-ASCII
-        .replace(/[\\/:*?"<>|]/g, "_") // filesystem-illegal chars
+        .replace(/[^\x20-\x7E]/g, "")
+        .replace(/[\\/:*?"<>|]/g, "_")
         .replace(/\s+/g, "_")
         .replace(/_+/g, "_")
         .replace(/^_+|_+$/g, "") || "campaign";
@@ -248,24 +217,57 @@ export async function exportCampaignToExcel(
     res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
 
     if (wantsLegacyXls) {
-      // BIFF8 repeats every string on every row — a 10k-recipient campaign is
-      // ~7 MB of mostly the same message text, and compresses ~27x. .xlsx is
-      // already a zip, so only this branch is worth compressing.
+      // BIFF8 repeats every string on every row, so gzip this legacy format
+      // when supported. The modern XLSX is already compressed by its ZIP writer.
       const acceptsGzip = /\bgzip\b/.test(req.headers["accept-encoding"] ?? "");
       if (acceptsGzip && xlsBuffer) {
         res.setHeader("Content-Encoding", "gzip");
         res.setHeader("Vary", "Accept-Encoding");
         res.end(gzipSync(xlsBuffer));
-        return;
+      } else {
+        res.end(xlsBuffer);
       }
-      res.end(xlsBuffer);
       return;
     }
 
-    await workbook!.xlsx.write(res);
-    res.end();
+    // Stream the workbook directly to the response. The document writer kept
+    // all rows, styles and shared strings in memory; the streaming writer
+    // commits each row as it is generated. Inline strings avoid retaining a
+    // potentially huge shared-string table. Lower ZIP compression reduces CPU
+    // time while keeping the file substantially smaller than raw XML.
+    const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({
+      stream: res,
+      useStyles: true,
+      useSharedStrings: false,
+      zip: { zlib: { level: 1 } },
+    });
+    const worksheet = workbook.addWorksheet("Campaign Data");
+    worksheet.columns = finalColumns;
+
+    worksheet.getRow(1).font = { bold: true, size: 12 };
+    worksheet.getRow(1).fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF22C55E" },
+    };
+    worksheet.getRow(1).alignment = {
+      vertical: "middle",
+      horizontal: "center",
+    };
+    worksheet.getRow(1).height = 25;
+
+    // Header only styling keeps workbook generation fast on large exports.
+    for (let index = 0; index < campaign.mobileNumbers.length; index += 1) {
+      worksheet.addRow(makeRow(campaign.mobileNumbers[index], index)).commit();
+    }
+    worksheet.commit();
+    await workbook.commit();
   } catch (error: unknown) {
     console.error("Error in exportCampaignToExcel controller:", error);
+    if (res.headersSent) {
+      res.destroy(error instanceof Error ? error : undefined);
+      return;
+    }
     return res.status(500).json({
       success: false,
       message:
