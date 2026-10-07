@@ -1,9 +1,9 @@
 # 📱 WhatsApp Campaigner
 
-A comprehensive full-stack WhatsApp campaign management system built with the MERN stack, featuring role-based access control, campaign management, credit systems, and real-time reporting.
+Open-source WhatsApp campaign management software for creating and tracking bulk messaging campaigns. Built with React, TypeScript, Node.js, Express, and MongoDB, it includes role-based team accounts, credit management, delivery reports, and Excel exports.
 
-[![Live Demo](https://img.shields.io/badge/demo-live-success)](https://whats-app-campaigner.vercel.app/)
-[![GitHub](https://img.shields.io/badge/github-repository-blue)](https://github.com/M0rs-Ruki/WhatsApp-Campaigner)
+[![Live Demo](https://img.shields.io/badge/demo-live-success)](https://wap.prominds.digital/)
+[![GitHub](https://img.shields.io/badge/github-repository-blue)](https://github.com/anupPradhan0/WhatsApp-Campaigner)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ---
@@ -31,13 +31,13 @@ A comprehensive full-stack WhatsApp campaign management system built with the ME
 
 ### 🎯 Core Functionality
 
-- **Campaign Management** - Create, manage, and track WhatsApp campaigns with detailed analytics
+- **WhatsApp Campaign Management** - Create, manage, and track bulk messaging campaigns with delivery analytics
 - **Live WhatsApp Preview** - Compose campaigns with a real-time WhatsApp phone-mockup preview (message, media, CTA buttons, profile)
 - **Asynchronous Send Pipeline** - Campaigns are queued in **RabbitMQ** and processed by a worker (DLQ on permanent failure); the HTTP API returns immediately and survives restarts
 - **Redis-Backed Shared State** - Distributed login rate-limiting, JWT denylist for real logout invalidation, and `Idempotency-Key` support on campaign creation — all with safe fail-open fallbacks
 - **Credit System** - Flexible credit management for campaign operations and user balance tracking
 - **Role-Based Access Control** - Four-tier system (Super Admin, Admin, Reseller, User) with granular permissions
-- **Unified Reports** - WhatsApp Report page with *My Campaigns* and *All Campaigns* tabs, plus role & email filters and Excel export
+- **Unified Reports** - WhatsApp Report page with *My Campaigns* and *All Campaigns* tabs, plus role & email filters and two Excel export options: full campaign data or recipient numbers only
 - **Unified Account Management** - Single Manage Accounts page with Users / Resellers / Admins / All Accounts tabs (role-gated), each with email search
 - **Complaint System** - Built-in ticketing for complaint handling and resolution
 - **Business Profiles** - Account and business profile management capabilities
@@ -47,7 +47,7 @@ A comprehensive full-stack WhatsApp campaign management system built with the ME
 
 - ✅ JWT-based authentication with secure HTTP-only cookies
 - ✅ File upload support with Cloudinary CDN integration
-- ✅ Excel export functionality for comprehensive reports (cross-platform filenames — opens on Windows, Mac & mobile)
+- ✅ Streamed `.xlsx` campaign exports for full data or recipient numbers only; exported phone numbers include the country code without a leading `+`
 - ✅ API rate limiting for DDoS protection
 - ✅ Fully responsive UI with Tailwind CSS
 - ✅ Type-safe development with TypeScript
@@ -212,7 +212,7 @@ git --version
 ### Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/M0rs-Ruki/WhatsApp-Campaigner.git
+git clone https://github.com/anupPradhan0/WhatsApp-Campaigner.git
 cd WhatsApp-Campaigner
 ```
 
@@ -595,7 +595,7 @@ GET    /api/dashboard/news                        News feed
 GET    /api/dashboard/complaints                  Complaints (scoped by role)
 GET    /api/dashboard/whatsapp-reports            Campaign delivery reports
 GET    /api/dashboard/all-campaigns               All campaigns
-GET    /api/dashboard/export-campaign/:campaignId Export a campaign's recipients to Excel
+GET    /api/dashboard/export-campaign/:campaignId Export a campaign to `.xlsx`; add `?numbersOnly=true` for a phone-number-only spreadsheet
 GET    /api/dashboard/support                     Support page data
 ```
 
@@ -795,10 +795,10 @@ ProMinds Digital is a leading brand-driven performance marketing company that sp
 
 ## 👨‍💻 Author
 
-**Anup Pradhan (M0rs)**
+**Anup Pradhan**
 
-- GitHub: [@M0rs-Ruki](https://github.com/M0rs-Ruki)
-- Project: [WhatsApp Campaigner](https://github.com/M0rs-Ruki/WhatsApp-Campaigner)
+- GitHub: [@anupPradhan0](https://github.com/anupPradhan0)
+- Project: [WhatsApp Campaigner](https://github.com/anupPradhan0/WhatsApp-Campaigner)
 - Live Demo: [whats-app-campaigner.vercel.app](https://whats-app-campaigner.vercel.app/)
 
 ---
@@ -818,7 +818,7 @@ ProMinds Digital is a leading brand-driven performance marketing company that sp
 Need help? Here's how to get support:
 
 - 📖 Check the [Documentation](#-table-of-contents)
-- 🐛 [Open an Issue](https://github.com/M0rs-Ruki/WhatsApp-Campaigner/issues)
+- 🐛 [Open an Issue](https://github.com/anupPradhan0/WhatsApp-Campaigner/issues)
 - 💬 Use the in-app support page
 - 📧 Contact the development team
 
@@ -841,13 +841,13 @@ Need help? Here's how to get support:
 
 ## 📊 Project Stats
 
-![GitHub Stars](https://img.shields.io/github/stars/M0rs-Ruki/WhatsApp-Campaigner?style=social)
-![GitHub Forks](https://img.shields.io/github/forks/M0rs-Ruki/WhatsApp-Campaigner?style=social)
-![GitHub Issues](https://img.shields.io/github/issues/M0rs-Ruki/WhatsApp-Campaigner)
-![GitHub Pull Requests](https://img.shields.io/github/issues-pr/M0rs-Ruki/WhatsApp-Campaigner)
+![GitHub Stars](https://img.shields.io/github/stars/anupPradhan0/WhatsApp-Campaigner?style=social)
+![GitHub Forks](https://img.shields.io/github/forks/anupPradhan0/WhatsApp-Campaigner?style=social)
+![GitHub Issues](https://img.shields.io/github/issues/anupPradhan0/WhatsApp-Campaigner)
+![GitHub Pull Requests](https://img.shields.io/github/issues-pr/anupPradhan0/WhatsApp-Campaigner)
 
 ---
 
-**Made with ❤️ by M0rs-Ruki**
+**Made with ❤️ by Anup Pradhan**
 
 *Last Updated: October 2025*
