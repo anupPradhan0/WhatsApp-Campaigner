@@ -2,7 +2,6 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
-import Footer from './Footer';
 import { ImpersonationBanner } from '../ImpersonationBanner';
 
 interface DashboardLayoutProps {
@@ -23,7 +22,6 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             {children}
           </div>
         </main>
-        <Footer />
       </div>
     </div>
   );

@@ -137,6 +137,24 @@ const Support = () => {
     <div className="flex flex-col gap-5">
       <PageHeader title="Support & Help" subtitle="Get assistance from your creator or platform support" />
 
+      <SectionCard>
+        <div className="p-5 sm:p-6">
+          <p className="text-xs font-bold text-brand-light uppercase tracking-[0.1em] mb-1.5">WhatsApp Campaigner</p>
+          <h2 className="text-lg font-bold text-fg mb-1">Powerful messaging at your fingertips.</h2>
+          <p className="text-sm text-fg-muted mb-5">Quick links and contact details for platform support.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-line pt-4">
+            <div>
+              <p className="text-[11px] font-bold text-fg-subtle uppercase tracking-[0.07em] mb-1">Documentation</p>
+              <a href="/docs" className="text-sm font-medium text-brand-light no-underline hover:underline">View documentation</a>
+            </div>
+            <div>
+              <p className="text-[11px] font-bold text-fg-subtle uppercase tracking-[0.07em] mb-1">Support</p>
+              <p className="text-sm text-fg-muted">Contact details and help options are below.</p>
+            </div>
+          </div>
+        </div>
+      </SectionCard>
+
       {error && (
         <div className="px-3.5 py-2.5 bg-danger-dim border border-danger-border rounded-lg">
           <p className="text-[13px] text-danger">{error}</p>
@@ -184,8 +202,16 @@ const Support = () => {
       <SectionCard>
         <SectionHead icon={Shield} title="Platform Support" accent="violet" />
         <div className="p-5 flex flex-col gap-3">
-          <ContactLink href="mailto:hello@prominds.digital" icon={Mail} label="Platform Email" value="hello@prominds.digital" accent="violet" />
-          <ContactLink href="tel:+919090090150" icon={Phone} label="Support Hotline · Mon–Sat 9AM–6PM" value="+91 90900 90150" accent="brand-light" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="px-4 py-3 bg-surface2 border border-line rounded-[9px]">
+              <p className="text-[10px] font-bold text-fg-subtle uppercase tracking-[0.07em] mb-1">Platform Email</p>
+              <a href="mailto:hello@prominds.digital" className="text-[13px] font-semibold text-fg no-underline hover:text-brand-light">hello@prominds.digital</a>
+            </div>
+            <div className="px-4 py-3 bg-surface2 border border-line rounded-[9px]">
+              <p className="text-[10px] font-bold text-fg-subtle uppercase tracking-[0.07em] mb-1">Support Hotline · Mon–Sat 9AM–6PM</p>
+              <a href="tel:+919090090150" className="text-[13px] font-semibold text-fg no-underline hover:text-brand-light">+91 90900 90150</a>
+            </div>
+          </div>
           <div className="border-t border-line pt-3.5">
             <p className="text-xs font-bold text-fg-muted mb-2.5 uppercase tracking-[0.07em]">File a Formal Complaint</p>
             <div className="flex items-start gap-2.5 px-3.5 py-3 bg-surface2 border border-line rounded-[9px]">

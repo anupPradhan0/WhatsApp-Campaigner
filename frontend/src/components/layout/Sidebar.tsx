@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Send, Wallet,
   Users,
   BarChart3,
-  Newspaper, GitBranch, AlertCircle, Building2,
+  Newspaper, GitBranch, AlertCircle, Building2, LifeBuoy,
 } from 'lucide-react';
 import { menuConfig, UserRole, type MenuSection } from '../../constants/Roles';
 import { getUserRole } from '../../utils/Auth';
@@ -22,6 +22,7 @@ const ICONS: Record<string, React.FC<{ size?: number; color?: string }>> = {
   '/tree-view':       GitBranch,
   '/complaints':      AlertCircle,
   '/manage-business': Building2,
+  '/support':         LifeBuoy,
 };
 
 interface SidebarProps {

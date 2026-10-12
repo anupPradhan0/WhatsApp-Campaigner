@@ -85,7 +85,11 @@ export enum UserRole {
           path: '/manage-business',
           allowedRoles: [UserRole.ADMIN, UserRole.RESELLER, UserRole.USER]
         },
+        {
+          label: 'Support',
+          path: '/support',
+          allowedRoles: [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.RESELLER, UserRole.USER]
+        },
       ]
     },
   ];
-  
