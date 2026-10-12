@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Mail, Phone, User, Shield, HelpCircle, MessageSquare,
-  ExternalLink, CheckCircle2, Send,
+  Mail, Phone, User, MessageSquare, Send,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, getErrorMessage } from '../api/client';
@@ -37,21 +36,6 @@ const toneBox: Record<Tone, string> = {
   'violet': 'bg-violet/[0.13]',
   'warning': 'bg-warning/[0.13]',
 };
-const toneBoxLink: Record<Tone, string> = {
-  'brand': 'bg-brand/10',
-  'brand-light': 'bg-brand-light/10',
-  'info': 'bg-info/10',
-  'violet': 'bg-violet/10',
-  'warning': 'bg-warning/10',
-};
-const toneHoverBorder: Record<Tone, string> = {
-  'brand': 'hover:border-brand',
-  'brand-light': 'hover:border-brand-light',
-  'info': 'hover:border-info',
-  'violet': 'hover:border-violet',
-  'warning': 'hover:border-warning',
-};
-
 const SectionCard = ({ children }: { children: React.ReactNode }) => (
   <div className="bg-surface border border-line rounded-xl overflow-hidden">
     {children}
@@ -67,17 +51,14 @@ const SectionHead = ({ icon: Icon, title, accent = 'brand' }: { icon: React.FC<{
   </div>
 );
 
-const ContactLink = ({ href, icon: Icon, label, value, accent }: { href: string; icon: React.FC<{ size?: number }>; label: string; value: string; accent: Tone }) => (
-  <a href={href} className={cn("flex items-center gap-3 px-4 py-3 bg-surface2 border border-line rounded-[9px] no-underline transition-colors", toneHoverBorder[accent])}>
-    <div className={cn("w-[34px] h-[34px] rounded-lg flex items-center justify-center shrink-0", toneBoxLink[accent], toneIcon[accent])}>
-      <Icon size={16} />
-    </div>
-    <div className="flex-1 min-w-0">
+const ContactRow = ({ href, icon: Icon, label, value }: { href: string; icon: React.FC<{ size?: number; className?: string }>; label: string; value: string }) => (
+  <div className="flex items-center gap-3 py-3 border-t border-line first:border-t-0 first:pt-0 last:pb-0">
+    <Icon size={16} className="text-brand-light shrink-0" />
+    <div className="min-w-0">
       <p className="text-[10px] font-bold text-fg-subtle uppercase tracking-[0.07em] mb-0.5">{label}</p>
-      <p className="text-[13px] font-semibold text-fg overflow-hidden text-ellipsis whitespace-nowrap">{value}</p>
+      <a href={href} className="text-[13px] font-semibold text-fg no-underline hover:text-brand-light break-all">{value}</a>
     </div>
-    <ExternalLink size={13} className="text-fg-subtle shrink-0" />
-  </a>
+  </div>
 );
 
 const FLabel = ({ children }: { children: React.ReactNode }) => (
@@ -137,23 +118,14 @@ const Support = () => {
     <div className="flex flex-col gap-5">
       <PageHeader title="Support & Help" subtitle="Get assistance from your creator or platform support" />
 
-      <SectionCard>
-        <div className="p-5 sm:p-6">
-          <p className="text-xs font-bold text-brand-light uppercase tracking-[0.1em] mb-1.5">WhatsApp Campaigner</p>
-          <h2 className="text-lg font-bold text-fg mb-1">Powerful messaging at your fingertips.</h2>
-          <p className="text-sm text-fg-muted mb-5">Quick links and contact details for platform support.</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-line pt-4">
-            <div>
-              <p className="text-[11px] font-bold text-fg-subtle uppercase tracking-[0.07em] mb-1">Documentation</p>
-              <a href="/docs" className="text-sm font-medium text-brand-light no-underline hover:underline">View documentation</a>
-            </div>
-            <div>
-              <p className="text-[11px] font-bold text-fg-subtle uppercase tracking-[0.07em] mb-1">Support</p>
-              <p className="text-sm text-fg-muted">Contact details and help options are below.</p>
-            </div>
-          </div>
+      <div className="rounded-xl border border-brand-border bg-[linear-gradient(120deg,rgba(22,163,74,0.14),rgba(59,130,246,0.07))] px-5 py-5 sm:px-6 sm:py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-bold text-brand-light uppercase tracking-[0.1em] mb-1">WhatsApp Campaigner</p>
+          <h2 className="text-lg sm:text-xl font-bold text-fg mb-1">How can we help?</h2>
+          <p className="text-sm text-fg-muted">Powerful messaging at your fingertips. Get help from your account manager or our support team.</p>
         </div>
-      </SectionCard>
+        <a href="/docs" className="inline-flex items-center justify-center px-4 py-2 rounded-lg border border-line bg-surface text-sm font-semibold text-fg no-underline hover:border-brand-light transition-colors shrink-0">View documentation</a>
+      </div>
 
       {error && (
         <div className="px-3.5 py-2.5 bg-danger-dim border border-danger-border rounded-lg">
@@ -161,134 +133,89 @@ const Support = () => {
         </div>
       )}
 
-      {/* Creator contact */}
-      {creatorData && (
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.75fr)] gap-5 items-start">
         <SectionCard>
-          <SectionHead icon={User} title="Your Account Manager" accent="info" />
-          <div className="p-5 flex flex-col gap-3.5">
-            <div className="flex items-center gap-3.5">
-              <div className={cn("w-14 h-14 rounded-xl border border-line overflow-hidden shrink-0 flex items-center justify-center", creatorData.image ? "bg-transparent" : "bg-brand-dim")}>
-                {creatorData.image
-                  ? <img src={creatorData.image} alt={creatorData.companyName} className="w-full h-full object-cover" />
-                  : <span className="text-[22px] font-bold text-brand-light">{creatorData.companyName.charAt(0).toUpperCase()}</span>
-                }
+          <SectionHead icon={Send} title="Send us a message" />
+          <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-3.5">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3.5">
+              <div>
+                <FLabel>Your Name *</FLabel>
+                <input type="text" name="name" value={supportForm.name} onChange={handleChange} placeholder="Full name" required disabled={submitting} className={cn(fieldCls, "placeholder:text-fg-subtle")} />
               </div>
               <div>
-                <p className="text-[15px] font-bold text-fg">{creatorData.companyName}</p>
-                <div className="flex gap-1.5 mt-[5px] flex-wrap">
-                  <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-[20px] uppercase", roleBadge[creatorData.role] || roleBadgeFallback)}>
-                    {creatorData.role}
-                  </span>
-                  <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-[20px] uppercase", statusBadge(creatorData.status))}>
-                    {creatorData.status}
-                  </span>
+                <FLabel>Email *</FLabel>
+                <input type="email" name="email" value={supportForm.email} onChange={handleChange} placeholder="you@example.com" required disabled={submitting} className={cn(fieldCls, "placeholder:text-fg-subtle")} />
+              </div>
+              <div>
+                <FLabel>Phone *</FLabel>
+                <input type="tel" name="number" value={supportForm.number} onChange={handleChange} placeholder="+91 98765 43210" required disabled={submitting} className={cn(fieldCls, "placeholder:text-fg-subtle")} />
+              </div>
+              <div>
+                <FLabel>Subject *</FLabel>
+                <input type="text" name="subject" value={supportForm.subject} onChange={handleChange} placeholder="Brief subject" required disabled={submitting} className={cn(fieldCls, "placeholder:text-fg-subtle")} />
+              </div>
+            </div>
+            <div>
+              <FLabel>Message *</FLabel>
+              <textarea name="message" value={supportForm.message} onChange={handleChange} placeholder="Describe your issue in detail…" rows={5} required disabled={submitting}
+                className={cn(fieldCls, "resize-y leading-[1.6] placeholder:text-fg-subtle")}
+              />
+            </div>
+            <div>
+              <button type="submit" disabled={submitting} className={cn("inline-flex items-center gap-2 px-6 py-2.5 bg-brand text-white font-semibold text-sm border-none rounded-lg", submitting ? "cursor-not-allowed opacity-60" : "cursor-pointer")}>
+                {submitting ? (
+                  <><span className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Sending…</>
+                ) : (
+                  <><Send size={14} /> Send Request</>
+                )}
+              </button>
+            </div>
+          </form>
+        </SectionCard>
+
+      <div className="flex flex-col gap-5">
+        {creatorData ? (
+          <SectionCard>
+            <SectionHead icon={User} title="Your account contact" accent="info" />
+            <div className="p-5">
+              <div className="flex items-center gap-3 mb-4">
+                <div className={cn("w-11 h-11 rounded-xl border border-line overflow-hidden shrink-0 flex items-center justify-center", creatorData.image ? "bg-transparent" : "bg-brand-dim")}>
+                  {creatorData.image ? <img src={creatorData.image} alt={creatorData.companyName} className="w-full h-full object-cover" /> : <span className="text-lg font-bold text-brand-light">{creatorData.companyName.charAt(0).toUpperCase()}</span>}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-fg truncate">{creatorData.companyName}</p>
+                  <div className="flex gap-1.5 mt-1 flex-wrap">
+                    <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full uppercase", roleBadge[creatorData.role] || roleBadgeFallback)}>{creatorData.role}</span>
+                    <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full uppercase", statusBadge(creatorData.status))}>{creatorData.status}</span>
+                  </div>
                 </div>
               </div>
+              <p className="text-xs text-fg-muted leading-relaxed mb-3">This is the {creatorData.role} who created your account. Contact them for account, credit, or campaign questions.</p>
+              <ContactRow href={`mailto:${creatorData.email}`} icon={Mail} label="Email" value={creatorData.email} />
+              <ContactRow href={`tel:${creatorData.number}`} icon={Phone} label="Phone" value={creatorData.number} />
             </div>
-            <div className="flex flex-col gap-2">
-              <ContactLink href={`mailto:${creatorData.email}`} icon={Mail} label="Email" value={creatorData.email} accent="info" />
-              <ContactLink href={`tel:${creatorData.number}`} icon={Phone} label="Phone" value={creatorData.number} accent="brand-light" />
+          </SectionCard>
+        ) : (
+          <SectionCard>
+            <SectionHead icon={User} title="Your account contact" accent="info" />
+            <div className="p-5">
+              <p className="text-sm font-semibold text-fg mb-1">No account contact assigned</p>
+              <p className="text-xs text-fg-muted leading-relaxed">Use the message form to contact the support team.</p>
             </div>
-            <div className="px-3.5 py-2.5 bg-brand-dim border border-brand-border rounded-lg">
-              <p className="text-xs text-fg-muted leading-[1.6]">
-                Contact your <strong className="text-fg">{creatorData.role}</strong> for account, credits, or campaign queries.
-              </p>
-            </div>
-          </div>
-        </SectionCard>
-      )}
+          </SectionCard>
+        )}
 
-      {/* Platform support */}
-      <SectionCard>
-        <SectionHead icon={Shield} title="Platform Support" accent="violet" />
-        <div className="p-5 flex flex-col gap-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="px-4 py-3 bg-surface2 border border-line rounded-[9px]">
-              <p className="text-[10px] font-bold text-fg-subtle uppercase tracking-[0.07em] mb-1">Platform Email</p>
-              <a href="mailto:hello@prominds.digital" className="text-[13px] font-semibold text-fg no-underline hover:text-brand-light">hello@prominds.digital</a>
-            </div>
-            <div className="px-4 py-3 bg-surface2 border border-line rounded-[9px]">
-              <p className="text-[10px] font-bold text-fg-subtle uppercase tracking-[0.07em] mb-1">Support Hotline · Mon–Sat 9AM–6PM</p>
-              <a href="tel:+919090090150" className="text-[13px] font-semibold text-fg no-underline hover:text-brand-light">+91 90900 90150</a>
-            </div>
-          </div>
-          <div className="border-t border-line pt-3.5">
-            <p className="text-xs font-bold text-fg-muted mb-2.5 uppercase tracking-[0.07em]">File a Formal Complaint</p>
-            <div className="flex items-start gap-2.5 px-3.5 py-3 bg-surface2 border border-line rounded-[9px]">
-              <CheckCircle2 size={15} className="text-brand-light shrink-0 mt-px" />
-              <div className="flex-1">
-                <p className="text-[13px] font-semibold text-fg mb-1">Submit via Complaints System</p>
-                <p className="text-xs text-fg-muted leading-[1.6] mb-2.5">For issues requiring formal tracking and admin response.</p>
-                <button onClick={() => navigate('/complaints')} className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand text-white font-semibold text-[13px] border-none rounded-[7px] cursor-pointer">
-                  <MessageSquare size={13} /> Go to Complaints
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </SectionCard>
-
-      {/* Quick tips */}
-      <SectionCard>
-        <SectionHead icon={HelpCircle} title="Quick Help Tips" accent="warning" />
-        <div className="p-5">
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-2.5">
-            {[
-              { title: 'Account & Credits', desc: `Contact your ${creatorData?.role || 'creator'} for balance, credits, or account status issues.` },
-              { title: 'Technical Issues', desc: 'Reach out to platform support for bugs, errors, or technical problems.' },
-              { title: 'Campaign Help', desc: 'Check the Documentation page for guides on creating and managing campaigns.' },
-              { title: 'Formal Complaints', desc: 'Use the Complaints section for issues requiring formal tracking.' },
-            ].map(t => (
-              <div key={t.title} className="px-3.5 py-3 bg-surface2 border border-line rounded-[9px]">
-                <p className="text-xs font-bold text-fg mb-[5px] flex items-center gap-1.5">
-                  <CheckCircle2 size={12} className="text-brand-light" /> {t.title}
-                </p>
-                <p className="text-xs text-fg-muted leading-[1.6]">{t.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </SectionCard>
-
-      {/* Support form */}
-      <SectionCard>
-        <SectionHead icon={Send} title="Send Support Request" />
-        <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-3.5">
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3.5">
-            <div>
-              <FLabel>Your Name *</FLabel>
-              <input type="text" name="name" value={supportForm.name} onChange={handleChange} placeholder="Full name" required disabled={submitting} className={cn(fieldCls, "placeholder:text-fg-subtle")} />
-            </div>
-            <div>
-              <FLabel>Email *</FLabel>
-              <input type="email" name="email" value={supportForm.email} onChange={handleChange} placeholder="you@example.com" required disabled={submitting} className={cn(fieldCls, "placeholder:text-fg-subtle")} />
-            </div>
-            <div>
-              <FLabel>Phone *</FLabel>
-              <input type="tel" name="number" value={supportForm.number} onChange={handleChange} placeholder="+91 98765 43210" required disabled={submitting} className={cn(fieldCls, "placeholder:text-fg-subtle")} />
-            </div>
-            <div>
-              <FLabel>Subject *</FLabel>
-              <input type="text" name="subject" value={supportForm.subject} onChange={handleChange} placeholder="Brief subject" required disabled={submitting} className={cn(fieldCls, "placeholder:text-fg-subtle")} />
-            </div>
-          </div>
-          <div>
-            <FLabel>Message *</FLabel>
-            <textarea name="message" value={supportForm.message} onChange={handleChange} placeholder="Describe your issue in detail…" rows={5} required disabled={submitting}
-              className={cn(fieldCls, "resize-y leading-[1.6] placeholder:text-fg-subtle")}
-            />
-          </div>
-          <div>
-            <button type="submit" disabled={submitting} className={cn("inline-flex items-center gap-2 px-6 py-2.5 bg-brand text-white font-semibold text-sm border-none rounded-lg", submitting ? "cursor-not-allowed opacity-60" : "cursor-pointer")}>
-              {submitting ? (
-                <><span className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Sending…</>
-              ) : (
-                <><Send size={14} /> Send Request</>
-              )}
+        <SectionCard>
+          <SectionHead icon={MessageSquare} title="Formal complaints" accent="violet" />
+          <div className="p-5">
+            <p className="text-xs text-fg-muted leading-relaxed mb-3">Track an issue and receive an admin response through the Complaints system.</p>
+            <button onClick={() => navigate('/complaints')} className="inline-flex items-center gap-2 px-3.5 py-2 bg-brand text-white font-semibold text-[13px] border-none rounded-lg cursor-pointer hover:opacity-90 transition-opacity">
+              <MessageSquare size={14} /> Open Complaints
             </button>
           </div>
-        </form>
-      </SectionCard>
+        </SectionCard>
+      </div>
+      </div>
     </div>
   );
 };

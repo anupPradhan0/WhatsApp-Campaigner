@@ -1064,7 +1064,9 @@ const support = async (req: Request, res: Response): Promise<Response> => {
       });
     }
 
-    const creator = await User.findById(user.userID).lean<UserDocument>();
+    const creator = await User.findById(user.userID)
+      .select("companyName email number role status image")
+      .lean<UserDocument>();
 
     if (!creator) {
       return res.status(404).json({
